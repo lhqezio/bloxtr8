@@ -1,0 +1,28 @@
+{
+  "name": "bloxtr8",
+  "version": "1.0.0",
+  "description": "Discord-native escrow and verification system for Roblox game trading",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter=@bloxtr8/api dev",
+    "build": "pnpm --filter=@bloxtr8/api build",
+    "test": "pnpm --filter=@bloxtr8/api test",
+    "lint": "pnpm --filter=@bloxtr8/api lint",
+    "db:generate": "pnpm --filter=@bloxtr8/database generate",
+    "db:push": "pnpm --filter=@bloxtr8/database push",
+    "db:migrate": "pnpm --filter=@bloxtr8/database migrate",
+    "db:studio": "pnpm --filter=@bloxtr8/database studio"
+  },
+  "keywords": ["roblox", "discord", "escrow", "trading", "fintech"],
+  "author": "Bloxtr8 Team",
+  "license": "ISC",
+  "packageManager": "pnpm@10.16.1",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
