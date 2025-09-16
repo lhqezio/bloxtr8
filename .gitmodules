@@ -1,0 +1,3 @@
+[submodule "bloxtr8-docs"]
+	path = docs
+	url = https://github.com/Project-RBLX/bloxtr8-docs.git
