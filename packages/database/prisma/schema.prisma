@@ -1,0 +1,271 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  discordId   String   @unique
+  username    String
+  email       String?
+  phone       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // KYC tiers
+  kycTier     KycTier  @default(TIER_1)
+  kycVerified Boolean  @default(false)
+  
+  // Wallet screening
+  walletAddress String?
+  walletRisk   WalletRisk @default(UNKNOWN)
+  
+  // Relations
+  listings    Listing[]
+  offers      Offer[]
+  contracts   Contract[]
+  escrows     Escrow[]
+  auditLogs   AuditLog[]
+  
+  @@map("users")
+}
+
+model Listing {
+  id          String      @id @default(cuid())
+  title       String
+  summary     String
+  price       Int         // Price in cents
+  category    String
+  status      ListingStatus @default(ACTIVE)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  offers      Offer[]
+  robloxSnapshots RobloxSnapshot[]
+  
+  @@map("listings")
+}
+
+model Offer {
+  id          String      @id @default(cuid())
+  amount      Int         // Amount in cents
+  currency    Currency    @default(USD)
+  conditions  String?
+  expiry      DateTime
+  status      OfferStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  listingId   String
+  listing     Listing     @relation(fields: [listingId], references: [id])
+  buyerId     String
+  buyer       User        @relation(fields: [buyerId], references: [id])
+  sellerId    String
+  seller      User        @relation(fields: [sellerId], references: [id])
+  
+  // Parent offer for counter offers
+  parentId    String?
+  parent      Offer?      @relation("OfferCounter", fields: [parentId], references: [id])
+  counters    Offer[]     @relation("OfferCounter")
+  
+  contracts   Contract[]
+  escrows     Escrow[]
+  
+  @@map("offers")
+}
+
+model Contract {
+  id          String          @id @default(cuid())
+  pdfUrl      String?
+  sha256      String?
+  status      ContractStatus  @default(PENDING_SIGNATURE)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  
+  // Relations
+  offerId     String
+  offer       Offer           @relation(fields: [offerId], references: [id])
+  signatures  Signature[]
+  escrows     Escrow[]
+  
+  @@map("contracts")
+}
+
+model Signature {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  contractId  String
+  contract    Contract @relation(fields: [contractId], references: [id])
+  signedAt    DateTime @default(now())
+  
+  @@unique([userId, contractId])
+  @@map("signatures")
+}
+
+model Escrow {
+  id          String      @id @default(cuid())
+  rail        EscrowRail
+  amount      Int         // Amount in cents
+  currency    Currency    @default(USD)
+  status      EscrowStatus @default(AWAIT_FUNDS)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  offerId     String
+  offer       Offer       @relation(fields: [offerId], references: [id])
+  contractId  String
+  contract    Contract    @relation(fields: [contractId], references: [id])
+  
+  // Rail-specific data
+  stripeEscrow      StripeEscrow?
+  stablecoinEscrow  StablecoinEscrow?
+  milestoneEscrow   MilestoneEscrow[]
+  
+  auditLogs   AuditLog[]
+  
+  @@map("escrows")
+}
+
+model StripeEscrow {
+  id              String  @id @default(cuid())
+  paymentIntentId String  @unique
+  transferId      String?
+  refundId        String?
+  
+  escrowId        String  @unique
+  escrow          Escrow  @relation(fields: [escrowId], references: [id])
+  
+  @@map("stripe_escrows")
+}
+
+model StablecoinEscrow {
+  id          String  @id @default(cuid())
+  chain       String  @default("BASE")
+  depositAddr String
+  depositTx   String?
+  releaseTx   String?
+  
+  escrowId    String  @unique
+  escrow      Escrow  @relation(fields: [escrowId], references: [id])
+  
+  @@map("stablecoin_escrows")
+}
+
+model MilestoneEscrow {
+  id          String      @id @default(cuid())
+  title       String
+  amountCents Int
+  status      EscrowStatus @default(PENDING)
+  
+  escrowId    String
+  escrow      Escrow      @relation(fields: [escrowId], references: [id])
+  
+  @@map("milestone_escrows")
+}
+
+model RobloxSnapshot {
+  id          String   @id @default(cuid())
+  groupId     String
+  owner       String
+  memberCount Int
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  listingId   String?
+  listing     Listing?  @relation(fields: [listingId], references: [id])
+  
+  @@map("roblox_snapshots")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String
+  details     Json?
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  escrowId    String?
+  escrow      Escrow?  @relation(fields: [escrowId], references: [id])
+  
+  @@map("audit_logs")
+}
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  eventId     String   @unique
+  provider    String   // 'stripe', 'custodian', etc.
+  processed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  @@map("webhook_events")
+}
+
+// Enums
+enum KycTier {
+  TIER_1
+  TIER_2
+}
+
+enum WalletRisk {
+  UNKNOWN
+  LOW
+  MEDIUM
+  HIGH
+  SANCTIONED
+}
+
+enum ListingStatus {
+  ACTIVE
+  INACTIVE
+  SOLD
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  COUNTERED
+  DECLINED
+  EXPIRED
+}
+
+enum ContractStatus {
+  PENDING_SIGNATURE
+  EXECUTED
+  VOID
+}
+
+enum EscrowRail {
+  STRIPE
+  USDC_BASE
+}
+
+enum EscrowStatus {
+  AWAIT_FUNDS
+  FUNDS_HELD
+  DELIVERED
+  RELEASED
+  DISPUTED
+  REFUNDED
+  CANCELLED
+}
+
+enum Currency {
+  USD
+  USDC
+}
