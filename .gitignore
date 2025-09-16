@@ -98,3 +98,6 @@ Thumbs.db
 
 # Prisma
 prisma/migrations/
+
+# Turborepo
+.turbo
