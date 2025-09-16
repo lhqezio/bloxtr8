@@ -7,6 +7,12 @@ dist/
 build/
 *.tsbuildinfo
 
+# TypeScript compiled artifacts (should not be in src/)
+**/src/**/*.js
+**/src/**/*.js.map
+**/src/**/*.d.ts
+**/src/**/*.d.ts.map
+
 # Environment variables
 .env
 .env.local
