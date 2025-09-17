@@ -6,6 +6,7 @@ cp .env.production.local .env
 cp .env apps/api/.env
 cp .env apps/discord-bot/.env
 
+
 # Check if .env.keys exists, if not, warn but continue
 if [ -f ".env.keys" ]; then
     source .env.keys
