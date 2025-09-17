@@ -14,7 +14,14 @@
     "db:generate": "pnpm --filter=@bloxtr8/database generate",
     "db:push": "pnpm --filter=@bloxtr8/database push",
     "db:migrate": "pnpm --filter=@bloxtr8/database migrate",
-    "db:studio": "pnpm --filter=@bloxtr8/database studio"
+    "db:studio": "pnpm --filter=@bloxtr8/database studio",
+    "env:encrypt": "dotenvx encrypt",
+    "env:decrypt": "dotenvx decrypt",
+    "env:set": "dotenvx set",
+    "env:get": "dotenvx get",
+    "env:ls": "dotenvx ls",
+    "env:rotate": "dotenvx rotate",
+    "env:keypair": "dotenvx keypair"
   },
   "keywords": [
     "roblox",
@@ -40,5 +47,8 @@
     "prettier": "^3.2.5",
     "turbo": "^2.5.6",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@dotenvx/dotenvx": "^1.49.1"
   }
 }

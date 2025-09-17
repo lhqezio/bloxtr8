@@ -20,6 +20,10 @@ build/
 .env.test.local
 .env.production.local
 
+# dotenvx encrypted files
+.env.*.encrypted
+.env.*.key
+
 # Database
 *.db
 *.sqlite

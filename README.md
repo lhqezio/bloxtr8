@@ -74,7 +74,35 @@ pnpm db:studio
 
 ### Environment Setup
 
-Create a `.env` file in the root directory:
+This project uses **dotenvx** for secure environment variable management. dotenvx provides encryption at rest and better security for sensitive configuration.
+
+#### Quick Start
+
+1. **Copy the environment template:**
+   ```bash
+   cp .env.local.example .env.local
+   ```
+
+2. **Fill in your actual values** in `.env.local` (never commit this file)
+
+3. **For production**, encrypt your environment files:
+   ```bash
+   pnpm env:encrypt
+   ```
+
+#### Environment Management Commands
+
+- `pnpm env:encrypt` - Encrypt `.env` files for secure storage
+- `pnpm env:decrypt` - Decrypt encrypted `.env` files
+- `pnpm env:set KEY value` - Set a single environment variable
+- `pnpm env:get KEY` - Get a single environment variable
+- `pnpm env:ls` - List all `.env` files in the project
+- `pnpm env:rotate` - Rotate encryption keys and re-encrypt files
+- `pnpm env:keypair` - Generate new encryption keypairs
+
+#### Environment Variables
+
+See `.env.local.example` for the complete list of required environment variables:
 
 ```env
 # Database

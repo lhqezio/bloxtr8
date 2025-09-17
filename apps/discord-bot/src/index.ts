@@ -1,8 +1,8 @@
 import { Client, GatewayIntentBits } from 'discord.js';
-import dotenv from 'dotenv';
+import { config } from '@dotenvx/dotenvx';
 
 // Load environment variables
-dotenv.config();
+config();
 
 const client = new Client({
   intents: [
