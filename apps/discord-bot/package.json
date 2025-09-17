@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Bloxtr8 Discord bot for escrow and trading",
   "private": true,
+  "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

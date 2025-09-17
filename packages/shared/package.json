@@ -2,6 +2,7 @@
   "name": "@bloxtr8/shared",
   "version": "1.0.0",
   "description": "Bloxtr8 shared utilities and constants",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

@@ -1,0 +1,47 @@
+{
+  "compilerOptions": {
+    /* Base Options: */
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "target": "es2022",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+
+    /* Module Resolution */
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+
+    /* Strictness */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+
+    /* If transpiling with TypeScript: */
+    "outDir": "dist",
+    "sourceMap": true,
+
+    /* AND if you're building for a library: */
+    "declaration": true,
+
+    /* AND if you're building for a library in a monorepo: */
+    "composite": true,
+    "declarationMap": true,
+
+    /* If your code doesn't run in the DOM: */
+    "lib": ["es2022"],
+
+    /* Monorepo path mapping */
+    "baseUrl": ".",
+    "paths": {
+      "@bloxtr8/*": ["packages/*/src"],
+      "@bloxtr8/database": ["packages/database/src"],
+      "@bloxtr8/shared": ["packages/shared/src"],
+      "@bloxtr8/types": ["packages/types/src"]
+    }
+  },
+  "include": ["apps/**/*", "packages/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+}
