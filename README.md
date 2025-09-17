@@ -74,7 +74,177 @@ pnpm db:studio
 
 ### Environment Setup
 
-Create a `.env` file in the root directory:
+This project uses **dotenvx** with **in-repo encrypted environments** for secure environment variable management. All environment files are encrypted and safely committed to Git, while private keys remain local.
+
+#### Quick Start
+
+1. **Environment files are already encrypted** and committed to the repository
+2. **Copy the private keys** from `.env.keys` to your local environment or CI secrets
+3. **All commands automatically decrypt** environment variables on-the-fly
+
+#### How It Works
+
+- **Encrypted `.env` files** are committed to Git (safe for version control)
+- **Private keys** (`.env.keys`) are never committed and stay local/CI-only
+- **`dotenvx run`** automatically decrypts environment variables for all commands
+- **Environment-specific files** are automatically used based on the command:
+  - `pnpm dev` → uses `.env.development`
+  - `pnpm build` → uses `.env.production`
+  - `pnpm test` → uses `.env.development`
+
+#### Environment Management Commands
+
+- `pnpm env:encrypt:dev` - Encrypt development environment from `.env.development.local`
+- `pnpm env:decrypt:dev` - Decrypt development environment to `.env.development.local`
+- `pnpm env:encrypt:prod` - Encrypt production environment from `.env.production.local`
+- `pnpm env:decrypt:prod` - Decrypt production environment to `.env.production.local`
+- `pnpm env:ls` - List all `.env` files in the project
+- `pnpm env:rotate` - Rotate encryption keys and re-encrypt files
+- `pnpm env:keypair` - Generate new encryption keypairs
+
+#### Setting Up Private Keys
+
+**Step 1: Get the Private Key**
+```bash
+# View the private key (never commit this file!)
+cat .env.keys
+```
+
+**Step 2: Set Up Local Development**
+```bash
+# Option A: Export in your shell profile (~/.zshrc, ~/.bashrc)
+export DOTENV_PRIVATE_KEY_DEV="your_dev_private_key_here"
+export DOTENV_PRIVATE_KEY_PRODUCTION="your_prod_private_key_here"
+
+# Option B: Copy .env.keys to your home directory
+cp .env.keys ~/.env.keys
+```
+
+**Step 3: Set Up CI/CD**
+```bash
+# Add as environment variables in your CI system
+DOTENV_PRIVATE_KEY_DEV="your_dev_private_key_here"
+DOTENV_PRIVATE_KEY_PRODUCTION="your_prod_private_key_here"
+```
+
+**Step 4: Verify Setup**
+```bash
+# Test that environment variables are loaded
+pnpm dev --dry-run
+```
+
+#### Environment Workflow Guide
+
+This project uses **encrypted environment files** with a **local editing workflow** for security and convenience.
+
+##### **File Structure**
+
+**Committed Files (Safe for Git):**
+- `.env.development` - Encrypted development environment
+- `.env.production` - Encrypted production environment
+- `.env.local.example` - Template for new developers
+
+**Local Files (Never Committed):**
+- `.env.development.local` - Editable development environment
+- `.env.production.local` - Editable production environment
+- `.env.keys` - Private decryption keys
+
+##### **Development Workflow**
+
+**1. Decrypt Environment for Editing**
+```bash
+# Decrypt development environment
+pnpm env:decrypt:dev
+# This creates .env.development.local (editable)
+```
+
+**2. Edit Environment Variables**
+```bash
+# Edit the local file with your changes
+nano .env.development.local
+# or
+code .env.development.local
+```
+
+**3. Encrypt and Commit**
+```bash
+# Encrypt from local file
+pnpm env:encrypt:dev
+# This reads .env.development.local → encrypts to .env.development
+
+# Commit the encrypted file
+git add .env.development
+git commit -m "Update development environment"
+```
+
+##### **Production Workflow**
+
+**1. Decrypt Production Environment**
+```bash
+# Decrypt production environment
+pnpm env:decrypt:prod
+# This creates .env.production.local (editable)
+```
+
+**2. Edit Production Variables**
+```bash
+# Edit production values
+nano .env.production.local
+```
+
+**3. Encrypt Production Environment**
+```bash
+# Encrypt production environment
+pnpm env:encrypt:prod
+# This reads .env.production.local → encrypts to .env.production
+```
+
+##### **Running Applications**
+
+**Development:**
+```bash
+pnpm dev     # Uses .env.development (automatically decrypted)
+pnpm test    # Uses .env.development (automatically decrypted)
+```
+
+**Production:**
+```bash
+pnpm build   # Uses .env.production (automatically decrypted)
+```
+
+##### **Security Features**
+
+- **Encrypted at rest** - All environment files are encrypted
+- **Local editing** - Work with unencrypted `.local` files
+- **Git-safe** - Only encrypted files are committed
+- **Environment isolation** - Dev and prod use different keys
+- **Automatic decryption** - Applications decrypt on-the-fly
+
+##### **Available Commands**
+
+| Command | Purpose |
+|---------|---------|
+| `pnpm env:decrypt:dev` | Decrypt dev env → `.env.development.local` |
+| `pnpm env:encrypt:dev` | Encrypt `.env.development.local` → `.env.development` |
+| `pnpm env:decrypt:prod` | Decrypt prod env → `.env.production.local` |
+| `pnpm env:encrypt:prod` | Encrypt `.env.production.local` → `.env.production` |
+| `pnpm env:ls` | List all environment files |
+| `pnpm env:rotate` | Rotate encryption keys |
+
+##### **Shell Scripts**
+
+The project includes helper shell scripts in the `scripts/` directory for cleaner command execution:
+
+- `scripts/env-dev.sh` - Sets up development environment
+- `scripts/env-prod.sh` - Sets up production environment  
+- `scripts/env-encrypt-dev.sh` - Encrypts development environment
+- `scripts/env-decrypt-dev.sh` - Decrypts development environment
+- `scripts/env-encrypt-prod.sh` - Encrypts production environment
+- `scripts/env-decrypt-prod.sh` - Decrypts production environment
+
+#### Environment Variables
+
+See `.env.local.example` for the complete list of required environment variables:
 
 ```env
 # Database
@@ -84,6 +254,7 @@ DATABASE_URL="postgresql://username:password@localhost:5432/bloxtr8"
 DISCORD_CLIENT_ID="your_discord_client_id"
 DISCORD_CLIENT_SECRET="your_discord_client_secret"
 DISCORD_BOT_TOKEN="your_discord_bot_token"
+DISCORD_GUILD_ID="your_discord_guild_id"
 
 # Stripe
 STRIPE_SECRET_KEY="sk_test_..."

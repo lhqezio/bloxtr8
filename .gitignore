@@ -20,6 +20,9 @@ build/
 .env.test.local
 .env.production.local
 
+# dotenvx private keys (never commit these!)
+.env.keys
+
 # Database
 *.db
 *.sqlite
