@@ -1,6 +1,12 @@
 #!/bin/bash
 # Development environment helper script
-cp .env.development .env
+
+cp .env.development.local .env
+
+# Copy .env to each app directory so dotenvx can find it
+cp .env apps/api/.env
+cp .env apps/discord-bot/.env
+
 
 # Check if .env.keys exists, if not, warn but continue
 if [ -f ".env.keys" ]; then
