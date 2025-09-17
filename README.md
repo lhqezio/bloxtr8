@@ -17,7 +17,9 @@ bloxtr8/
 │   └── discord-bot/         # Discord bot application
 ├── packages/                # Shared packages
 │   ├── database/            # Prisma database package
+│   ├── eslint-config/      # Shared ESLint configuration
 │   ├── shared/              # Shared utilities and constants
+│   ├── tsconfig/            # Shared TypeScript configuration
 │   └── types/               # Shared TypeScript types
 ├── docs/                    # Documentation
 └── package.json             # Root workspace configuration
@@ -31,8 +33,10 @@ bloxtr8/
 ### Packages (`packages/`)
 
 - **`@bloxtr8/database`** - Prisma schema, migrations, and database client
+- **`@bloxtr8/eslint-config`** - Shared ESLint configuration for the monorepo
 - **`@bloxtr8/shared`** - Shared utilities, constants, and helper functions
 - **`@bloxtr8/types`** - Shared TypeScript type definitions and interfaces
+- **`@bloxtr8/tsconfig`** - Shared TypeScript configuration with monorepo path mapping
 
 ## Quick Start
 
@@ -123,6 +127,41 @@ CHAINALYSIS_API_KEY="your_chainalysis_api_key"
 - **Contracts**: DocuSign Embedded Signing
 - **Storage**: AWS S3 for contract PDFs
 - **Risk**: TRM Labs + Chainalysis wallet screening
+- **Code Quality**: ESLint + Prettier + TypeScript strict mode
+- **Module System**: ESM (ECMAScript Modules) with NodeNext resolution
+
+## TypeScript Configuration
+
+### Centralized Configuration
+
+The project uses a centralized TypeScript configuration (`packages/tsconfig/tsconfig.base.json`) that provides:
+
+- **ESM Support**: All packages use `"type": "module"` for modern JavaScript modules
+- **Strict Type Checking**: Enabled `strict`, `noUncheckedIndexedAccess`, and `noImplicitOverride`
+- **Monorepo Path Mapping**: Automatic imports using `@bloxtr8/*` aliases
+- **Modern Target**: ES2022 with NodeNext module resolution
+- **Library Configuration**: Composite builds with declaration maps for monorepo packages
+
+### Path Mapping
+
+The TypeScript configuration includes convenient path mappings:
+
+```typescript
+// Instead of relative imports
+import { User } from '../../../packages/types/src/user'
+
+// Use clean aliases
+import { User } from '@bloxtr8/types'
+import { DatabaseClient } from '@bloxtr8/database'
+import { validateInput } from '@bloxtr8/shared'
+```
+
+### ESM Modules
+
+All packages are configured as ESM modules with:
+- `"type": "module"` in package.json files
+- `.js` extensions in import statements (TypeScript handles the resolution)
+- NodeNext module resolution for optimal compatibility
 
 ## Available Scripts
 
@@ -132,6 +171,9 @@ CHAINALYSIS_API_KEY="your_chainalysis_api_key"
 - `pnpm build` - Build all packages
 - `pnpm test` - Run tests for all packages
 - `pnpm lint` - Lint all packages
+- `pnpm lint:fix` - Auto-fix ESLint issues
+- `pnpm format` - Format code with Prettier
+- `pnpm format:check` - Check if code is properly formatted
 
 ### Database
 
@@ -140,21 +182,93 @@ CHAINALYSIS_API_KEY="your_chainalysis_api_key"
 - `pnpm db:migrate` - Run database migrations
 - `pnpm db:studio` - Open Prisma Studio
 
+## Code Quality & Development Tools
+
+### ESLint Configuration
+
+The project uses a centralized ESLint configuration (`@bloxtr8/eslint-config`) that provides:
+
+- **TypeScript Support**: Full TypeScript ESLint rules with strict type checking
+- **Import Organization**: Automatic import sorting and grouping
+- **Code Quality Rules**: Consistent code style and best practices
+- **Prettier Integration**: No conflicts between ESLint and Prettier
+- **Monorepo Ready**: Shared configuration across all packages
+
+#### Available Configurations
+
+- `@bloxtr8/eslint-config/base` - Base configuration for all packages
+- `@bloxtr8/eslint-config/node` - Node.js specific rules for backend apps
+- `@bloxtr8/eslint-config/react` - React specific rules (ready for frontend)
+
+#### Key ESLint Rules
+
+- TypeScript strict mode with `no-explicit-any` warnings
+- Consistent type imports with `consistent-type-imports`
+- Import ordering and organization
+- No unused variables (with `_` prefix exception)
+- Object shorthand and template literal preferences
+
+### Prettier Configuration
+
+Consistent code formatting with:
+
+- Single quotes
+- Semicolons
+- 2-space indentation
+- 80 character line width
+- Trailing commas (ES5 style)
+- LF line endings
+
+### Development Workflow
+
+1. **Code Quality**: Run `pnpm lint` before committing
+2. **Auto-fix**: Use `pnpm lint:fix` to automatically fix issues
+3. **Formatting**: Use `pnpm format` to format code with Prettier
+4. **Pre-commit**: Consider adding pre-commit hooks for automatic linting
+
+## Monorepo Architecture
+
+### Package Dependencies
+
+The monorepo uses a hierarchical dependency structure:
+
+```
+apps/
+├── api/                     # Depends on: database, shared, types
+└── discord-bot/             # Depends on: database, shared, types
+
+packages/
+├── database/                # Depends on: types
+├── shared/                  # Depends on: types
+├── types/                   # No internal dependencies
+├── eslint-config/           # Shared dev dependency
+└── tsconfig/                # Shared TypeScript config
+```
+
+### Build System
+
+- **Turbo**: Fast, cached builds across the monorepo
+- **Composite Builds**: TypeScript composite mode for incremental compilation
+- **Dependency Graph**: Automatic build ordering based on package dependencies
+- **Caching**: Build outputs cached for faster subsequent builds
+
 ## Development Workflow
 
 1. **Feature Development**: Create feature branches from `main`
 2. **Package Changes**: Make changes in appropriate packages
-3. **Testing**: Run tests before committing
-4. **Database Changes**: Update Prisma schema and run migrations
-5. **Documentation**: Update relevant docs in `docs/` folder
+3. **Code Quality**: Run `pnpm lint` and `pnpm format` before committing
+4. **Testing**: Run tests before committing
+5. **Database Changes**: Update Prisma schema and run migrations
+6. **Documentation**: Update relevant docs in `docs/` folder
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+4. Run `pnpm lint` and `pnpm format` to ensure code quality
+5. Add tests if applicable
+6. Submit a pull request
 
 ## License
 
