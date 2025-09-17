@@ -74,21 +74,23 @@ pnpm db:studio
 
 ### Environment Setup
 
-This project uses **dotenvx** for secure environment variable management. dotenvx provides encryption at rest and better security for sensitive configuration.
+This project uses **dotenvx** with **in-repo encrypted environments** for secure environment variable management. All environment files are encrypted and safely committed to Git, while private keys remain local.
 
 #### Quick Start
 
-1. **Copy the environment template:**
-   ```bash
-   cp .env.local.example .env.local
-   ```
+1. **Environment files are already encrypted** and committed to the repository
+2. **Copy the private keys** from `.env.keys` to your local environment or CI secrets
+3. **All commands automatically decrypt** environment variables on-the-fly
 
-2. **Fill in your actual values** in `.env.local` (never commit this file)
+#### How It Works
 
-3. **For production**, encrypt your environment files:
-   ```bash
-   pnpm env:encrypt
-   ```
+- **Encrypted `.env` files** are committed to Git (safe for version control)
+- **Private keys** (`.env.keys`) are never committed and stay local/CI-only
+- **`dotenvx run`** automatically decrypts environment variables for all commands
+- **Environment-specific files** are automatically used based on the command:
+  - `pnpm dev` → uses `.env.development`
+  - `pnpm build` → uses `.env.production`
+  - `pnpm test` → uses `.env.development`
 
 #### Environment Management Commands
 
@@ -99,6 +101,133 @@ This project uses **dotenvx** for secure environment variable management. dotenv
 - `pnpm env:ls` - List all `.env` files in the project
 - `pnpm env:rotate` - Rotate encryption keys and re-encrypt files
 - `pnpm env:keypair` - Generate new encryption keypairs
+
+#### Setting Up Private Keys
+
+**Step 1: Get the Private Key**
+```bash
+# View the private key (never commit this file!)
+cat .env.keys
+```
+
+**Step 2: Set Up Local Development**
+```bash
+# Option A: Export in your shell profile (~/.zshrc, ~/.bashrc)
+export DOTENV_PRIVATE_KEY="your_private_key_here"
+
+# Option B: Copy .env.keys to your home directory
+cp .env.keys ~/.env.keys
+```
+
+**Step 3: Set Up CI/CD**
+```bash
+# Add as environment variable in your CI system
+DOTENV_PRIVATE_KEY="your_private_key_here"
+```
+
+**Step 4: Verify Setup**
+```bash
+# Test that environment variables are loaded
+pnpm dev --dry-run
+```
+
+#### Environment Workflow Guide
+
+This project uses **encrypted environment files** with a **local editing workflow** for security and convenience.
+
+##### **File Structure**
+
+**Committed Files (Safe for Git):**
+- `.env.development` - Encrypted development environment
+- `.env.production` - Encrypted production environment
+- `.env.local.example` - Template for new developers
+
+**Local Files (Never Committed):**
+- `.env.development.local` - Editable development environment
+- `.env.production.local` - Editable production environment
+- `.env.keys` - Private decryption keys
+
+##### **Development Workflow**
+
+**1. Decrypt Environment for Editing**
+```bash
+# Decrypt development environment
+pnpm env:decrypt:dev
+# This creates .env.development.local (editable)
+```
+
+**2. Edit Environment Variables**
+```bash
+# Edit the local file with your changes
+nano .env.development.local
+# or
+code .env.development.local
+```
+
+**3. Encrypt and Commit**
+```bash
+# Encrypt from local file
+pnpm env:encrypt:dev
+# This reads .env.development.local → encrypts to .env.development
+
+# Commit the encrypted file
+git add .env.development
+git commit -m "Update development environment"
+```
+
+##### **Production Workflow**
+
+**1. Decrypt Production Environment**
+```bash
+# Decrypt production environment
+pnpm env:decrypt:prod
+# This creates .env.production.local (editable)
+```
+
+**2. Edit Production Variables**
+```bash
+# Edit production values
+nano .env.production.local
+```
+
+**3. Encrypt Production Environment**
+```bash
+# Encrypt production environment
+pnpm env:encrypt:prod
+# This reads .env.production.local → encrypts to .env.production
+```
+
+##### **Running Applications**
+
+**Development:**
+```bash
+pnpm dev     # Uses .env.development (automatically decrypted)
+pnpm test    # Uses .env.development (automatically decrypted)
+```
+
+**Production:**
+```bash
+pnpm build   # Uses .env.production (automatically decrypted)
+```
+
+##### **Security Features**
+
+- **Encrypted at rest** - All environment files are encrypted
+- **Local editing** - Work with unencrypted `.local` files
+- **Git-safe** - Only encrypted files are committed
+- **Environment isolation** - Dev and prod use different keys
+- **Automatic decryption** - Applications decrypt on-the-fly
+
+##### **Available Commands**
+
+| Command | Purpose |
+|---------|---------|
+| `pnpm env:decrypt:dev` | Decrypt dev env → `.env.development.local` |
+| `pnpm env:encrypt:dev` | Encrypt `.env.development.local` → `.env.development` |
+| `pnpm env:decrypt:prod` | Decrypt prod env → `.env.production.local` |
+| `pnpm env:encrypt:prod` | Encrypt `.env.production.local` → `.env.production` |
+| `pnpm env:ls` | List all environment files |
+| `pnpm env:rotate` | Rotate encryption keys |
 
 #### Environment Variables
 

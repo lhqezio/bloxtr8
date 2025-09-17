@@ -20,9 +20,8 @@ build/
 .env.test.local
 .env.production.local
 
-# dotenvx encrypted files
-.env.*.encrypted
-.env.*.key
+# dotenvx private keys (never commit these!)
+.env.keys
 
 # Database
 *.db
