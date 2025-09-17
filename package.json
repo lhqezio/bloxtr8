@@ -4,17 +4,31 @@
   "description": "Discord-native escrow and verification system for Roblox game trading",
   "private": true,
   "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "test": "turbo run test",
+    "dev": "./scripts/env-dev.sh dotenvx run -- turbo run dev",
+    "build": "./scripts/env-prod.sh dotenvx run -- turbo run build",
+    "build:dev": "./scripts/env-dev.sh dotenvx run -- turbo run build",
+    "test": "./scripts/env-dev.sh dotenvx run -- turbo run test",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "db:generate": "pnpm --filter=@bloxtr8/database generate",
-    "db:push": "pnpm --filter=@bloxtr8/database push",
-    "db:migrate": "pnpm --filter=@bloxtr8/database migrate",
-    "db:studio": "pnpm --filter=@bloxtr8/database studio"
+    "db:generate": "dotenvx run -- pnpm --filter=@bloxtr8/database generate",
+    "db:push": "dotenvx run -- pnpm --filter=@bloxtr8/database push",
+    "db:migrate": "dotenvx run -- pnpm --filter=@bloxtr8/database migrate",
+    "db:studio": "dotenvx run -- pnpm --filter=@bloxtr8/database studio",
+    "env:encrypt": "dotenvx encrypt",
+    "env:decrypt": "dotenvx decrypt",
+    "env:encrypt:dev": "./scripts/env-encrypt-dev.sh",
+    "env:encrypt:all": "pnpm env:encrypt:dev && pnpm env:encrypt:prod",
+    "env:decrypt:dev": "./scripts/env-decrypt-dev.sh",
+    "env:encrypt:prod": "./scripts/env-encrypt-prod.sh",
+    "env:decrypt:prod": "./scripts/env-decrypt-prod.sh",
+    "env:decrypt:all": "pnpm env:decrypt:dev && pnpm env:decrypt:prod",
+    "env:set": "dotenvx set",
+    "env:get": "dotenvx get",
+    "env:ls": "dotenvx ls",
+    "env:rotate": "dotenvx rotate",
+    "env:keypair": "dotenvx keypair"
   },
   "keywords": [
     "roblox",
@@ -40,5 +54,8 @@
     "prettier": "^3.2.5",
     "turbo": "^2.5.6",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@dotenvx/dotenvx": "^1.49.1"
   }
 }

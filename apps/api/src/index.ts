@@ -1,11 +1,11 @@
 import compress from 'compression';
 import cors from 'cors';
-import dotenv from 'dotenv';
+import { config } from '@dotenvx/dotenvx';
 import express from 'express';
 import helmet from 'helmet';
 
 // Load environment variables
-dotenv.config();
+config();
 
 const app = express();
 app.use(compress());

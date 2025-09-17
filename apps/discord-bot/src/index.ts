@@ -1,6 +1,8 @@
-import dotenv from 'dotenv';
-dotenv.config();
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } from 'discord.js';
+import { config } from '@dotenvx/dotenvx';
+
+// Load environment variables
+config();
 
 const client = new Client({ 
     intents: [
