@@ -94,10 +94,10 @@ This project uses **dotenvx** with **in-repo encrypted environments** for secure
 
 #### Environment Management Commands
 
-- `pnpm env:encrypt` - Encrypt `.env` files for secure storage
-- `pnpm env:decrypt` - Decrypt encrypted `.env` files
-- `pnpm env:set KEY value` - Set a single environment variable
-- `pnpm env:get KEY` - Get a single environment variable
+- `pnpm env:encrypt:dev` - Encrypt development environment from `.env.development.local`
+- `pnpm env:decrypt:dev` - Decrypt development environment to `.env.development.local`
+- `pnpm env:encrypt:prod` - Encrypt production environment from `.env.production.local`
+- `pnpm env:decrypt:prod` - Decrypt production environment to `.env.production.local`
 - `pnpm env:ls` - List all `.env` files in the project
 - `pnpm env:rotate` - Rotate encryption keys and re-encrypt files
 - `pnpm env:keypair` - Generate new encryption keypairs
@@ -113,7 +113,8 @@ cat .env.keys
 **Step 2: Set Up Local Development**
 ```bash
 # Option A: Export in your shell profile (~/.zshrc, ~/.bashrc)
-export DOTENV_PRIVATE_KEY="your_private_key_here"
+export DOTENV_PRIVATE_KEY_DEV="your_dev_private_key_here"
+export DOTENV_PRIVATE_KEY_PRODUCTION="your_prod_private_key_here"
 
 # Option B: Copy .env.keys to your home directory
 cp .env.keys ~/.env.keys
@@ -121,8 +122,9 @@ cp .env.keys ~/.env.keys
 
 **Step 3: Set Up CI/CD**
 ```bash
-# Add as environment variable in your CI system
-DOTENV_PRIVATE_KEY="your_private_key_here"
+# Add as environment variables in your CI system
+DOTENV_PRIVATE_KEY_DEV="your_dev_private_key_here"
+DOTENV_PRIVATE_KEY_PRODUCTION="your_prod_private_key_here"
 ```
 
 **Step 4: Verify Setup**
@@ -229,6 +231,17 @@ pnpm build   # Uses .env.production (automatically decrypted)
 | `pnpm env:ls` | List all environment files |
 | `pnpm env:rotate` | Rotate encryption keys |
 
+##### **Shell Scripts**
+
+The project includes helper shell scripts in the `scripts/` directory for cleaner command execution:
+
+- `scripts/env-dev.sh` - Sets up development environment
+- `scripts/env-prod.sh` - Sets up production environment  
+- `scripts/env-encrypt-dev.sh` - Encrypts development environment
+- `scripts/env-decrypt-dev.sh` - Decrypts development environment
+- `scripts/env-encrypt-prod.sh` - Encrypts production environment
+- `scripts/env-decrypt-prod.sh` - Decrypts production environment
+
 #### Environment Variables
 
 See `.env.local.example` for the complete list of required environment variables:
@@ -241,6 +254,7 @@ DATABASE_URL="postgresql://username:password@localhost:5432/bloxtr8"
 DISCORD_CLIENT_ID="your_discord_client_id"
 DISCORD_CLIENT_SECRET="your_discord_client_secret"
 DISCORD_BOT_TOKEN="your_discord_bot_token"
+DISCORD_GUILD_ID="your_discord_guild_id"
 
 # Stripe
 STRIPE_SECRET_KEY="sk_test_..."
