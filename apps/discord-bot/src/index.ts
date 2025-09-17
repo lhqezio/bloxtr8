@@ -18,7 +18,7 @@ client.once('ready', () => {
   console.log(`🏠 Serving ${client.guilds.cache.size} guilds`);
 });
 
-client.on('messageCreate', async (message) => {
+client.on('messageCreate', async message => {
   // Ignore bot messages
   if (message.author.bot) return;
 
@@ -42,7 +42,7 @@ if (!process.env.DISCORD_TOKEN) {
   process.exit(1);
 }
 
-client.login(process.env.DISCORD_TOKEN).catch((error) => {
+client.login(process.env.DISCORD_TOKEN).catch(error => {
   console.error('❌ Failed to login to Discord:', error);
   process.exit(1);
 });

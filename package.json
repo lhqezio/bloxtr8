@@ -8,6 +8,9 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "db:generate": "pnpm --filter=@bloxtr8/database generate",
     "db:push": "pnpm --filter=@bloxtr8/database push",
     "db:migrate": "pnpm --filter=@bloxtr8/database migrate",
@@ -32,7 +35,9 @@
     "pnpm": ">=8.0.0"
   },
   "devDependencies": {
+    "@bloxtr8/eslint-config": "workspace:*",
     "eslint": "^9.35.0",
+    "prettier": "^3.2.5",
     "turbo": "^2.5.6",
     "typescript": "^5.9.2"
   }
