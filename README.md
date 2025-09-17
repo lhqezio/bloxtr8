@@ -106,6 +106,28 @@ TRM_API_KEY="your_trm_api_key"
 CHAINALYSIS_API_KEY="your_chainalysis_api_key"
 ```
 
+### Docker
+To run either the server in development or production mode using Docker, run:
+
+```bash
+# For  development mode
+docker compose up --build
+
+# For production mode
+docker compose -f docker-compose.yml up --build -d
+```
+To see if the docker images are running correctly run:
+
+```bash
+docker exec -it bloxtr8_api_1 sh
+
+```
+to get into the running container, then run:
+```bash
+echo $NODE_ENV
+# The result will be either 'development' or 'production'
+
+```
 ## Architecture
 
 ### Core Flow
