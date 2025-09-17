@@ -28,4 +28,4 @@ COPY --from=build /app /app
 
 # Discord bot does not require inbound ports
 # Use dotenvx to load envs (.env for dev or .env.vault with DOTENV_KEY for prod)
-CMD ["sh", "-c", "npx -y dotenvx@latest run -- node apps/discord-bot/dist/index.js"]
+CMD ["node", "apps/discord-bot/dist/index.js"]
