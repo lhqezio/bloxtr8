@@ -26,12 +26,12 @@ client.once('clientReady', async () => {
             .toJSON()
     ];
 
-    const token = process.env.DISCORD_TOKEN;
-    const clientId = process.env.CLIENT_ID; // Application (bot) ID
-    const guildId = process.env.GUILD_ID;   // Target guild to register commands
+    const token = process.env.DISCORD_BOT_TOKEN;
+    const clientId = process.env.DISCORD_CLIENT_ID; // Application (bot) ID
+    const guildId = process.env.DISCORD_GUILD_ID;   // Target guild to register commands
 
     if (!token || !clientId || !guildId) {
-        console.warn('Missing DISCORD_TOKEN, CLIENT_ID, or GUILD_ID. Skipping command registration.');
+        console.warn('Missing DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, or DISCORD_GUILD_ID. Skipping command registration.');
         return;
     }
 
@@ -62,4 +62,4 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.DISCORD_BOT_TOKEN);

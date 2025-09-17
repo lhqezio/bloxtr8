@@ -1,30 +1,26 @@
-version: '3.9'
-
 services:
   api:
     build:
       target: base
     env_file:
-      - .env.development
+      - apps/api/.env
     environment:
       - NODE_ENV=development
-      - DOTENV_KEY=${API_DOTENV_KEY}
     volumes:
       - ./apps/api:/app/apps/api
       - /app/apps/api/node_modules
-    command: pnpm dev
+    command: pnpm --filter @bloxtr8/api dev
     restart: "no"
 
   discord-bot:
     build:
       target: base
     env_file:
-      - .env.development
+      - apps/discord-bot/.env
     environment:
       - NODE_ENV=development
-      - DOTENV_KEY=${BOT_DOTENV_KEY}
     volumes:
       - ./apps/discord-bot:/app/apps/discord-bot
       - /app/apps/discord-bot/node_modules
-    command: pnpm dev
+    command: pnpm --filter @bloxtr8/discord-bot dev
     restart: "no"

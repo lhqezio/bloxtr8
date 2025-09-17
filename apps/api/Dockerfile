@@ -27,5 +27,4 @@ WORKDIR /app
 COPY --from=build /app /app
 
 EXPOSE 3000
-# Use dotenvx to load envs (.env for dev or .env.vault with DOTENV_KEY for prod)
 CMD ["node", "apps/api/dist/index.js"]
