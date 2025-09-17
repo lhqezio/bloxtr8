@@ -127,12 +127,14 @@ CHAINALYSIS_API_KEY="your_chainalysis_api_key"
 ## Available Scripts
 
 ### Root Level
+
 - `pnpm dev` - Start API server in development mode
 - `pnpm build` - Build all packages
 - `pnpm test` - Run tests for all packages
 - `pnpm lint` - Lint all packages
 
 ### Database
+
 - `pnpm db:generate` - Generate Prisma client
 - `pnpm db:push` - Push schema changes to database
 - `pnpm db:migrate` - Run database migrations

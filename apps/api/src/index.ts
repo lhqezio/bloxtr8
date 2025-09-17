@@ -1,7 +1,7 @@
-import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
 import dotenv from 'dotenv';
+import express from 'express';
+import helmet from 'helmet';
 
 // Load environment variables
 dotenv.config();
@@ -16,10 +16,10 @@ app.use(express.json());
 
 // Basic health check route
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     message: 'Bloxtr8 API is running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 

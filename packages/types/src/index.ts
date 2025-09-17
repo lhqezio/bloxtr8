@@ -55,7 +55,14 @@ export interface Escrow {
   rail: 'STRIPE' | 'USDC_BASE';
   amount: number; // in cents
   currency: 'USD' | 'USDC';
-  status: 'AWAIT_FUNDS' | 'FUNDS_HELD' | 'DELIVERED' | 'RELEASED' | 'DISPUTED' | 'REFUNDED' | 'CANCELLED';
+  status:
+    | 'AWAIT_FUNDS'
+    | 'FUNDS_HELD'
+    | 'DELIVERED'
+    | 'RELEASED'
+    | 'DISPUTED'
+    | 'REFUNDED'
+    | 'CANCELLED';
   offerId: string;
   contractId: string;
   createdAt: Date;
