@@ -11,6 +11,9 @@ importers:
       turbo:
         specifier: ^2.5.6
         version: 2.5.6
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
 
   apps/api:
     dependencies:
