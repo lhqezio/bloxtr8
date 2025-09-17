@@ -5,24 +5,26 @@ services:
     build:
       target: base
     env_file:
-      - apps/api/.env
+      - .env.development
     environment:
       - NODE_ENV=development
+      - DOTENV_KEY=${API_DOTENV_KEY}
     volumes:
       - ./apps/api:/app/apps/api
       - /app/apps/api/node_modules
-    command: pnpm --filter @bloxtr8/api dev
+    command: pnpm dev
     restart: "no"
 
   discord-bot:
     build:
       target: base
     env_file:
-      - apps/discord-bot/.env
+      - .env.development
     environment:
       - NODE_ENV=development
+      - DOTENV_KEY=${BOT_DOTENV_KEY}
     volumes:
       - ./apps/discord-bot:/app/apps/discord-bot
       - /app/apps/discord-bot/node_modules
-    command: pnpm --filter @bloxtr8/discord-bot dev
+    command: pnpm dev
     restart: "no"

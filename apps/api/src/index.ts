@@ -1,6 +1,6 @@
+import { config } from '@dotenvx/dotenvx';
 import compress from 'compression';
 import cors from 'cors';
-import { config } from '@dotenvx/dotenvx';
 import express from 'express';
 import helmet from 'helmet';
 
