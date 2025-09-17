@@ -1,4 +1,4 @@
-// import compress from 'compression';
+import compress from 'compression';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
@@ -8,7 +8,7 @@ import helmet from 'helmet';
 dotenv.config();
 
 const app = express();
-// app.use(compress());
+app.use(compress());
 const port = process.env.PORT || 3000;
 
 // Middleware
