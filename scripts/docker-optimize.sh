@@ -112,7 +112,7 @@ start_dev_build() {
 # Function to start production environment
 start_prod() {
     print_status "Starting production environment..."
-    docker compose -f docker compose.yml up -d
+    docker compose -f docker-compose.yml up -d
     print_success "Production environment started!"
 }
 

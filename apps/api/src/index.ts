@@ -78,7 +78,7 @@ app.get('/contracts/:id/pdf', async (req, res) => {
       expiresIn: 3600, // 1 hour
     });
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error('Get Contract error:', error);
     res.status(500).json({ error: 'Failed to generate download URL' });
   }
 });
