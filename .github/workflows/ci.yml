@@ -88,7 +88,7 @@ jobs:
           else
             echo "✓ DOTENV_PRIVATE_KEY_DEV secret is set"
           fi
-          
+
           if [ -z "${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" ]; then
             echo "Error: DOTENV_PRIVATE_KEY_PRODUCTION secret is not set!"
             echo "Please add DOTENV_PRIVATE_KEY_PRODUCTION to your GitHub repository secrets."
@@ -96,12 +96,12 @@ jobs:
           else
             echo "✓ DOTENV_PRIVATE_KEY_PRODUCTION secret is set"
           fi
-          
+
           # Create .env.keys file from GitHub secrets
           echo "Creating .env.keys file..."
           echo "DOTENV_PRIVATE_KEY_DEV=${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" > .env.keys
           echo "DOTENV_PRIVATE_KEY_PRODUCTION=${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" >> .env.keys
-          
+
           # Debug: Check the .env.keys file (without revealing values)
           echo "Checking .env.keys file..."
           if [ -f ".env.keys" ]; then
@@ -112,11 +112,11 @@ jobs:
             echo "✗ .env.keys file not created"
             exit 1
           fi
-          
+
           # Decrypt development environment for Prisma commands
           echo "Decrypting development environment..."
           ./scripts/env-decrypt-dev.sh
-          
+
           # Verify .env file was created
           if [ ! -f ".env.development.local" ]; then
             echo "Error: Failed to decrypt development environment"
@@ -247,7 +247,7 @@ jobs:
           else
             echo "✓ DOTENV_PRIVATE_KEY_DEV secret is set"
           fi
-          
+
           if [ -z "${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" ]; then
             echo "Error: DOTENV_PRIVATE_KEY_PRODUCTION secret is not set!"
             echo "Please add DOTENV_PRIVATE_KEY_PRODUCTION to your GitHub repository secrets."
@@ -255,12 +255,12 @@ jobs:
           else
             echo "✓ DOTENV_PRIVATE_KEY_PRODUCTION secret is set"
           fi
-          
+
           # Create .env.keys file from GitHub secrets
           echo "Creating .env.keys file..."
           echo "DOTENV_PRIVATE_KEY_DEV=${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" > .env.keys
           echo "DOTENV_PRIVATE_KEY_PRODUCTION=${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" >> .env.keys
-          
+
           # Debug: Check the .env.keys file (without revealing values)
           echo "Checking .env.keys file..."
           if [ -f ".env.keys" ]; then
@@ -271,11 +271,11 @@ jobs:
             echo "✗ .env.keys file not created"
             exit 1
           fi
-          
+
           # Decrypt development environment for tests
           echo "Decrypting development environment..."
           ./scripts/env-decrypt-dev.sh
-          
+
           # Verify .env file was created
           if [ ! -f ".env.development.local" ]; then
             echo "Error: Failed to decrypt development environment"
