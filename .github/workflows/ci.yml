@@ -19,6 +19,21 @@ jobs:
       matrix:
         node-version: [18, 20, 22]
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_USER: test
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -64,6 +79,11 @@ jobs:
 
       - name: Generate Prisma client
         run: pnpm db:generate
+
+      - name: Push database schema
+        run: pnpm db:push
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
 
       - name: Cache Turbo cache
         uses: actions/cache@v4
