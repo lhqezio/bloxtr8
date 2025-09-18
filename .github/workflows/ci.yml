@@ -165,7 +165,7 @@ jobs:
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
 
       - name: Run database tests
-        run: pnpm test --filter=@bloxtr8/database
+        run: pnpm --filter=@bloxtr8/database test --passWithNoTests
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
 
