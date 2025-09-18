@@ -1,6 +1,6 @@
 /**
  * CI Pipeline Test Suite
- * 
+ *
  * This test suite validates that the CI pipeline is working correctly
  * and that all basic functionality is operational.
  */
@@ -8,7 +8,12 @@
 declare global {
   var testUtils: {
     createMockUser: () => { id: string; username: string; email: string };
-    createMockContract: () => { id: string; title: string; description: string; price: number };
+    createMockContract: () => {
+      id: string;
+      title: string;
+      description: string;
+      price: number;
+    };
   };
 }
 
@@ -38,8 +43,12 @@ describe('CI Pipeline Tests', () => {
   describe('Test Utilities', () => {
     it('should have global test utilities available', () => {
       expect((globalThis as any).testUtils).toBeDefined();
-      expect((globalThis as any).testUtils.createMockUser).toBeInstanceOf(Function);
-      expect((globalThis as any).testUtils.createMockContract).toBeInstanceOf(Function);
+      expect((globalThis as any).testUtils.createMockUser).toBeInstanceOf(
+        Function
+      );
+      expect((globalThis as any).testUtils.createMockContract).toBeInstanceOf(
+        Function
+      );
     });
 
     it('should create mock user with correct structure', () => {

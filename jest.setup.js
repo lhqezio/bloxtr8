@@ -22,7 +22,7 @@ global.testUtils = {
     username: 'testuser',
     email: 'test@example.com',
   }),
-  
+
   createMockContract: () => ({
     id: 'test-contract-id',
     title: 'Test Contract',

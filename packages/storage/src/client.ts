@@ -11,7 +11,7 @@ export class StorageClient {
     const secretAccessKey = process.env.STORAGE_SECRET_KEY || 'minioadmin123';
 
     this.bucket = process.env.STORAGE_BUCKET || 'contracts';
-    
+
     this.client = new S3Client({
       endpoint,
       region,

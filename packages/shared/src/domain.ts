@@ -22,7 +22,7 @@ export enum EscrowState {
   /** Funds have been refunded to the buyer */
   REFUNDED = 'REFUNDED',
   /** Transaction has been cancelled */
-  CANCELLED = 'CANCELLED'
+  CANCELLED = 'CANCELLED',
 }
 
 /**
@@ -43,7 +43,7 @@ export enum ProviderId {
   /** Chainalysis blockchain analytics */
   CHAINALYSIS = 'CHAINALYSIS',
   /** TRM blockchain analytics */
-  TRM = 'TRM'
+  TRM = 'TRM',
 }
 
 /**
@@ -58,5 +58,5 @@ export enum Role {
   /** Administrator with full system access */
   ADMIN = 'ADMIN',
   /** System administrator with highest privileges */
-  SUPER_ADMIN = 'SUPER_ADMIN'
+  SUPER_ADMIN = 'SUPER_ADMIN',
 }
