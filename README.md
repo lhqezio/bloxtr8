@@ -267,7 +267,14 @@ CUSTODIAN_WEBHOOK_SECRET="your_webhook_secret"
 # Security
 JWT_SECRET="your_jwt_secret"
 
-# AWS S3 (for contract storage)
+# Object Storage (MinIO for dev, S3 for prod)
+STORAGE_ENDPOINT="http://localhost:9000"  # MinIO endpoint for dev
+STORAGE_ACCESS_KEY="minioadmin"           # MinIO access key for dev
+STORAGE_SECRET_KEY="minioadmin123"        # MinIO secret key for dev
+STORAGE_BUCKET="contracts"                # Bucket name for contract PDFs
+STORAGE_REGION="us-east-1"                # Storage region
+
+# AWS S3 (for production)
 AWS_ACCESS_KEY_ID="your_aws_access_key"
 AWS_SECRET_ACCESS_KEY="your_aws_secret_key"
 AWS_S3_BUCKET="your_s3_bucket"
@@ -365,6 +372,61 @@ All packages are configured as ESM modules with:
 - `"type": "module"` in package.json files
 - `.js` extensions in import statements (TypeScript handles the resolution)
 - NodeNext module resolution for optimal compatibility
+
+## PDF Storage System
+
+Bloxtr8 uses a secure object storage system for contract PDFs with presigned URLs for both upload and download operations.
+
+### How It Works
+
+1. **Storage Backend**: 
+   - **Development**: MinIO (S3-compatible local storage)
+   - **Production**: AWS S3
+
+2. **Upload Flow**:
+   ```
+   Client → POST /contracts/:id/upload → API returns presigned PUT URL
+   Client → PUT to presigned URL → PDF stored in bucket
+   ```
+
+3. **Download Flow**:
+   ```
+   Client → GET /contracts/:id/pdf → API returns presigned GET URL
+   Client → GET from presigned URL → PDF downloaded
+   ```
+
+### API Endpoints
+
+- **`POST /contracts/:id/upload`** - Get presigned URL for PDF upload
+  - Returns: `{ uploadUrl, key, expiresIn }`
+  - Expiration: 15 minutes
+
+- **`GET /contracts/:id/pdf`** - Get presigned URL for PDF download
+  - Returns: `{ downloadUrl, key, expiresIn }`
+  - Expiration: 1 hour
+
+### Security Features
+
+- **Presigned URLs**: No direct bucket access required
+- **Time-limited**: URLs expire automatically
+- **S3-compatible**: Works with MinIO and AWS S3
+- **Path-based keys**: Files stored as `contracts/{contractId}.pdf`
+
+### Environment Configuration
+
+```env
+# Development (MinIO)
+STORAGE_ENDPOINT="http://localhost:9000"
+STORAGE_ACCESS_KEY="minioadmin"
+STORAGE_SECRET_KEY="minioadmin123"
+STORAGE_BUCKET="contracts"
+
+# Production (AWS S3)
+STORAGE_ENDPOINT="https://s3.amazonaws.com"
+STORAGE_ACCESS_KEY="${AWS_ACCESS_KEY_ID}"
+STORAGE_SECRET_KEY="${AWS_SECRET_ACCESS_KEY}"
+STORAGE_BUCKET="${AWS_S3_BUCKET}"
+```
 
 ## Available Scripts
 
