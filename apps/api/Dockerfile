@@ -5,8 +5,7 @@ FROM bloxtr8-base:latest AS base
 
 # Build stage - build the API application
 FROM base AS build
-# Install only the dependencies needed for the API and its dependencies
-RUN pnpm --filter @bloxtr8/api... install --frozen-lockfile --reporter=silent
+# Build the API application (dependencies already installed in base image)
 RUN pnpm --filter @bloxtr8/api... build
 
 # Production runtime image

@@ -5,8 +5,7 @@ FROM bloxtr8-base:latest AS base
 
 # Build stage - build the Discord bot application
 FROM base AS build
-# Install only the dependencies needed for the Discord bot and its dependencies
-RUN pnpm --filter @bloxtr8/discord-bot... install --frozen-lockfile --reporter=silent
+# Build the Discord bot application (dependencies already installed in base image)
 RUN pnpm --filter @bloxtr8/discord-bot... build
 
 # Production runtime image
