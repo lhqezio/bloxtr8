@@ -81,7 +81,7 @@ jobs:
         run: |
           # Copy encrypted development environment to .env
           cp .env.development .env
-          
+
           # Debug: Check if we have the right private key
           echo "Checking private key format..."
           if [[ "${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" == dotenv://* ]]; then
@@ -89,7 +89,7 @@ jobs:
           else
             echo "✗ Private key format looks wrong - should start with 'dotenv://'"
           fi
-          
+
           echo "✓ Development environment setup complete"
 
       - name: Generate Prisma client
@@ -133,7 +133,7 @@ jobs:
         run: |
           # Copy encrypted development environment to .env.development.local
           cp .env.development .env.development.local
-          
+
           echo "✓ Test environment setup complete"
 
       - name: Run tests
