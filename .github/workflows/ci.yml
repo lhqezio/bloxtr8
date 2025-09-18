@@ -77,43 +77,31 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-prisma-
 
-      - name: Setup environment variables
+      - name: Setup development environment
         run: |
-          # Create .env.keys file from GitHub secrets
-          echo "DOTENV_PRIVATE_KEY_DEV=${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" > .env.keys
-          echo "DOTENV_PRIVATE_KEY_PRODUCTION=${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" >> .env.keys
+          # Copy encrypted development environment to .env
+          cp .env.development .env
 
-          # Decrypt development environment for Prisma commands
-          ./scripts/env-decrypt-dev.sh
-
-          # Verify .env file was created
-          if [ ! -f ".env.development.local" ]; then
-            echo "Error: Failed to decrypt development environment"
-            exit 1
+          # Debug: Check if we have the right private key
+          echo "Checking private key format..."
+          if [[ "${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" == dotenv://* ]]; then
+            echo "✓ Private key format looks correct"
+          else
+            echo "✗ Private key format looks wrong - should start with 'dotenv://'"
           fi
 
-      - name: Setup environment variables
-        run: |
-          # Create .env.keys file from GitHub secrets
-          echo "DOTENV_PRIVATE_KEY_DEV=${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" > .env.keys
-          echo "DOTENV_PRIVATE_KEY_PRODUCTION=${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" >> .env.keys
-
-          # Decrypt development environment for Prisma commands
-          ./scripts/env-decrypt-dev.sh
-
-          # Verify .env file was created
-          if [ ! -f ".env.development.local" ]; then
-            echo "Error: Failed to decrypt development environment"
-            exit 1
-          fi
+          echo "✓ Development environment setup complete"
 
       - name: Generate Prisma client
         run: pnpm db:generate
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Push database schema
         run: pnpm db:push
         env:
-          DATABASE_URL_PRISMA: postgresql://test:test@localhost:5432/test_db
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Cache Turbo cache
         uses: actions/cache@v4
@@ -123,30 +111,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      - name: Setup production environment variables
+      - name: Setup production environment
         run: |
-          # Decrypt production environment for build
-          ./scripts/env-decrypt-prod.sh
+          # Copy encrypted production environment to .env
+          cp .env.production .env
 
-          # Verify .env file was created
-          if [ ! -f ".env.production.local" ]; then
-            echo "Error: Failed to decrypt production environment"
-            exit 1
-          fi
-
-      - name: Setup production environment variables
-        run: |
-          # Decrypt production environment for build
-          ./scripts/env-decrypt-prod.sh
-
-          # Verify .env file was created
-          if [ ! -f ".env.production.local" ]; then
-            echo "Error: Failed to decrypt production environment"
-            exit 1
-          fi
+          echo "✓ Production environment setup complete"
 
       - name: Build packages
         run: pnpm build
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}
 
       - name: Lint packages
         run: pnpm lint
@@ -154,11 +129,19 @@ jobs:
       - name: Check formatting
         run: pnpm format:check
 
+      - name: Setup test environment
+        run: |
+          # Copy encrypted development environment to .env.development.local
+          cp .env.development .env.development.local
+
+          echo "✓ Test environment setup complete"
+
       - name: Run tests
         run: pnpm test
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Upload build artifacts on failure
         if: failure()
@@ -228,48 +211,29 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Setup environment variables for database tests
+      - name: Setup development environment for database tests
         run: |
-          # Create .env.keys file from GitHub secrets
-          echo "DOTENV_PRIVATE_KEY_DEV=${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" > .env.keys
-          echo "DOTENV_PRIVATE_KEY_PRODUCTION=${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" >> .env.keys
+          # Copy encrypted development environment to .env
+          cp .env.development .env
 
-          # Decrypt development environment for tests
-          ./scripts/env-decrypt-dev.sh
-
-          # Verify .env file was created
-          if [ ! -f ".env.development.local" ]; then
-            echo "Error: Failed to decrypt development environment"
-            exit 1
-          fi
-
-      - name: Setup environment variables for database tests
-        run: |
-          # Create .env.keys file from GitHub secrets
-          echo "DOTENV_PRIVATE_KEY_DEV=${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" > .env.keys
-          echo "DOTENV_PRIVATE_KEY_PRODUCTION=${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" >> .env.keys
-
-          # Decrypt development environment for tests
-          ./scripts/env-decrypt-dev.sh
-
-          # Verify .env file was created
-          if [ ! -f ".env.development.local" ]; then
-            echo "Error: Failed to decrypt development environment"
-            exit 1
-          fi
+          echo "✓ Development environment setup complete"
 
       - name: Generate Prisma client
         run: pnpm db:generate
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Push database schema
         run: pnpm db:push
         env:
-          DATABASE_URL_PRISMA: postgresql://test:test@localhost:5432/test_db
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Run database tests
         run: pnpm --filter=@bloxtr8/database test --passWithNoTests
         env:
-          DATABASE_URL_PRISMA: postgresql://test:test@localhost:5432/test_db
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Upload database test results
         if: failure()
