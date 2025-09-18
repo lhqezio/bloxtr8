@@ -1,11 +1,14 @@
 services:
-  # Build the shared base image first
+  # Build the shared base image first (build-only service)
   base:
     build:
       context: .
       dockerfile: Dockerfile.base
       target: base
     image: bloxtr8-base:latest
+    # This service only builds an image, doesn't run a container
+    profiles:
+      - build-only
 
   setup:
     image: node:20-alpine
@@ -15,8 +18,7 @@ services:
       - /app/node_modules
       - ./.env.keys:/app/.env.keys:ro
     command: sh ./scripts/env-decrypt-prod.sh && sh ./scripts/env-prod.sh
-    depends_on:
-      - base
+    # Remove incorrect dependency on base - setup uses node:20-alpine directly
 
   api:
     build:
@@ -27,8 +29,7 @@ services:
     environment:
       - NODE_ENV=production
     restart: unless-stopped
-    depends_on:
-      - base
+    # No depends_on needed - uses bloxtr8-base:latest image directly
 
   discord-bot:
     build:
@@ -37,5 +38,4 @@ services:
     environment:
       - NODE_ENV=production
     restart: unless-stopped
-    depends_on:
-      - base
+    # No depends_on needed - uses bloxtr8-base:latest image directly
