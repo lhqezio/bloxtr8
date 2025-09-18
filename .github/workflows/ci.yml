@@ -65,6 +65,8 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Decrypt environment
+        run: pnpm env:decrypt:dev
 
       - name: Cache Prisma generated files
         uses: actions/cache@v4
