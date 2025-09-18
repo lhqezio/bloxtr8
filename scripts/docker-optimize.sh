@@ -58,7 +58,7 @@ show_help() {
 # Function to build base image
 build_base() {
     print_status "Building shared base image..."
-    docker-compose build base
+    docker compose build base
     print_success "Base image built successfully!"
 }
 
@@ -70,7 +70,7 @@ build_fast() {
     build_base
     
     # Build other services
-    docker-compose build --parallel
+    docker compose build --parallel
     print_success "All services built successfully!"
 }
 
@@ -85,7 +85,7 @@ start_dev() {
     fi
     
     # Start services with build
-    docker-compose up -d --build
+    docker compose up -d --build
     print_success "Development environment started!"
     print_status "Services available at:"
     echo "  - API: http://localhost:3000"
@@ -101,7 +101,7 @@ start_dev_build() {
     build_base
     
     # Build and start services
-    docker-compose up -d --build
+    docker compose up -d --build
     print_success "Development environment started with auto-build!"
     print_status "Services available at:"
     echo "  - API: http://localhost:3000"
@@ -112,7 +112,7 @@ start_dev_build() {
 # Function to start production environment
 start_prod() {
     print_status "Starting production environment..."
-    docker-compose -f docker-compose.yml up -d
+    docker compose -f docker compose.yml up -d
     print_success "Production environment started!"
 }
 
@@ -121,7 +121,7 @@ clean_docker() {
     print_status "Cleaning up Docker resources..."
     
     # Stop and remove containers
-    docker-compose down
+    docker compose down
     
     # Remove unused images
     docker image prune -f
@@ -142,14 +142,14 @@ prune_docker() {
 # Function to force rebuild
 rebuild_all() {
     print_status "Force rebuilding all images..."
-    docker-compose build --no-cache --parallel
+    docker compose build --no-cache --parallel
     print_success "All images rebuilt successfully!"
 }
 
 # Function to show logs
 show_logs() {
     print_status "Showing logs for all services..."
-    docker-compose logs -f
+    docker compose logs -f
 }
 
 # Function to show stats

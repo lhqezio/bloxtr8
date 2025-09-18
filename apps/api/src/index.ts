@@ -53,13 +53,13 @@ app.post('/contracts/:id/upload', async (req, res) => {
     const { id } = req.params;
     const key = `contracts/${id}.pdf`;
     const presignedUrl = await createPresignedPutUrl(key);
-
+    
     res.json({
       uploadUrl: presignedUrl,
       key,
-      expiresIn: 900, // 15 minutes
+      expiresIn: 900 // 15 minutes
     });
-  } catch {
+  } catch (error) {
     res.status(500).json({ error: 'Failed to generate upload URL' });
   }
 });
@@ -70,13 +70,13 @@ app.get('/contracts/:id/pdf', async (req, res) => {
     const { id } = req.params;
     const key = `contracts/${id}.pdf`;
     const presignedUrl = await createPresignedGetUrl(key);
-
+    
     res.json({
       downloadUrl: presignedUrl,
       key,
-      expiresIn: 3600, // 1 hour
+      expiresIn: 3600 // 1 hour
     });
-  } catch {
+  } catch (error) {
     res.status(500).json({ error: 'Failed to generate download URL' });
   }
 });
