@@ -65,8 +65,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Decrypt environment
-        run: pnpm env:decrypt:dev
 
       - name: Cache Prisma generated files
         uses: actions/cache@v4
@@ -115,7 +113,7 @@ jobs:
       - name: Push database schema
         run: pnpm db:push
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          DATABASE_URL_PRISMA: postgresql://test:test@localhost:5432/test_db
 
       - name: Cache Turbo cache
         uses: actions/cache@v4
@@ -266,12 +264,12 @@ jobs:
       - name: Push database schema
         run: pnpm db:push
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          DATABASE_URL_PRISMA: postgresql://test:test@localhost:5432/test_db
 
       - name: Run database tests
         run: pnpm --filter=@bloxtr8/database test --passWithNoTests
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          DATABASE_URL_PRISMA: postgresql://test:test@localhost:5432/test_db
 
       - name: Upload database test results
         if: failure()
