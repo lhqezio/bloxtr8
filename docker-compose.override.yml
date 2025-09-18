@@ -1,4 +1,15 @@
 services:
+  test-db:
+      image: postgres:16.2-alpine
+      container_name: bloxtr8
+      environment:
+        - POSTGRES_DB=bloxtr8-db
+        - POSTGRES_USER=postgres
+        - POSTGRES_PASSWORD=postgres
+      ports:
+        - "5432:5432"
+      volumes:
+      - pgdata:/var/lib/postgresql/data
   api:
     build:
       context: .
@@ -30,3 +41,6 @@ services:
     environment:
       - NODE_ENV=development
     restart: "no"
+# Named volumes
+volumes:
+  pgdata:
