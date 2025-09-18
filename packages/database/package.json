@@ -10,6 +10,7 @@
     "push": "prisma db push",
     "migrate": "prisma migrate dev",
     "studio": "prisma studio",
+    "reset":"prisma migrate reset",
     "build": "tsc",
     "test": "jest --passWithNoTests",
     "lint": "eslint src --ext .ts,.tsx",

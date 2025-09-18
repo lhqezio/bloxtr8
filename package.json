@@ -16,6 +16,7 @@
     "db:generate": "dotenvx run -- pnpm --filter=@bloxtr8/database generate",
     "db:push": "dotenvx run -- pnpm --filter=@bloxtr8/database push",
     "db:migrate": "dotenvx run -- pnpm --filter=@bloxtr8/database migrate",
+    "db:reset": "dotenvx run -- pnpm --filter=@bloxtr8/database reset",
     "db:studio": "dotenvx run -- pnpm --filter=@bloxtr8/database studio",
     "env:encrypt": "dotenvx encrypt",
     "env:decrypt": "dotenvx decrypt",
