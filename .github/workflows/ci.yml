@@ -82,10 +82,10 @@ jobs:
           # Create .env.keys file from GitHub secrets
           echo "DOTENV_PRIVATE_KEY_DEV=${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" > .env.keys
           echo "DOTENV_PRIVATE_KEY_PRODUCTION=${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" >> .env.keys
-          
+
           # Decrypt development environment for Prisma commands
           ./scripts/env-decrypt-dev.sh
-          
+
           # Verify .env file was created
           if [ ! -f ".env.development.local" ]; then
             echo "Error: Failed to decrypt development environment"
@@ -112,7 +112,7 @@ jobs:
         run: |
           # Decrypt production environment for build
           ./scripts/env-decrypt-prod.sh
-          
+
           # Verify .env file was created
           if [ ! -f ".env.production.local" ]; then
             echo "Error: Failed to decrypt production environment"
@@ -207,10 +207,10 @@ jobs:
           # Create .env.keys file from GitHub secrets
           echo "DOTENV_PRIVATE_KEY_DEV=${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" > .env.keys
           echo "DOTENV_PRIVATE_KEY_PRODUCTION=${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" >> .env.keys
-          
+
           # Decrypt development environment for tests
           ./scripts/env-decrypt-dev.sh
-          
+
           # Verify .env file was created
           if [ ! -f ".env.development.local" ]; then
             echo "Error: Failed to decrypt development environment"
