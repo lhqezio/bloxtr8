@@ -13,3 +13,6 @@ import { z } from 'zod';
 
 export const userIdSchema = z.string().min(1);
 export const robloxUserIdSchema = z.number().positive();
+
+// Domain types and enums
+export { EscrowState, ProviderId, Role } from './domain.js';
