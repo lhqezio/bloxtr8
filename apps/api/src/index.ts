@@ -53,11 +53,11 @@ app.post('/contracts/:id/upload', async (req, res) => {
     const { id } = req.params;
     const key = `contracts/${id}.pdf`;
     const presignedUrl = await createPresignedPutUrl(key);
-    
+
     res.json({
       uploadUrl: presignedUrl,
       key,
-      expiresIn: 900 // 15 minutes
+      expiresIn: 900, // 15 minutes
     });
   } catch (error) {
     console.error('Upload error:', error);
@@ -71,11 +71,11 @@ app.get('/contracts/:id/pdf', async (req, res) => {
     const { id } = req.params;
     const key = `contracts/${id}.pdf`;
     const presignedUrl = await createPresignedGetUrl(key);
-    
+
     res.json({
       downloadUrl: presignedUrl,
       key,
-      expiresIn: 3600 // 1 hour
+      expiresIn: 3600, // 1 hour
     });
   } catch (error) {
     console.error('Upload error:', error);
