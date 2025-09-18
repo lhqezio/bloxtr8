@@ -60,6 +60,7 @@ app.post('/contracts/:id/upload', async (req, res) => {
       expiresIn: 900 // 15 minutes
     });
   } catch (error) {
+    console.error('Upload error:', error);
     res.status(500).json({ error: 'Failed to generate upload URL' });
   }
 });
@@ -77,6 +78,7 @@ app.get('/contracts/:id/pdf', async (req, res) => {
       expiresIn: 3600 // 1 hour
     });
   } catch (error) {
+    console.error('Upload error:', error);
     res.status(500).json({ error: 'Failed to generate download URL' });
   }
 });
