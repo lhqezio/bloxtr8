@@ -341,6 +341,7 @@ pnpm docker:dev
 ```
 
 This will start:
+
 - **test-db** → PostgreSQL 16 with persistent storage
 - **api** → Express API running in watch mode with hot reloading
 - **discord-bot** → Discord.js bot running in watch mode
@@ -474,17 +475,20 @@ pnpm docker:prod
 ### Performance Tips
 
 1. **Use BuildKit**: Enable for better performance
+
    ```bash
    export DOCKER_BUILDKIT=1
    ```
 
 2. **Regular Cleanup**: Free up disk space
+
    ```bash
    pnpm docker:clean
    pnpm docker:prune
    ```
 
 3. **Monitor Resources**: Check resource usage
+
    ```bash
    pnpm docker:stats
    ```
