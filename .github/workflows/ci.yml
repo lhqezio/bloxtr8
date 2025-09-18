@@ -81,7 +81,7 @@ jobs:
         run: |
           # Copy encrypted development environment to .env
           cp .env.development .env
-          
+
           echo "✓ Development environment setup complete"
 
       - name: Generate Prisma client
@@ -107,7 +107,7 @@ jobs:
         run: |
           # Copy encrypted production environment to .env
           cp .env.production .env
-          
+
           echo "✓ Production environment setup complete"
 
       - name: Build packages
@@ -200,7 +200,7 @@ jobs:
         run: |
           # Copy encrypted development environment to .env
           cp .env.development .env
-          
+
           echo "✓ Development environment setup complete"
 
       - name: Generate Prisma client
