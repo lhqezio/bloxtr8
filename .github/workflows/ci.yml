@@ -65,6 +65,12 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Create dotenvx keys file
+        run: |
+          echo "${{ secrets.DOTENV_PRIVATE_KEY }}" >> .env.keys
+          echo "${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" >> .env.keys
+          echo "${{ secrets.DOTENV_PRIVATE_KEY_DEVELOPMENT }}" >> .env.keys
+          echo "${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" >> .env.keys
       - name: Decrypt environment
         run: pnpm env:decrypt:dev
 
