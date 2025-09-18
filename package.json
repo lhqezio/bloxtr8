@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Discord-native escrow and verification system for Roblox game trading",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "./scripts/env-dev.sh dotenvx run -- turbo run dev",
     "build": "./scripts/env-prod.sh dotenvx run -- turbo run build",
