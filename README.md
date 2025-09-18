@@ -1,5 +1,7 @@
 # Bloxtr8
 
+[![CI](https://github.com/your-username/bloxtr8/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/bloxtr8/actions/workflows/ci.yml)
+
 Discord-native escrow and verification system for Roblox game trading.
 
 ## Overview
@@ -470,6 +472,46 @@ STORAGE_ACCESS_KEY="${AWS_ACCESS_KEY_ID}"
 STORAGE_SECRET_KEY="${AWS_SECRET_ACCESS_KEY}"
 STORAGE_BUCKET="${AWS_S3_BUCKET}"
 ```
+
+## CI/CD Pipeline
+
+This project uses GitHub Actions for continuous integration and deployment. The CI pipeline automatically runs on every pull request and push to the main branch.
+
+### CI Pipeline Features
+
+- **Multi-Node Testing**: Tests on Node.js 18, 20, and 22
+- **Intelligent Caching**: pnpm, Prisma, and Turbo caches for fast builds
+- **Comprehensive Testing**: Unit tests, integration tests, and database tests
+- **Code Quality**: ESLint linting and Prettier formatting checks
+- **Artifact Management**: Build artifacts and test reports uploaded on failure
+- **Database Testing**: Separate PostgreSQL service for database integration tests
+
+### Pipeline Steps
+
+1. **Setup**: Node.js, pnpm, and environment configuration
+2. **Install**: Dependencies with intelligent caching
+3. **Generate**: Prisma client for database operations
+4. **Build**: All packages using Turbo build system
+5. **Lint**: ESLint checks across all packages
+6. **Format**: Prettier formatting validation
+7. **Test**: Jest test suites across all packages
+8. **Database Tests**: Integration tests with PostgreSQL service
+
+### Artifacts on Failure
+
+When the CI pipeline fails, the following artifacts are automatically uploaded:
+
+- **Build Artifacts**: Compiled `dist/` folders from all packages
+- **Test Results**: Jest coverage reports and test outputs
+- **Logs**: Detailed execution logs and Turbo cache information
+
+### Branch Protection
+
+The main branch is protected with the following requirements:
+
+- ✅ CI pipeline must pass before merging
+- ✅ All checks must be green
+- ✅ No direct pushes to main (PR required)
 
 ## Available Scripts
 

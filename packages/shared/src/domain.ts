@@ -2,6 +2,8 @@
  * Domain enums for type-safe boundaries across the Bloxtr8 application
  */
 
+/* eslint-disable no-unused-vars */
+
 /**
  * Escrow state enumeration
  * Represents the current state of an escrow transaction

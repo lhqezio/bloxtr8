@@ -1,0 +1,55 @@
+name: Branch Protection Setup
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Repository name (owner/repo)'
+        required: true
+        default: 'Project-RBLX/bloxtr8'
+      branch:
+        description: 'Branch to protect'
+        required: true
+        default: 'main'
+
+jobs:
+  setup-branch-protection:
+    name: Setup Branch Protection
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Branch Protection
+        run: |
+          echo "To set up branch protection for ${{ github.event.inputs.repository }}:"
+          echo ""
+          echo "1. Go to: https://github.com/${{ github.event.inputs.repository }}/settings/branches"
+          echo "2. Click 'Add rule' or edit existing rule for '${{ github.event.inputs.branch }}'"
+          echo "3. Configure the following settings:"
+          echo ""
+          echo "    Require a pull request before merging"
+          echo "    Require approvals (1 or more)"
+          echo "    Dismiss stale PR approvals when new commits are pushed"
+          echo "    Require status checks to pass before merging"
+          echo "    Require branches to be up to date before merging"
+          echo "    Require conversation resolution before merging"
+          echo ""
+          echo "   Required status checks:"
+          echo "   - CI (ci.yml)"
+          echo "   - Database Tests (database-tests.yml)"
+          echo ""
+          echo "    Restrict pushes that create files"
+          echo "    Include administrators"
+          echo "    Allow force pushes: Never"
+          echo "    Allow deletions: Never"
+          echo ""
+          echo "4. Click 'Create' or 'Save changes'"
+          echo ""
+          echo "This will ensure that:"
+          echo "- All PRs must pass CI before merging"
+          echo "- No direct pushes to ${{ github.event.inputs.branch }}"
+          echo "- All checks must be green"
+          echo "- Code review is required"

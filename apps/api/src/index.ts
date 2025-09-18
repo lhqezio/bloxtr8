@@ -1,10 +1,10 @@
+import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 import { config } from '@dotenvx/dotenvx';
 import compress from 'compression';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import pkg from 'pg';
-import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 
 const { Pool } = pkg;
 // Load environment variables
@@ -56,7 +56,7 @@ app.post('/contracts/:id/upload', async (req, res) => {
       key,
       expiresIn: 900 // 15 minutes
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Failed to generate upload URL' });
   }
 });
@@ -73,7 +73,7 @@ app.get('/contracts/:id/pdf', async (req, res) => {
       key,
       expiresIn: 3600 // 1 hour
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Failed to generate download URL' });
   }
 });
