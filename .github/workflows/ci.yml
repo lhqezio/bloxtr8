@@ -83,7 +83,7 @@ jobs:
         run: pnpm format:check
 
       - name: Run tests
-        run: pnpm test --passWithNoTests
+        run: pnpm test
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
