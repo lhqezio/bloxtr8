@@ -1,26 +1,32 @@
 services:
   api:
     build:
+      context: .
       target: base
-    env_file:
-      - apps/api/.env
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./.env.keys:/app/.env.keys:ro
+    working_dir: /app
+    command: >
+      sh -c "sh ./scripts/env-decrypt-dev.sh &&
+             sh ./scripts/env-dev.sh pnpm --filter @bloxtr8/api dev"
     environment:
       - NODE_ENV=development
-    volumes:
-      - ./apps/api:/app/apps/api
-      - /app/apps/api/node_modules
-    command: pnpm --filter @bloxtr8/api dev
     restart: "no"
 
   discord-bot:
     build:
+      context: .
       target: base
-    env_file:
-      - apps/discord-bot/.env
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./.env.keys:/app/.env.keys:ro
+    working_dir: /app
+    command: >
+      sh -c "sh ./scripts/env-decrypt-dev.sh &&
+             sh ./scripts/env-dev.sh pnpm --filter @bloxtr8/discord-bot dev"
     environment:
       - NODE_ENV=development
-    volumes:
-      - ./apps/discord-bot:/app/apps/discord-bot
-      - /app/apps/discord-bot/node_modules
-    command: pnpm --filter @bloxtr8/discord-bot dev
     restart: "no"

@@ -11,7 +11,7 @@ fi
 
 source .env.keys
 export DOTENV_PRIVATE_KEY=${DOTENV_PRIVATE_KEY_PRODUCTION:-$DOTENV_PRIVATE_KEY}
-
+export PATH="./node_modules/.bin:$PATH"
 # Decrypt to stdout and filter out dotenvx header comments
 dotenvx decrypt --stdout -f .env.production | grep -v "^#/" | grep -v "^#\[" | grep -v "^#\s*$" > .env.production.local
 

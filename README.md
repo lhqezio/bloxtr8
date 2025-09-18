@@ -290,7 +290,7 @@ docker compose -f docker-compose.yml up --build -d
 To see if the docker images are running correctly run:
 
 ```bash
-docker exec -it bloxtr8_api_1 sh
+docker exec -it bloxtr8-api-1 sh
 
 ```
 to get into the running container, then run:
@@ -299,6 +299,7 @@ echo $NODE_ENV
 # The result will be either 'development' or 'production'
 
 ```
+Also for development container, you can ctrl+c to stop it while when run in production mode, the command ends immediately and the 2 containers will just be running in the back ground
 ## Architecture
 
 ### Core Flow
