@@ -16,6 +16,7 @@
   "dependencies": {
     "@bloxtr8/database": "workspace:*",
     "@bloxtr8/shared": "workspace:*",
+    "@bloxtr8/storage": "workspace:*",
     "@bloxtr8/types": "workspace:*",
     "bcryptjs": "^2.4.3",
     "compression": "^1.8.1",

@@ -4,6 +4,7 @@ import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import pkg from 'pg';
+import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 
 const { Pool } = pkg;
 // Load environment variables
@@ -41,6 +42,40 @@ app.get('/health', async (req, res) => {
     message: 'Bloxtr8 API is running',
     timestamp: new Date().toISOString(),
   });
+});
+
+// PDF upload endpoint - returns presigned PUT URL
+app.post('/contracts/:id/upload', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const key = `contracts/${id}.pdf`;
+    const presignedUrl = await createPresignedPutUrl(key);
+    
+    res.json({
+      uploadUrl: presignedUrl,
+      key,
+      expiresIn: 900 // 15 minutes
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate upload URL' });
+  }
+});
+
+// PDF download endpoint - returns presigned GET URL
+app.get('/contracts/:id/pdf', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const key = `contracts/${id}.pdf`;
+    const presignedUrl = await createPresignedGetUrl(key);
+    
+    res.json({
+      downloadUrl: presignedUrl,
+      key,
+      expiresIn: 3600 // 1 hour
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate download URL' });
+  }
 });
 
 // Start server
