@@ -1,4 +1,12 @@
 services:
+  # Build the shared base image first
+  base:
+    build:
+      context: .
+      dockerfile: Dockerfile.base
+      target: base
+    image: bloxtr8-base:latest
+
   setup:
     image: node:20-alpine
     working_dir: /app
@@ -7,6 +15,9 @@ services:
       - /app/node_modules
       - ./.env.keys:/app/.env.keys:ro
     command: sh ./scripts/env-decrypt-prod.sh && sh ./scripts/env-prod.sh
+    depends_on:
+      - base
+
   api:
     build:
       context: .
@@ -16,6 +27,8 @@ services:
     environment:
       - NODE_ENV=production
     restart: unless-stopped
+    depends_on:
+      - base
 
   discord-bot:
     build:
@@ -24,3 +37,5 @@ services:
     environment:
       - NODE_ENV=production
     restart: unless-stopped
+    depends_on:
+      - base

@@ -10,37 +10,63 @@ services:
       - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
+    # Optimize PostgreSQL for development
+    command: postgres -c shared_preload_libraries=pg_stat_statements -c max_connections=100 -c shared_buffers=128MB
+
   api:
     build:
       context: .
-      target: base
+      dockerfile: Dockerfile.base
+      target: development
     volumes:
-      - .:/app
-      - /app/node_modules
+      # Use bind mounts for source code only, not node_modules
+      - ./apps/api:/app/apps/api
+      - ./packages:/app/packages
+      - ./package.json:/app/package.json
+      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml
+      - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml
+      - ./turbo.json:/app/turbo.json
       - ./.env.keys:/app/.env.keys:ro
+      # Use anonymous volume for node_modules to prevent host override
+      - /app/node_modules
     working_dir: /app
     command: >
       sh -c "sh ./scripts/env-decrypt-dev.sh &&
              sh ./scripts/env-dev.sh pnpm --filter @bloxtr8/api dev"
     environment:
       - NODE_ENV=development
+      - WATCHPACK_POLLING=true
     restart: 'no'
+    depends_on:
+      - test-db
 
   discord-bot:
     build:
       context: .
-      target: base
+      dockerfile: Dockerfile.base
+      target: development
     volumes:
-      - .:/app
-      - /app/node_modules
+      # Use bind mounts for source code only, not node_modules
+      - ./apps/discord-bot:/app/apps/discord-bot
+      - ./packages:/app/packages
+      - ./package.json:/app/package.json
+      - ./pnpm-lock.yaml:/app/pnpm-lock.yaml
+      - ./pnpm-workspace.yaml:/app/pnpm-workspace.yaml
+      - ./turbo.json:/app/turbo.json
       - ./.env.keys:/app/.env.keys:ro
+      # Use anonymous volume for node_modules to prevent host override
+      - /app/node_modules
     working_dir: /app
     command: >
       sh -c "sh ./scripts/env-decrypt-dev.sh &&
              sh ./scripts/env-dev.sh pnpm --filter @bloxtr8/discord-bot dev"
     environment:
       - NODE_ENV=development
+      - WATCHPACK_POLLING=true
     restart: 'no'
+    depends_on:
+      - test-db
+
   minio:
     image: minio/minio:latest
     ports:
