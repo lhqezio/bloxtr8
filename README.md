@@ -300,24 +300,26 @@ TRM_API_KEY="your_trm_api_key"
 CHAINALYSIS_API_KEY="your_chainalysis_api_key"
 ```
 
-### Docker Set up
+## Docker Development
 
-#### Prerequisites
+### Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) (v20+)
 - [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
 - [Node.js](https://nodejs.org/) (v20+) if you want to run scripts outside containers
 - [pnpm](https://pnpm.io/) (`corepack enable` recommended)
 
----
+### Performance Optimizations
 
-<br>
-This project uses Docker Compose to orchestrate services for local development, including:
+This project includes several Docker performance optimizations:
 
-- Postgres (with persistent volume)
-- API server (Express + TypeScript)
-- Discord Bot
-  To run either the server in development or production mode using Docker, run:
+- **Shared Base Image**: Single base image with all dependencies installed once
+- **Layer Caching**: Optimized Dockerfile structure for faster builds
+- **Selective Volume Mounting**: Only mount source code, not `node_modules`
+- **Build Context Optimization**: `.dockerignore` excludes unnecessary files
+- **Multi-stage Builds**: Smaller production images
+
+### Quick Start
 
 #### 1. Clone and Install
 
@@ -326,67 +328,213 @@ git clone <repo-url>
 cd bloxtr8
 ```
 
-#### 2. Start Dev Environment
+#### 2. Build Base Image (First Time Only)
 
 ```bash
-docker compose up --build
+pnpm docker:build-base
+```
 
+#### 3. Start Development Environment
+
+```bash
+pnpm docker:dev
 ```
 
 This will start:
 
-- test-db → Postgres 16 with persistent storage
-- api → Express API running in watch mode
-- discord-bot → Discord.js bot running in watch mode
-  <br>
-  To see if the docker images are running correctly run:
+- **test-db** → PostgreSQL 16 with persistent storage
+- **api** → Express API running in watch mode with hot reloading
+- **discord-bot** → Discord.js bot running in watch mode
+- **minio** → S3-compatible storage for development
+
+### Available Docker Commands
+
+#### Build Commands
 
 ```bash
-docker exec -it bloxtr8-api-1 sh
-
+pnpm docker:build-base    # Build the shared base image (run first)
+pnpm docker:build         # Build all services with optimizations
+pnpm docker:rebuild       # Force rebuild all images (no cache)
 ```
 
-to get into the running container, then run:
+#### Development Commands
 
 ```bash
-echo $NODE_ENV
-# The result will be either 'development' or 'production'
+pnpm docker:dev           # Start optimized development environment
+pnpm docker:up            # Start all services in background
+pnpm docker:down          # Stop all services
 ```
 
-To check if the database volume is mounted correctly run:
+#### Production Commands
 
 ```bash
-docker volume ls
-# You should see: local     bloxtr8_pgdata
-# Bonus: run docker volume inspect bloxtr8_pgdata to check the inspect the volume
-# Or
-ls /var/lib/docker/volumes/bloxtr8_pgdata/_data
-# To see the actual database on the host machine
+pnpm docker:prod          # Start production environment
 ```
 
-To interact with the database, run either:
+#### Monitoring & Maintenance
 
 ```bash
-# To exec into the container directly
+pnpm docker:logs          # Show logs for all services
+pnpm docker:stats         # Show resource usage statistics
+pnpm docker:clean         # Clean up Docker resources
+pnpm docker:prune         # Remove unused Docker resources
+```
+
+### Development Workflow
+
+#### First Time Setup
+
+```bash
+# Build the shared base image (includes all dependencies)
+pnpm docker:build-base
+
+# Start development environment
+pnpm docker:dev
+```
+
+#### Daily Development
+
+```bash
+# Start development with hot reloading
+pnpm docker:dev
+
+# Check logs if needed
+pnpm docker:logs
+
+# Monitor resource usage
+pnpm docker:stats
+```
+
+#### Cleanup
+
+```bash
+# Stop services
+pnpm docker:down
+
+# Clean up resources
+pnpm docker:clean
+```
+
+### Service Details
+
+#### Development Services
+
+- **API Server**: `http://localhost:3000`
+  - Hot reloading enabled
+  - Source code mounted for live updates
+  - Environment: `development`
+
+- **PostgreSQL**: `localhost:5432`
+  - Database: `bloxtr8-db`
+  - User: `postgres`
+  - Password: `postgres`
+  - Persistent volume: `bloxtr8_pgdata`
+
+- **MinIO Storage**: `http://localhost:9001`
+  - Username: `minioadmin`
+  - Password: `minioadmin123`
+  - Console: `http://localhost:9001`
+
+- **Discord Bot**: Runs in background
+  - Hot reloading enabled
+  - Source code mounted for live updates
+
+#### Database Access
+
+```bash
+# Connect to database from host
+psql postgresql://postgres:postgres@localhost:5432/bloxtr8-db
+
+# Or exec into container
 docker exec -it bloxtr8 psql -U postgres -d bloxtr8-db
+```
 
-# To interact with the database from the host machine
+#### Volume Management
+
+```bash
+# List volumes
+docker volume ls
+
+# Inspect database volume
+docker volume inspect bloxtr8_pgdata
+
+# View volume data on host
+ls /var/lib/docker/volumes/bloxtr8_pgdata/_data
+```
+
+### Production Deployment
+
+#### Start Production Environment
+
+```bash
+pnpm docker:prod
+```
+
+**Note**: Production mode requires a valid `DATABASE_URL` environment variable pointing to an external database. No local database volume is mounted in production.
+
+### Performance Tips
+
+1. **Use BuildKit**: Enable for better performance
+
+   ```bash
+   export DOCKER_BUILDKIT=1
+   ```
+
+2. **Regular Cleanup**: Free up disk space
+
+   ```bash
+   pnpm docker:clean
+   pnpm docker:prune
+   ```
+
+3. **Monitor Resources**: Check resource usage
+
+   ```bash
+   pnpm docker:stats
+   ```
+
+4. **Layer Caching**: The optimized Dockerfiles use layer caching for faster rebuilds
+
+### Troubleshooting
+
+#### Container Not Starting
+
+```bash
+# Check logs
+pnpm docker:logs
+
+# Check container status
+docker ps -a
+
+# Restart services
+pnpm docker:down
+pnpm docker:dev
+```
+
+#### Build Issues
+
+```bash
+# Force rebuild without cache
+pnpm docker:rebuild
+
+# Clean up and rebuild
+pnpm docker:clean
+pnpm docker:build-base
+pnpm docker:dev
+```
+
+#### Database Connection Issues
+
+```bash
+# Check if database is running
+docker ps | grep postgres
+
+# Check database logs
+docker logs bloxtr8
+
+# Test connection
 psql postgresql://postgres:postgres@localhost:5432/bloxtr8-db
 ```
-
-#### 3.Start Production Environment
-
-```bash
-docker compose -f docker-compose.yml up --build -d
-```
-
-This will start:
-
-- api → Express API running
-- discord-bot → Discord.js bot running
-  <br>
-  Noted that in production, no database volume will be mounted, the DATABASE_URL has to be a valid database url
-  <br>
 
 ## Architecture
 

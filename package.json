@@ -29,7 +29,19 @@
     "env:get": "dotenvx get",
     "env:ls": "dotenvx ls",
     "env:rotate": "dotenvx rotate",
-    "env:keypair": "dotenvx keypair"
+    "env:keypair": "dotenvx keypair",
+    "docker:build-base": "./scripts/docker-optimize.sh build-base",
+    "docker:build": "./scripts/docker-optimize.sh build-fast",
+    "docker:dev": "./scripts/docker-optimize.sh dev",
+    "docker:dev:build": "./scripts/docker-optimize.sh dev-build",
+    "docker:prod": "./scripts/docker-optimize.sh prod",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "./scripts/docker-optimize.sh logs",
+    "docker:stats": "./scripts/docker-optimize.sh stats",
+    "docker:clean": "./scripts/docker-optimize.sh clean",
+    "docker:prune": "./scripts/docker-optimize.sh prune",
+    "docker:rebuild": "./scripts/docker-optimize.sh rebuild"
   },
   "keywords": [
     "roblox",
