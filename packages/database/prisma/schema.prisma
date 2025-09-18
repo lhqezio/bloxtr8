@@ -29,9 +29,9 @@ model User {
   
   // Relations
   listings    Listing[]
-  offers      Offer[]
-  contracts   Contract[]
-  escrows     Escrow[]
+  buyerOffers Offer[] @relation("BuyerOffers")
+  sellerOffers Offer[] @relation("SellerOffers")
+  signatures  Signature[]
   auditLogs   AuditLog[]
   
   @@map("users")
@@ -70,9 +70,9 @@ model Offer {
   listingId   String
   listing     Listing     @relation(fields: [listingId], references: [id])
   buyerId     String
-  buyer       User        @relation(fields: [buyerId], references: [id])
+  buyer       User        @relation("BuyerOffers", fields: [buyerId], references: [id])
   sellerId    String
-  seller      User        @relation(fields: [sellerId], references: [id])
+  seller      User        @relation("SellerOffers", fields: [sellerId], references: [id])
   
   // Parent offer for counter offers
   parentId    String?
@@ -168,7 +168,7 @@ model MilestoneEscrow {
   id          String      @id @default(cuid())
   title       String
   amountCents Int
-  status      EscrowStatus @default(PENDING)
+  status      EscrowStatus @default(AWAIT_FUNDS)
   
   escrowId    String
   escrow      Escrow      @relation(fields: [escrowId], references: [id])
