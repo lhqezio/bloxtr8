@@ -100,7 +100,7 @@ jobs:
       - name: Push database schema
         run: pnpm db:push
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          DATABASE_URL_PRISMA: postgresql://test:test@localhost:5432/test_db
           DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Cache Turbo cache
@@ -226,13 +226,13 @@ jobs:
       - name: Push database schema
         run: pnpm db:push
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          DATABASE_URL_PRISMA: postgresql://test:test@localhost:5432/test_db
           DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Run database tests
         run: pnpm --filter=@bloxtr8/database test --passWithNoTests
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          DATABASE_URL_PRISMA: postgresql://test:test@localhost:5432/test_db
           DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Upload database test results
