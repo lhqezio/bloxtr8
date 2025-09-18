@@ -107,6 +107,7 @@ Thumbs.db
 
 # Prisma
 prisma/migrations/
+packages/database/src/generated/
 
 # Turborepo
 .turbo

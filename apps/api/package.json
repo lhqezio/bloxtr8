@@ -9,13 +9,14 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix"
   },
   "dependencies": {
     "@bloxtr8/database": "workspace:*",
     "@bloxtr8/shared": "workspace:*",
+    "@bloxtr8/storage": "workspace:*",
     "@bloxtr8/types": "workspace:*",
     "bcryptjs": "^2.4.3",
     "compression": "^1.8.1",

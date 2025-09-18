@@ -1,5 +1,7 @@
 # Bloxtr8
 
+[![CI](https://github.com/your-username/bloxtr8/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/bloxtr8/actions/workflows/ci.yml)
+
 Discord-native escrow and verification system for Roblox game trading.
 
 ## Overview
@@ -105,12 +107,14 @@ This project uses **dotenvx** with **in-repo encrypted environments** for secure
 #### Setting Up Private Keys
 
 **Step 1: Get the Private Key**
+
 ```bash
 # View the private key (never commit this file!)
 cat .env.keys
 ```
 
 **Step 2: Set Up Local Development**
+
 ```bash
 # Option A: Export in your shell profile (~/.zshrc, ~/.bashrc)
 export DOTENV_PRIVATE_KEY_DEV="your_dev_private_key_here"
@@ -121,6 +125,7 @@ cp .env.keys ~/.env.keys
 ```
 
 **Step 3: Set Up CI/CD**
+
 ```bash
 # Add as environment variables in your CI system
 DOTENV_PRIVATE_KEY_DEV="your_dev_private_key_here"
@@ -128,6 +133,7 @@ DOTENV_PRIVATE_KEY_PRODUCTION="your_prod_private_key_here"
 ```
 
 **Step 4: Verify Setup**
+
 ```bash
 # Test that environment variables are loaded
 pnpm dev --dry-run
@@ -140,11 +146,13 @@ This project uses **encrypted environment files** with a **local editing workflo
 ##### **File Structure**
 
 **Committed Files (Safe for Git):**
+
 - `.env.development` - Encrypted development environment
 - `.env.production` - Encrypted production environment
 - `.env.local.example` - Template for new developers
 
 **Local Files (Never Committed):**
+
 - `.env.development.local` - Editable development environment
 - `.env.production.local` - Editable production environment
 - `.env.keys` - Private decryption keys
@@ -152,6 +160,7 @@ This project uses **encrypted environment files** with a **local editing workflo
 ##### **Development Workflow**
 
 **1. Decrypt Environment for Editing**
+
 ```bash
 # Decrypt development environment
 pnpm env:decrypt:dev
@@ -159,6 +168,7 @@ pnpm env:decrypt:dev
 ```
 
 **2. Edit Environment Variables**
+
 ```bash
 # Edit the local file with your changes
 nano .env.development.local
@@ -167,6 +177,7 @@ code .env.development.local
 ```
 
 **3. Encrypt and Commit**
+
 ```bash
 # Encrypt from local file
 pnpm env:encrypt:dev
@@ -180,6 +191,7 @@ git commit -m "Update development environment"
 ##### **Production Workflow**
 
 **1. Decrypt Production Environment**
+
 ```bash
 # Decrypt production environment
 pnpm env:decrypt:prod
@@ -187,12 +199,14 @@ pnpm env:decrypt:prod
 ```
 
 **2. Edit Production Variables**
+
 ```bash
 # Edit production values
 nano .env.production.local
 ```
 
 **3. Encrypt Production Environment**
+
 ```bash
 # Encrypt production environment
 pnpm env:encrypt:prod
@@ -202,12 +216,14 @@ pnpm env:encrypt:prod
 ##### **Running Applications**
 
 **Development:**
+
 ```bash
 pnpm dev     # Uses .env.development (automatically decrypted)
 pnpm test    # Uses .env.development (automatically decrypted)
 ```
 
 **Production:**
+
 ```bash
 pnpm build   # Uses .env.production (automatically decrypted)
 ```
@@ -222,21 +238,21 @@ pnpm build   # Uses .env.production (automatically decrypted)
 
 ##### **Available Commands**
 
-| Command | Purpose |
-|---------|---------|
-| `pnpm env:decrypt:dev` | Decrypt dev env → `.env.development.local` |
-| `pnpm env:encrypt:dev` | Encrypt `.env.development.local` → `.env.development` |
-| `pnpm env:decrypt:prod` | Decrypt prod env → `.env.production.local` |
-| `pnpm env:encrypt:prod` | Encrypt `.env.production.local` → `.env.production` |
-| `pnpm env:ls` | List all environment files |
-| `pnpm env:rotate` | Rotate encryption keys |
+| Command                 | Purpose                                               |
+| ----------------------- | ----------------------------------------------------- |
+| `pnpm env:decrypt:dev`  | Decrypt dev env → `.env.development.local`            |
+| `pnpm env:encrypt:dev`  | Encrypt `.env.development.local` → `.env.development` |
+| `pnpm env:decrypt:prod` | Decrypt prod env → `.env.production.local`            |
+| `pnpm env:encrypt:prod` | Encrypt `.env.production.local` → `.env.production`   |
+| `pnpm env:ls`           | List all environment files                            |
+| `pnpm env:rotate`       | Rotate encryption keys                                |
 
 ##### **Shell Scripts**
 
 The project includes helper shell scripts in the `scripts/` directory for cleaner command execution:
 
 - `scripts/env-dev.sh` - Sets up development environment
-- `scripts/env-prod.sh` - Sets up production environment  
+- `scripts/env-prod.sh` - Sets up production environment
 - `scripts/env-encrypt-dev.sh` - Encrypts development environment
 - `scripts/env-decrypt-dev.sh` - Decrypts development environment
 - `scripts/env-encrypt-prod.sh` - Encrypts production environment
@@ -267,7 +283,14 @@ CUSTODIAN_WEBHOOK_SECRET="your_webhook_secret"
 # Security
 JWT_SECRET="your_jwt_secret"
 
-# AWS S3 (for contract storage)
+# Object Storage (MinIO for dev, S3 for prod)
+STORAGE_ENDPOINT="http://localhost:9000"  # MinIO endpoint for dev
+STORAGE_ACCESS_KEY="minioadmin"           # MinIO access key for dev
+STORAGE_SECRET_KEY="minioadmin123"        # MinIO secret key for dev
+STORAGE_BUCKET="contracts"                # Bucket name for contract PDFs
+STORAGE_REGION="us-east-1"                # Storage region
+
+# AWS S3 (for production)
 AWS_ACCESS_KEY_ID="your_aws_access_key"
 AWS_SECRET_ACCESS_KEY="your_aws_secret_key"
 AWS_S3_BUCKET="your_s3_bucket"
@@ -278,21 +301,23 @@ CHAINALYSIS_API_KEY="your_chainalysis_api_key"
 ```
 
 ### Docker Set up
+
 #### Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) (v20+)  
-- [Docker Compose](https://docs.docker.com/compose/install/) (v2+)  
-- [Node.js](https://nodejs.org/) (v20+) if you want to run scripts outside containers  
-- [pnpm](https://pnpm.io/) (`corepack enable` recommended)  
+- [Docker](https://docs.docker.com/get-docker/) (v20+)
+- [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
+- [Node.js](https://nodejs.org/) (v20+) if you want to run scripts outside containers
+- [pnpm](https://pnpm.io/) (`corepack enable` recommended)
 
 ---
+
 <br>
 This project uses Docker Compose to orchestrate services for local development, including:
 
 - Postgres (with persistent volume)
 - API server (Express + TypeScript)
 - Discord Bot
-To run either the server in development or production mode using Docker, run:
+  To run either the server in development or production mode using Docker, run:
 
 #### 1. Clone and Install
 
@@ -300,39 +325,47 @@ To run either the server in development or production mode using Docker, run:
 git clone <repo-url>
 cd bloxtr8
 ```
+
 #### 2. Start Dev Environment
+
 ```bash
 docker compose up --build
 
 ```
+
 This will start:
 
 - test-db → Postgres 16 with persistent storage
 - api → Express API running in watch mode
 - discord-bot → Discord.js bot running in watch mode
-<br>
-To see if the docker images are running correctly run:
+  <br>
+  To see if the docker images are running correctly run:
 
 ```bash
 docker exec -it bloxtr8-api-1 sh
 
 ```
+
 to get into the running container, then run:
+
 ```bash
 echo $NODE_ENV
 # The result will be either 'development' or 'production'
 ```
 
 To check if the database volume is mounted correctly run:
+
 ```bash
 docker volume ls
 # You should see: local     bloxtr8_pgdata
 # Bonus: run docker volume inspect bloxtr8_pgdata to check the inspect the volume
 # Or
-ls /var/lib/docker/volumes/bloxtr8_pgdata/_data 
+ls /var/lib/docker/volumes/bloxtr8_pgdata/_data
 # To see the actual database on the host machine
 ```
+
 To interact with the database, run either:
+
 ```bash
 # To exec into the container directly
 docker exec -it bloxtr8 psql -U postgres -d bloxtr8-db
@@ -342,15 +375,18 @@ psql postgresql://postgres:postgres@localhost:5432/bloxtr8-db
 ```
 
 #### 3.Start Production Environment
+
 ```bash
 docker compose -f docker-compose.yml up --build -d
 ```
+
 This will start:
+
 - api → Express API running
 - discord-bot → Discord.js bot running
-<br>
-Noted that in production, no database volume will be mounted, the DATABASE_URL has to be a valid database url
-<br>
+  <br>
+  Noted that in production, no database volume will be mounted, the DATABASE_URL has to be a valid database url
+  <br>
 
 ## Architecture
 
@@ -394,20 +430,117 @@ The TypeScript configuration includes convenient path mappings:
 
 ```typescript
 // Instead of relative imports
-import { User } from '../../../packages/types/src/user'
+import { User } from '../../../packages/types/src/user';
 
 // Use clean aliases
-import { User } from '@bloxtr8/types'
-import { DatabaseClient } from '@bloxtr8/database'
-import { validateInput } from '@bloxtr8/shared'
+import { User } from '@bloxtr8/types';
+import { DatabaseClient } from '@bloxtr8/database';
+import { validateInput } from '@bloxtr8/shared';
 ```
 
 ### ESM Modules
 
 All packages are configured as ESM modules with:
+
 - `"type": "module"` in package.json files
 - `.js` extensions in import statements (TypeScript handles the resolution)
 - NodeNext module resolution for optimal compatibility
+
+## PDF Storage System
+
+Bloxtr8 uses a secure object storage system for contract PDFs with presigned URLs for both upload and download operations.
+
+### How It Works
+
+1. **Storage Backend**:
+   - **Development**: MinIO (S3-compatible local storage)
+   - **Production**: AWS S3
+
+2. **Upload Flow**:
+
+   ```
+   Client → POST /contracts/:id/upload → API returns presigned PUT URL
+   Client → PUT to presigned URL → PDF stored in bucket
+   ```
+
+3. **Download Flow**:
+   ```
+   Client → GET /contracts/:id/pdf → API returns presigned GET URL
+   Client → GET from presigned URL → PDF downloaded
+   ```
+
+### API Endpoints
+
+- **`POST /contracts/:id/upload`** - Get presigned URL for PDF upload
+  - Returns: `{ uploadUrl, key, expiresIn }`
+  - Expiration: 15 minutes
+
+- **`GET /contracts/:id/pdf`** - Get presigned URL for PDF download
+  - Returns: `{ downloadUrl, key, expiresIn }`
+  - Expiration: 1 hour
+
+### Security Features
+
+- **Presigned URLs**: No direct bucket access required
+- **Time-limited**: URLs expire automatically
+- **S3-compatible**: Works with MinIO and AWS S3
+- **Path-based keys**: Files stored as `contracts/{contractId}.pdf`
+
+### Environment Configuration
+
+```env
+# Development (MinIO)
+STORAGE_ENDPOINT="http://localhost:9000"
+STORAGE_ACCESS_KEY="minioadmin"
+STORAGE_SECRET_KEY="minioadmin123"
+STORAGE_BUCKET="contracts"
+
+# Production (AWS S3)
+STORAGE_ENDPOINT="https://s3.amazonaws.com"
+STORAGE_ACCESS_KEY="${AWS_ACCESS_KEY_ID}"
+STORAGE_SECRET_KEY="${AWS_SECRET_ACCESS_KEY}"
+STORAGE_BUCKET="${AWS_S3_BUCKET}"
+```
+
+## CI/CD Pipeline
+
+This project uses GitHub Actions for continuous integration and deployment. The CI pipeline automatically runs on every pull request and push to the main branch.
+
+### CI Pipeline Features
+
+- **Multi-Node Testing**: Tests on Node.js 18, 20, and 22
+- **Intelligent Caching**: pnpm, Prisma, and Turbo caches for fast builds
+- **Comprehensive Testing**: Unit tests, integration tests, and database tests
+- **Code Quality**: ESLint linting and Prettier formatting checks
+- **Artifact Management**: Build artifacts and test reports uploaded on failure
+- **Database Testing**: Separate PostgreSQL service for database integration tests
+
+### Pipeline Steps
+
+1. **Setup**: Node.js, pnpm, and environment configuration
+2. **Install**: Dependencies with intelligent caching
+3. **Generate**: Prisma client for database operations
+4. **Build**: All packages using Turbo build system
+5. **Lint**: ESLint checks across all packages
+6. **Format**: Prettier formatting validation
+7. **Test**: Jest test suites across all packages
+8. **Database Tests**: Integration tests with PostgreSQL service
+
+### Artifacts on Failure
+
+When the CI pipeline fails, the following artifacts are automatically uploaded:
+
+- **Build Artifacts**: Compiled `dist/` folders from all packages
+- **Test Results**: Jest coverage reports and test outputs
+- **Logs**: Detailed execution logs and Turbo cache information
+
+### Branch Protection
+
+The main branch is protected with the following requirements:
+
+- ✅ CI pipeline must pass before merging
+- ✅ All checks must be green
+- ✅ No direct pushes to main (PR required)
 
 ## Available Scripts
 
