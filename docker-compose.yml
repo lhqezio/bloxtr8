@@ -1,0 +1,26 @@
+services:
+  setup:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ./.env.keys:/app/.env.keys:ro
+    command: sh ./scripts/env-decrypt-prod.sh && sh ./scripts/env-prod.sh
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+
+  discord-bot:
+    build:
+      context: .
+      dockerfile: apps/discord-bot/Dockerfile
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped

@@ -1,5 +1,6 @@
-import cors from 'cors';
 import { config } from '@dotenvx/dotenvx';
+import compress from 'compression';
+import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 
@@ -7,6 +8,7 @@ import helmet from 'helmet';
 config();
 
 const app = express();
+app.use(compress());
 const port = process.env.PORT || 3000;
 
 // Middleware
