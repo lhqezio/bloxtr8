@@ -79,21 +79,21 @@ jobs:
 
       - name: Setup development environment
         run: |
-          # Set the private key environment variable
-          export DOTENV_PRIVATE_KEY="${{ secrets.DOTENV_PRIVATE_KEY_DEV }}"
-
           # Copy encrypted development environment to .env
           cp .env.development .env
-
+          
           echo "✓ Development environment setup complete"
 
       - name: Generate Prisma client
         run: pnpm db:generate
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Push database schema
         run: pnpm db:push
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Cache Turbo cache
         uses: actions/cache@v4
@@ -105,16 +105,15 @@ jobs:
 
       - name: Setup production environment
         run: |
-          # Set the private key environment variable
-          export DOTENV_PRIVATE_KEY="${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}"
-
           # Copy encrypted production environment to .env
           cp .env.production .env
-
+          
           echo "✓ Production environment setup complete"
 
       - name: Build packages
         run: pnpm build
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}
 
       - name: Lint packages
         run: pnpm lint
@@ -127,6 +126,7 @@ jobs:
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Upload build artifacts on failure
         if: failure()
@@ -198,26 +198,27 @@ jobs:
 
       - name: Setup development environment for database tests
         run: |
-          # Set the private key environment variable
-          export DOTENV_PRIVATE_KEY="${{ secrets.DOTENV_PRIVATE_KEY_DEV }}"
-
           # Copy encrypted development environment to .env
           cp .env.development .env
-
+          
           echo "✓ Development environment setup complete"
 
       - name: Generate Prisma client
         run: pnpm db:generate
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Push database schema
         run: pnpm db:push
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Run database tests
         run: pnpm --filter=@bloxtr8/database test --passWithNoTests
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_DEV }}
 
       - name: Upload database test results
         if: failure()
