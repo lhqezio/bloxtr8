@@ -1,6 +1,6 @@
-import { node } from '@bloxtr8/eslint-config';
+const { node } = require('@bloxtr8/eslint-config');
 
-export default [
+module.exports = [
   ...node,
   {
     ignores: [
