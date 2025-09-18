@@ -77,54 +77,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-prisma-
 
-      - name: Setup environment variables
+      - name: Setup development environment
         run: |
-          # Debug: Check if secrets are set (without revealing values)
-          echo "Checking secrets..."
-          if [ -z "${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" ]; then
-            echo "Error: DOTENV_PRIVATE_KEY_DEV secret is not set!"
-            echo "Please add DOTENV_PRIVATE_KEY_DEV to your GitHub repository secrets."
-            exit 1
-          else
-            echo "✓ DOTENV_PRIVATE_KEY_DEV secret is set"
-          fi
+          # Set the private key environment variable
+          export DOTENV_PRIVATE_KEY="${{ secrets.DOTENV_PRIVATE_KEY_DEV }}"
 
-          if [ -z "${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" ]; then
-            echo "Error: DOTENV_PRIVATE_KEY_PRODUCTION secret is not set!"
-            echo "Please add DOTENV_PRIVATE_KEY_PRODUCTION to your GitHub repository secrets."
-            exit 1
-          else
-            echo "✓ DOTENV_PRIVATE_KEY_PRODUCTION secret is set"
-          fi
+          # Copy encrypted development environment to .env
+          cp .env.development .env
 
-          # Create .env.keys file from GitHub secrets
-          echo "Creating .env.keys file..."
-          echo "DOTENV_PRIVATE_KEY_DEV=${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" > .env.keys
-          echo "DOTENV_PRIVATE_KEY_PRODUCTION=${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" >> .env.keys
-
-          # Debug: Check the .env.keys file (without revealing values)
-          echo "Checking .env.keys file..."
-          if [ -f ".env.keys" ]; then
-            echo "✓ .env.keys file created"
-            echo "File size: $(wc -c < .env.keys) bytes"
-            echo "Number of lines: $(wc -l < .env.keys)"
-          else
-            echo "✗ .env.keys file not created"
-            exit 1
-          fi
-
-          # Decrypt development environment for Prisma commands
-          echo "Decrypting development environment..."
-          ./scripts/env-decrypt-dev.sh
-
-          # Verify .env file was created
-          if [ ! -f ".env.development.local" ]; then
-            echo "Error: Failed to decrypt development environment"
-            echo "Check the decryption script output above for errors"
-            exit 1
-          else
-            echo "✓ Development environment decrypted successfully"
-          fi
+          echo "✓ Development environment setup complete"
 
       - name: Generate Prisma client
         run: pnpm db:generate
@@ -142,16 +103,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      - name: Setup production environment variables
+      - name: Setup production environment
         run: |
-          # Decrypt production environment for build
-          ./scripts/env-decrypt-prod.sh
+          # Set the private key environment variable
+          export DOTENV_PRIVATE_KEY="${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}"
 
-          # Verify .env file was created
-          if [ ! -f ".env.production.local" ]; then
-            echo "Error: Failed to decrypt production environment"
-            exit 1
-          fi
+          # Copy encrypted production environment to .env
+          cp .env.production .env
+
+          echo "✓ Production environment setup complete"
 
       - name: Build packages
         run: pnpm build
@@ -236,54 +196,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Setup environment variables for database tests
+      - name: Setup development environment for database tests
         run: |
-          # Debug: Check if secrets are set (without revealing values)
-          echo "Checking secrets..."
-          if [ -z "${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" ]; then
-            echo "Error: DOTENV_PRIVATE_KEY_DEV secret is not set!"
-            echo "Please add DOTENV_PRIVATE_KEY_DEV to your GitHub repository secrets."
-            exit 1
-          else
-            echo "✓ DOTENV_PRIVATE_KEY_DEV secret is set"
-          fi
+          # Set the private key environment variable
+          export DOTENV_PRIVATE_KEY="${{ secrets.DOTENV_PRIVATE_KEY_DEV }}"
 
-          if [ -z "${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" ]; then
-            echo "Error: DOTENV_PRIVATE_KEY_PRODUCTION secret is not set!"
-            echo "Please add DOTENV_PRIVATE_KEY_PRODUCTION to your GitHub repository secrets."
-            exit 1
-          else
-            echo "✓ DOTENV_PRIVATE_KEY_PRODUCTION secret is set"
-          fi
+          # Copy encrypted development environment to .env
+          cp .env.development .env
 
-          # Create .env.keys file from GitHub secrets
-          echo "Creating .env.keys file..."
-          echo "DOTENV_PRIVATE_KEY_DEV=${{ secrets.DOTENV_PRIVATE_KEY_DEV }}" > .env.keys
-          echo "DOTENV_PRIVATE_KEY_PRODUCTION=${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}" >> .env.keys
-
-          # Debug: Check the .env.keys file (without revealing values)
-          echo "Checking .env.keys file..."
-          if [ -f ".env.keys" ]; then
-            echo "✓ .env.keys file created"
-            echo "File size: $(wc -c < .env.keys) bytes"
-            echo "Number of lines: $(wc -l < .env.keys)"
-          else
-            echo "✗ .env.keys file not created"
-            exit 1
-          fi
-
-          # Decrypt development environment for tests
-          echo "Decrypting development environment..."
-          ./scripts/env-decrypt-dev.sh
-
-          # Verify .env file was created
-          if [ ! -f ".env.development.local" ]; then
-            echo "Error: Failed to decrypt development environment"
-            echo "Check the decryption script output above for errors"
-            exit 1
-          else
-            echo "✓ Development environment decrypted successfully"
-          fi
+          echo "✓ Development environment setup complete"
 
       - name: Generate Prisma client
         run: pnpm db:generate
