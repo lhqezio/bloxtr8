@@ -284,16 +284,40 @@ TRM_API_KEY="your_trm_api_key"
 CHAINALYSIS_API_KEY="your_chainalysis_api_key"
 ```
 
-### Docker
+### Docker Set up
+#### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) (v20+)  
+- [Docker Compose](https://docs.docker.com/compose/install/) (v2+)  
+- [Node.js](https://nodejs.org/) (v20+) if you want to run scripts outside containers  
+- [pnpm](https://pnpm.io/) (`corepack enable` recommended)  
+
+---
+<br>
+This project uses Docker Compose to orchestrate services for local development, including:
+
+- Postgres (with persistent volume)
+- API server (Express + TypeScript)
+- Discord Bot
 To run either the server in development or production mode using Docker, run:
 
+#### 1. Clone and Install
+
 ```bash
-# For  development mode
+git clone <repo-url>
+cd bloxtr8
+```
+#### 2. Start Dev Environment
+```bash
 docker compose up --build
 
-# For production mode
-docker compose -f docker-compose.yml up --build -d
 ```
+This will start:
+
+- test-db → Postgres 16 with persistent storage
+- api → Express API running in watch mode
+- discord-bot → Discord.js bot running in watch mode
+<br>
 To see if the docker images are running correctly run:
 
 ```bash
@@ -315,7 +339,26 @@ docker volume ls
 ls /var/lib/docker/volumes/bloxtr8_pgdata/_data 
 # To see the actual database on the host machine
 ```
-Also for development container, you can ctrl+c to stop it while when run in production mode, the command ends immediately and the 2 containers will just be running in the back ground
+To interact with the database, run either:
+```bash
+# To exec into the container directly
+docker exec -it bloxtr8 psql -U postgres -d bloxtr8-db
+
+# To interact with the database from the host machine
+psql postgresql://postgres:postgres@localhost:5432/bloxtr8-db
+```
+
+#### 3.Start Production Environment
+```bash
+docker compose -f docker-compose.yml up --build -d
+```
+This will start:
+- api → Express API running
+- discord-bot → Discord.js bot running
+<br>
+Noted that in production, no database volume will be mounted, the DATABASE_URL has to be a valid database url
+<br>
+
 ## Architecture
 
 ### Core Flow
