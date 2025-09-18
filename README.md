@@ -297,7 +297,16 @@ to get into the running container, then run:
 ```bash
 echo $NODE_ENV
 # The result will be either 'development' or 'production'
+```
 
+To check if the database volume is mounted correctly run:
+```bash
+docker volume ls
+# You should see: local     bloxtr8_pgdata
+# Bonus: run docker volume inspect bloxtr8_pgdata to check the inspect the volume
+# Or
+ls /var/lib/docker/volumes/bloxtr8_pgdata/_data 
+# To see the actual database on the host machine
 ```
 Also for development container, you can ctrl+c to stop it while when run in production mode, the command ends immediately and the 2 containers will just be running in the back ground
 ## Architecture
