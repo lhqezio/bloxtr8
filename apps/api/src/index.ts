@@ -1,10 +1,10 @@
+import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 import { config } from '@dotenvx/dotenvx';
 import compress from 'compression';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import pkg from 'pg';
-import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 
 const { Pool } = pkg;
 // Load environment variables
@@ -32,7 +32,10 @@ app.get('/health', async (req, res) => {
     await pool.query('SELECT 1');
   } catch (err) {
     dbStatus = 'error';
-    dbError = typeof err === 'object' && err !== null && 'message' in err ? (err as { message: string }).message : String(err);
+    dbError =
+      typeof err === 'object' && err !== null && 'message' in err
+        ? (err as { message: string }).message
+        : String(err);
   }
 
   res.json({
@@ -50,13 +53,13 @@ app.post('/contracts/:id/upload', async (req, res) => {
     const { id } = req.params;
     const key = `contracts/${id}.pdf`;
     const presignedUrl = await createPresignedPutUrl(key);
-    
+
     res.json({
       uploadUrl: presignedUrl,
       key,
-      expiresIn: 900 // 15 minutes
+      expiresIn: 900, // 15 minutes
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Failed to generate upload URL' });
   }
 });
@@ -67,13 +70,13 @@ app.get('/contracts/:id/pdf', async (req, res) => {
     const { id } = req.params;
     const key = `contracts/${id}.pdf`;
     const presignedUrl = await createPresignedGetUrl(key);
-    
+
     res.json({
       downloadUrl: presignedUrl,
       key,
-      expiresIn: 3600 // 1 hour
+      expiresIn: 3600, // 1 hour
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Failed to generate download URL' });
   }
 });

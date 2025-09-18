@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Discord-native escrow and verification system for Roblox game trading",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "./scripts/env-dev.sh dotenvx run -- turbo run dev",
     "build": "./scripts/env-prod.sh dotenvx run -- turbo run build",
@@ -50,8 +51,11 @@
   },
   "devDependencies": {
     "@bloxtr8/eslint-config": "workspace:*",
+    "@types/jest": "^29.5.8",
     "eslint": "^9.35.0",
+    "jest": "^29.7.0",
     "prettier": "^3.2.5",
+    "ts-jest": "^29.1.1",
     "turbo": "^2.5.6",
     "typescript": "^5.9.2"
   },

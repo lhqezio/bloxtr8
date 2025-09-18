@@ -70,7 +70,7 @@ export interface Escrow {
 }
 
 // API Response types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -84,7 +84,7 @@ export interface DiscordInteraction {
     name?: string;
     options?: Array<{
       name: string;
-      value: any;
+      value: string | number | boolean;
     }>;
   };
   member?: {
@@ -100,7 +100,7 @@ export interface StripeWebhookEvent {
   id: string;
   type: string;
   data: {
-    object: any;
+    object: Record<string, unknown>;
   };
 }
 
