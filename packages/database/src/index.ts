@@ -1,7 +1,6 @@
-// Database package placeholder
-// Export placeholder until Prisma client is generated
-export const DATABASE_READY = false;
+// Database package exports
+export const DATABASE_READY = true;
 
-// TODO: Uncomment after running prisma generate
-// export * from '@prisma/client';
-// export { PrismaClient } from '@prisma/client';
+// Export Prisma client and types from generated location
+export * from './generated/prisma/client.js';
+export { PrismaClient } from './generated/prisma/client.js';

@@ -17,14 +17,14 @@
   },
   "dependencies": {
     "@bloxtr8/types": "workspace:*",
-    "@prisma/client": "^5.7.1",
-    "prisma": "^5.7.1"
+    "@prisma/client": "^6.16.2",
+    "prisma": "^6.16.2"
   },
   "devDependencies": {
     "@bloxtr8/eslint-config": "workspace:*",
+    "@types/jest": "^29.5.8",
     "@types/node": "^20.10.5",
-    "typescript": "^5.3.3",
     "jest": "^29.7.0",
-    "@types/jest": "^29.5.8"
+    "typescript": "^5.3.3"
   }
 }
