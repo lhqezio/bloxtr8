@@ -40,7 +40,8 @@ app.get('/health', async (req, res) => {
 
   res.json({
     status: 'ok',
-    dbStatus,
+    version: '1.0.0',
+    db: dbStatus,
     dbError,
     message: 'Bloxtr8 API is running',
     timestamp: new Date().toISOString(),
