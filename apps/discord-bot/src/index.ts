@@ -67,22 +67,22 @@ client.on('messageCreate', async message => {
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
-  
+
   if (interaction.commandName === 'hello') {
     const provided = interaction.options.getString('name');
     const targetName =
       provided || interaction.user.displayName || interaction.user.username;
     await interaction.reply({ content: `Hello there ${targetName}!` });
   }
-  
+
   if (interaction.commandName === 'ping') {
     const startTime = Date.now();
     await interaction.reply({ content: 'Pinging...' });
     const latency = Date.now() - startTime;
     const apiLatency = Math.round(client.ws.ping);
-    
+
     await interaction.editReply({
-      content: ` Pong! Latency: ${latency}ms | API Latency: ${apiLatency}ms`
+      content: ` Pong! Latency: ${latency}ms | API Latency: ${apiLatency}ms`,
     });
   }
 });
