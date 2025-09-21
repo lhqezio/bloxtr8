@@ -140,10 +140,7 @@ async function main() {
       pdfUrl: 'https://example.com/contracts/sword_contract.pdf',
       sha256: 'a1b2c3d4e5f6...',
       signatures: {
-        create: [
-          { userId: alice.id },
-          { userId: bob.id },
-        ],
+        create: [{ userId: alice.id }, { userId: bob.id }],
       },
     },
   });
@@ -183,7 +180,7 @@ async function main() {
     where: { id: listingSword.id },
     data: { status: 'SOLD' },
   });
-  
+
   // --- SCENARIO 2: Disputed USDC Transaction ---
   console.log('Creating Scenario 2: Disputed USDC Transaction...');
   const listingGame = await prisma.listing.create({
@@ -208,7 +205,7 @@ async function main() {
       sellerId: diane.id,
     },
   });
-  
+
   const contractForGame = await prisma.contract.create({
     data: {
       offerId: offerForGame.id,
@@ -252,7 +249,8 @@ async function main() {
   await prisma.dispute.create({
     data: {
       title: 'Game not as described',
-      description: 'The game was missing half of the advertised stages and had free models.',
+      description:
+        'The game was missing half of the advertised stages and had free models.',
       status: 'IN_REVIEW',
       escrowId: escrowForGame.id,
       userId: alice.id, // Dispute initiated by the buyer
@@ -284,13 +282,14 @@ async function main() {
       sellerId: bob.id, // Bob is the client
     },
   });
-  
+
   const counterOffer = await prisma.offer.create({
     data: {
       amount: 90000,
       currency: 'USD',
       expiry: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-      conditions: 'Meet me at $900 with a 5-week timeline, payment in 3 milestones.',
+      conditions:
+        'Meet me at $900 with a 5-week timeline, payment in 3 milestones.',
       status: 'ACCEPTED',
       listingId: listingProject.id,
       buyerId: diane.id,
@@ -353,7 +352,7 @@ async function main() {
       userId: charlie.id,
     },
   });
-  
+
   await prisma.offer.create({
     data: {
       amount: 1200,
@@ -377,7 +376,7 @@ async function main() {
       sellerId: charlie.id,
     },
   });
-  
+
   // --- SUPPORTING DATA ---
   console.log('Creating audit logs and webhook events...');
   await prisma.auditLog.createMany({
@@ -426,7 +425,7 @@ async function main() {
 }
 
 main()
-  .catch((err) => {
+  .catch(err => {
     console.error('An error occurred while seeding the database:', err);
     process.exit(1);
   })
