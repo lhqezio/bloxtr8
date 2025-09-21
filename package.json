@@ -18,6 +18,7 @@
     "db:migrate": "dotenvx run -- pnpm --filter=@bloxtr8/database migrate",
     "db:reset": "dotenvx run -- pnpm --filter=@bloxtr8/database reset",
     "db:studio": "dotenvx run -- pnpm --filter=@bloxtr8/database studio",
+    "db:seed": "dotenvx run -- pnpm --filter=@bloxtr8/database seed",
     "env:encrypt": "dotenvx encrypt",
     "env:decrypt": "dotenvx decrypt",
     "env:encrypt:dev": "./scripts/env-encrypt-dev.sh",
