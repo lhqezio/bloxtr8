@@ -292,8 +292,8 @@ async function main() {
         'Meet me at $900 with a 5-week timeline, payment in 3 milestones.',
       status: 'ACCEPTED',
       listingId: listingProject.id,
-      buyerId: diane.id,
-      sellerId: bob.id,
+      buyerId: bob.id,
+      sellerId: diane.id,
       parentId: initialOffer.id, // This is a counter to the initial offer
     },
   });
