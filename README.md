@@ -105,12 +105,14 @@ This project uses **dotenvx** with **in-repo encrypted environments** for secure
 #### Setting Up Private Keys
 
 **Step 1: Get the Private Key**
+
 ```bash
 # View the private key (never commit this file!)
 cat .env.keys
 ```
 
 **Step 2: Set Up Local Development**
+
 ```bash
 # Option A: Export in your shell profile (~/.zshrc, ~/.bashrc)
 export DOTENV_PRIVATE_KEY_DEV="your_dev_private_key_here"
@@ -121,6 +123,7 @@ cp .env.keys ~/.env.keys
 ```
 
 **Step 3: Set Up CI/CD**
+
 ```bash
 # Add as environment variables in your CI system
 DOTENV_PRIVATE_KEY_DEV="your_dev_private_key_here"
@@ -128,6 +131,7 @@ DOTENV_PRIVATE_KEY_PRODUCTION="your_prod_private_key_here"
 ```
 
 **Step 4: Verify Setup**
+
 ```bash
 # Test that environment variables are loaded
 pnpm dev --dry-run
@@ -140,11 +144,13 @@ This project uses **encrypted environment files** with a **local editing workflo
 ##### **File Structure**
 
 **Committed Files (Safe for Git):**
+
 - `.env.development` - Encrypted development environment
 - `.env.production` - Encrypted production environment
 - `.env.local.example` - Template for new developers
 
 **Local Files (Never Committed):**
+
 - `.env.development.local` - Editable development environment
 - `.env.production.local` - Editable production environment
 - `.env.keys` - Private decryption keys
@@ -152,6 +158,7 @@ This project uses **encrypted environment files** with a **local editing workflo
 ##### **Development Workflow**
 
 **1. Decrypt Environment for Editing**
+
 ```bash
 # Decrypt development environment
 pnpm env:decrypt:dev
@@ -159,6 +166,7 @@ pnpm env:decrypt:dev
 ```
 
 **2. Edit Environment Variables**
+
 ```bash
 # Edit the local file with your changes
 nano .env.development.local
@@ -167,6 +175,7 @@ code .env.development.local
 ```
 
 **3. Encrypt and Commit**
+
 ```bash
 # Encrypt from local file
 pnpm env:encrypt:dev
@@ -180,6 +189,7 @@ git commit -m "Update development environment"
 ##### **Production Workflow**
 
 **1. Decrypt Production Environment**
+
 ```bash
 # Decrypt production environment
 pnpm env:decrypt:prod
@@ -187,12 +197,14 @@ pnpm env:decrypt:prod
 ```
 
 **2. Edit Production Variables**
+
 ```bash
 # Edit production values
 nano .env.production.local
 ```
 
 **3. Encrypt Production Environment**
+
 ```bash
 # Encrypt production environment
 pnpm env:encrypt:prod
@@ -202,12 +214,14 @@ pnpm env:encrypt:prod
 ##### **Running Applications**
 
 **Development:**
+
 ```bash
 pnpm dev     # Uses .env.development (automatically decrypted)
 pnpm test    # Uses .env.development (automatically decrypted)
 ```
 
 **Production:**
+
 ```bash
 pnpm build   # Uses .env.production (automatically decrypted)
 ```
@@ -222,21 +236,21 @@ pnpm build   # Uses .env.production (automatically decrypted)
 
 ##### **Available Commands**
 
-| Command | Purpose |
-|---------|---------|
-| `pnpm env:decrypt:dev` | Decrypt dev env → `.env.development.local` |
-| `pnpm env:encrypt:dev` | Encrypt `.env.development.local` → `.env.development` |
-| `pnpm env:decrypt:prod` | Decrypt prod env → `.env.production.local` |
-| `pnpm env:encrypt:prod` | Encrypt `.env.production.local` → `.env.production` |
-| `pnpm env:ls` | List all environment files |
-| `pnpm env:rotate` | Rotate encryption keys |
+| Command                 | Purpose                                               |
+| ----------------------- | ----------------------------------------------------- |
+| `pnpm env:decrypt:dev`  | Decrypt dev env → `.env.development.local`            |
+| `pnpm env:encrypt:dev`  | Encrypt `.env.development.local` → `.env.development` |
+| `pnpm env:decrypt:prod` | Decrypt prod env → `.env.production.local`            |
+| `pnpm env:encrypt:prod` | Encrypt `.env.production.local` → `.env.production`   |
+| `pnpm env:ls`           | List all environment files                            |
+| `pnpm env:rotate`       | Rotate encryption keys                                |
 
 ##### **Shell Scripts**
 
 The project includes helper shell scripts in the `scripts/` directory for cleaner command execution:
 
 - `scripts/env-dev.sh` - Sets up development environment
-- `scripts/env-prod.sh` - Sets up production environment  
+- `scripts/env-prod.sh` - Sets up production environment
 - `scripts/env-encrypt-dev.sh` - Encrypts development environment
 - `scripts/env-decrypt-dev.sh` - Decrypts development environment
 - `scripts/env-encrypt-prod.sh` - Encrypts production environment
@@ -278,21 +292,23 @@ CHAINALYSIS_API_KEY="your_chainalysis_api_key"
 ```
 
 ### Docker Set up
+
 #### Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) (v20+)  
-- [Docker Compose](https://docs.docker.com/compose/install/) (v2+)  
-- [Node.js](https://nodejs.org/) (v20+) if you want to run scripts outside containers  
-- [pnpm](https://pnpm.io/) (`corepack enable` recommended)  
+- [Docker](https://docs.docker.com/get-docker/) (v20+)
+- [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
+- [Node.js](https://nodejs.org/) (v20+) if you want to run scripts outside containers
+- [pnpm](https://pnpm.io/) (`corepack enable` recommended)
 
 ---
+
 <br>
 This project uses Docker Compose to orchestrate services for local development, including:
 
 - Postgres (with persistent volume)
 - API server (Express + TypeScript)
 - Discord Bot
-To run either the server in development or production mode using Docker, run:
+  To run either the server in development or production mode using Docker, run:
 
 #### 1. Clone and Install
 
@@ -300,39 +316,47 @@ To run either the server in development or production mode using Docker, run:
 git clone <repo-url>
 cd bloxtr8
 ```
+
 #### 2. Start Dev Environment
+
 ```bash
 docker compose up --build
 
 ```
+
 This will start:
 
 - test-db → Postgres 16 with persistent storage
 - api → Express API running in watch mode
 - discord-bot → Discord.js bot running in watch mode
-<br>
-To see if the docker images are running correctly run:
+  <br>
+  To see if the docker images are running correctly run:
 
 ```bash
 docker exec -it bloxtr8-api-1 sh
 
 ```
+
 to get into the running container, then run:
+
 ```bash
 echo $NODE_ENV
 # The result will be either 'development' or 'production'
 ```
 
 To check if the database volume is mounted correctly run:
+
 ```bash
 docker volume ls
 # You should see: local     bloxtr8_pgdata
 # Bonus: run docker volume inspect bloxtr8_pgdata to check the inspect the volume
 # Or
-ls /var/lib/docker/volumes/bloxtr8_pgdata/_data 
+ls /var/lib/docker/volumes/bloxtr8_pgdata/_data
 # To see the actual database on the host machine
 ```
+
 To interact with the database, run either:
+
 ```bash
 # To exec into the container directly
 docker exec -it bloxtr8 psql -U postgres -d bloxtr8-db
@@ -342,15 +366,18 @@ psql postgresql://postgres:postgres@localhost:5432/bloxtr8-db
 ```
 
 #### 3.Start Production Environment
+
 ```bash
 docker compose -f docker-compose.yml up --build -d
 ```
+
 This will start:
+
 - api → Express API running
 - discord-bot → Discord.js bot running
-<br>
-Noted that in production, no database volume will be mounted, the DATABASE_URL has to be a valid database url
-<br>
+  <br>
+  Noted that in production, no database volume will be mounted, the DATABASE_URL has to be a valid database url
+  <br>
 
 ## Architecture
 
@@ -394,17 +421,18 @@ The TypeScript configuration includes convenient path mappings:
 
 ```typescript
 // Instead of relative imports
-import { User } from '../../../packages/types/src/user'
+import { User } from '../../../packages/types/src/user';
 
 // Use clean aliases
-import { User } from '@bloxtr8/types'
-import { DatabaseClient } from '@bloxtr8/database'
-import { validateInput } from '@bloxtr8/shared'
+import { User } from '@bloxtr8/types';
+import { DatabaseClient } from '@bloxtr8/database';
+import { validateInput } from '@bloxtr8/shared';
 ```
 
 ### ESM Modules
 
 All packages are configured as ESM modules with:
+
 - `"type": "module"` in package.json files
 - `.js` extensions in import statements (TypeScript handles the resolution)
 - NodeNext module resolution for optimal compatibility

@@ -1,9 +1,9 @@
 {
   "extends": "../tsconfig/tsconfig.base.json",
   "compilerOptions": {
-     "target": "ES2020",              // or ES2017+ (ESNext is fine too)
+    "target": "ES2020", // or ES2017+ (ESNext is fine too)
     "module": "NodeNext",
-"moduleResolution": "NodeNext",
+    "moduleResolution": "NodeNext",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,

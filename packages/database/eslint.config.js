@@ -5,7 +5,7 @@ export default [
   {
     ignores: ['dist/**', 'node_modules/**', 'prisma/migrations/**'],
     rules: {
-      'no-console': 'off',  // ✅ allow console statements for the database package
+      'no-console': 'off', // ✅ allow console statements for the database package
     },
     languageOptions: {
       globals: {

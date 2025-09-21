@@ -1,9 +1,7 @@
 // import { PrismaClient } from "@prisma/client";
-import { PrismaClient } from "./index.js";
-
+import { PrismaClient } from './index.js';
 
 const prisma = new PrismaClient();
-
 
 async function main() {
   console.log('🌱 Seeding database...');
@@ -67,11 +65,10 @@ async function main() {
     },
   });
   console.log('✅ Database seeded successfully!');
-
 }
 
 main()
-  .catch((err) => {
+  .catch(err => {
     console.error(err);
     process.exit(1);
   })
