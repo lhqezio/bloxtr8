@@ -127,7 +127,7 @@ app.get('/api/contracts/:id/pdf', async (req, res) => {
 });
 
 // Error handling middleware
-app.use((req, res, next) => {
+app.use((req, res, _next) => {
   res.status(404).json({
     type: 'https://bloxtr8.com/problems/not-found',
     title: 'Not Found',
@@ -139,7 +139,7 @@ app.use((req, res, next) => {
 });
 
 // Global error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Error:', err);
   res.status(500).json({
     type: 'https://bloxtr8.com/problems/internal-server-error',

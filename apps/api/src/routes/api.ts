@@ -1,5 +1,6 @@
-import { Router, type Router as ExpressRouter } from 'express';
 import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
+import { Router, type Router as ExpressRouter } from 'express';
+
 import { AppError } from '../middleware/errorHandler.js';
 
 const router: ExpressRouter = Router();

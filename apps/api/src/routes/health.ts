@@ -10,7 +10,7 @@ const healthPool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-router.get('/', async (req, res, next) => {
+router.get('/', async (req, res, _next) => {
   let dbStatus = 'ok';
   let dbError = null;
 

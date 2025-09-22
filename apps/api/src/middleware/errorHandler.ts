@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 
 export interface ProblemDetails {
   type: string;
@@ -77,7 +77,7 @@ export const errorHandler = (
   error: Error | AppError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void => {
   const statusCode = error instanceof AppError ? error.statusCode : 500;
   const problemDetails = createProblemDetails(error, req, statusCode);
