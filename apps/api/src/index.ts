@@ -1,4 +1,3 @@
-import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 import { config } from '@dotenvx/dotenvx';
 import compress from 'compression';
 import cors from 'cors';
@@ -6,6 +5,9 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import pkg from 'pg';
+
+import apiRoutes from './routes/api.js';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const { Pool } = pkg;
 // Load environment variables
@@ -62,94 +64,13 @@ app.get('/health', async (req, res) => {
 });
 
 // API routes
-app.use('/api', express.Router());
+app.use('/api', apiRoutes);
 
-// PDF upload endpoint - returns presigned PUT URL
-app.post('/api/contracts/:id/upload', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // Validate contract ID
-    if (!id || id.trim() === '') {
-      return res.status(400).json({
-        type: 'https://bloxtr8.com/problems/bad-request',
-        title: 'Bad Request',
-        status: 400,
-        detail: 'Contract ID is required and cannot be empty',
-        instance: req.path,
-        timestamp: new Date().toISOString(),
-      });
-    }
-    
-    const key = `contracts/${id}.pdf`;
-    const presignedUrl = await createPresignedPutUrl(key);
-
-    res.json({
-      uploadUrl: presignedUrl,
-      key,
-      expiresIn: 900, // 15 minutes
-    });
-  } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ error: 'Failed to generate upload URL' });
-  }
-});
-
-// PDF download endpoint - returns presigned GET URL
-app.get('/api/contracts/:id/pdf', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // Validate contract ID
-    if (!id || id.trim() === '') {
-      return res.status(400).json({
-        type: 'https://bloxtr8.com/problems/bad-request',
-        title: 'Bad Request',
-        status: 400,
-        detail: 'Contract ID is required and cannot be empty',
-        instance: req.path,
-        timestamp: new Date().toISOString(),
-      });
-    }
-    
-    const key = `contracts/${id}.pdf`;
-    const presignedUrl = await createPresignedGetUrl(key);
-
-    res.json({
-      downloadUrl: presignedUrl,
-      key,
-      expiresIn: 3600, // 1 hour
-    });
-  } catch (error) {
-    console.error('Get Contract error:', error);
-    res.status(500).json({ error: 'Failed to generate download URL' });
-  }
-});
-
-// Error handling middleware
-app.use((req, res, _next) => {
-  res.status(404).json({
-    type: 'https://bloxtr8.com/problems/not-found',
-    title: 'Not Found',
-    status: 404,
-    detail: `The requested resource ${req.path} was not found`,
-    instance: req.path,
-    timestamp: new Date().toISOString(),
-  });
-});
+// 404 handler
+app.use(notFoundHandler);
 
 // Global error handler
-app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Error:', err);
-  res.status(500).json({
-    type: 'https://bloxtr8.com/problems/internal-server-error',
-    title: 'Internal Server Error',
-    status: 500,
-    detail: 'An unexpected error occurred',
-    instance: req.path,
-    timestamp: new Date().toISOString(),
-  });
-});
+app.use(errorHandler);
 
 // Start server only if not in test environment
 if (process.env.NODE_ENV !== 'test') {
