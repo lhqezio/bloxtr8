@@ -11,7 +11,7 @@ const { Pool } = pkg;
 // Load environment variables
 config();
 
-const app = express();
+const app: express.Application = express();
 app.use(compress());
 const port = process.env.PORT || 3000;
 
