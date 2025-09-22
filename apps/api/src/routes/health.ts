@@ -1,5 +1,4 @@
 import { Router, type Router as ExpressRouter } from 'express';
-import pkg from 'pg';
 import type { Pool } from 'pg';
 
 const router: ExpressRouter = Router();

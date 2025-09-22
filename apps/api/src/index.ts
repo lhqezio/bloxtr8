@@ -6,9 +6,9 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import pkg from 'pg';
 
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
 import healthRoutes, { setPool } from './routes/health.js';
-import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const { Pool } = pkg;
 // Load environment variables
@@ -29,10 +29,12 @@ app.use(limiter);
 
 // Middleware
 app.use(helmet());
-app.use(cors({
-  credentials: true,
-  origin: true
-}));
+app.use(
+  cors({
+    credentials: true,
+    origin: true,
+  })
+);
 app.use(express.json());
 
 const pool = new Pool({

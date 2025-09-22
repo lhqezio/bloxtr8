@@ -29,9 +29,11 @@ pnpm build
 ## API Endpoints
 
 ### Health Check
+
 - `GET /health` - API and database status
 
 ### Contract Management
+
 - `POST /api/contracts/:id/upload` - Generate presigned upload URL
 - `GET /api/contracts/:id/pdf` - Generate presigned download URL
 
@@ -42,6 +44,7 @@ This project uses **Jest + Supertest** for testing TypeScript Express APIs with 
 ### The Challenge
 
 Testing TypeScript + ES modules + Jest + Supertest can be tricky because:
+
 - **ES Modules**: Project uses `"type": "module"` and `.js` extensions in imports
 - **TypeScript**: Strict type checking with `verbatimModuleSyntax`
 - **Jest**: Expects CommonJS by default
@@ -55,27 +58,30 @@ Testing TypeScript + ES modules + Jest + Supertest can be tricky because:
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  
+
   // Transform TypeScript files
   transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', {
-      tsconfig: {
-        module: 'commonjs',        // Override to CommonJS for Jest
-        target: 'es2020',
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true,
-        strict: false,             // Relax strict mode for tests
-        skipLibCheck: true,
-        verbatimModuleSyntax: false, // Disable for Jest compatibility
-        moduleResolution: 'node',
+    '^.+\\.(ts|tsx)$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          module: 'commonjs', // Override to CommonJS for Jest
+          target: 'es2020',
+          esModuleInterop: true,
+          allowSyntheticDefaultImports: true,
+          strict: false, // Relax strict mode for tests
+          skipLibCheck: true,
+          verbatimModuleSyntax: false, // Disable for Jest compatibility
+          moduleResolution: 'node',
+        },
       },
-    }],
+    ],
   },
 
   // Handle .js extensions in imports
   moduleNameMapper: {
     '^@bloxtr8/(.*)$': '<rootDir>/../../packages/$1/src',
-    '^(\\.{1,2}/.*)\\.js$': '$1',  // Map .js imports to actual files
+    '^(\\.{1,2}/.*)\\.js$': '$1', // Map .js imports to actual files
   },
 };
 ```
@@ -85,7 +91,7 @@ module.exports = {
 ```typescript
 // Use CommonJS imports (Jest handles the transformation)
 import request from 'supertest';
-import app from '../index';  // No .js extension needed
+import app from '../index'; // No .js extension needed
 
 describe('API Tests', () => {
   it('should work', async () => {
@@ -110,7 +116,7 @@ if (process.env.NODE_ENV !== 'test') {
   });
 }
 
-export default app;  // Export for testing
+export default app; // Export for testing
 ```
 
 #### 4. Package.json Scripts
@@ -172,15 +178,18 @@ src/
 ### Coverage
 
 The test suite achieves:
+
 - **81.81%** statement coverage
-- **66.66%** branch coverage  
+- **66.66%** branch coverage
 - **64.28%** function coverage
 - **81.25%** line coverage
 
 ### Common Issues & Solutions
 
 #### Issue: "Cannot find module './middleware/errorHandler.js'"
+
 **Solution**: Add module mapping for `.js` extensions:
+
 ```javascript
 moduleNameMapper: {
   '^(\\.{1,2}/.*)\\.js$': '$1',
@@ -188,7 +197,9 @@ moduleNameMapper: {
 ```
 
 #### Issue: "ECMAScript imports and exports cannot be written in a CommonJS file"
+
 **Solution**: Override TypeScript config in Jest:
+
 ```javascript
 tsconfig: {
   verbatimModuleSyntax: false,
@@ -197,7 +208,9 @@ tsconfig: {
 ```
 
 #### Issue: "address already in use :::3000"
+
 **Solution**: Conditional server startup:
+
 ```typescript
 if (process.env.NODE_ENV !== 'test') {
   app.listen(port);
@@ -205,6 +218,7 @@ if (process.env.NODE_ENV !== 'test') {
 ```
 
 #### Issue: "module is not defined in ES module scope"
+
 **Solution**: Use `.cjs` extension for Jest config file.
 
 This setup provides a robust testing environment that works seamlessly with TypeScript ES modules and Express.js APIs! 🚀

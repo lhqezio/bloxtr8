@@ -13,7 +13,11 @@ export class AppError extends Error {
   public readonly statusCode: number;
   public readonly isOperational: boolean;
 
-  constructor(message: string, statusCode: number = 500, isOperational: boolean = true) {
+  constructor(
+    message: string,
+    statusCode: number = 500,
+    isOperational: boolean = true
+  ) {
     super(message);
     this.statusCode = statusCode;
     this.isOperational = isOperational;
@@ -27,8 +31,9 @@ export const createProblemDetails = (
   req: Request,
   statusCode?: number
 ): ProblemDetails => {
-  const code = statusCode || (error instanceof AppError ? error.statusCode : 500);
-  
+  const code =
+    statusCode || (error instanceof AppError ? error.statusCode : 500);
+
   return {
     type: `https://bloxtr8.com/problems/${getErrorType(code)}`,
     title: getErrorTitle(code),
@@ -52,7 +57,7 @@ const getErrorType = (statusCode: number): string => {
     502: 'bad-gateway',
     503: 'service-unavailable',
   };
-  
+
   return types[statusCode] || 'unknown-error';
 };
 
@@ -69,7 +74,7 @@ const getErrorTitle = (statusCode: number): string => {
     502: 'Bad Gateway',
     503: 'Service Unavailable',
   };
-  
+
   return titles[statusCode] || 'Unknown Error';
 };
 

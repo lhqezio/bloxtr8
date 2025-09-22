@@ -9,9 +9,12 @@ const router: ExpressRouter = Router();
 router.post('/contracts/:id/upload', async (req, res, next) => {
   try {
     const { id } = req.params;
-    
+
     if (!id || typeof id !== 'string' || id.trim() === '') {
-      throw new AppError('Contract ID is required and must be a non-empty string', 400);
+      throw new AppError(
+        'Contract ID is required and must be a non-empty string',
+        400
+      );
     }
 
     const key = `contracts/${id}.pdf`;
@@ -31,9 +34,12 @@ router.post('/contracts/:id/upload', async (req, res, next) => {
 router.get('/contracts/:id/pdf', async (req, res, next) => {
   try {
     const { id } = req.params;
-    
+
     if (!id || typeof id !== 'string' || id.trim() === '') {
-      throw new AppError('Contract ID is required and must be a non-empty string', 400);
+      throw new AppError(
+        'Contract ID is required and must be a non-empty string',
+        400
+      );
     }
 
     const key = `contracts/${id}.pdf`;

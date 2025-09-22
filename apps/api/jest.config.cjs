@@ -11,19 +11,22 @@ module.exports = {
 
   // Transform files
   transform: {
-    '^.+\\.(ts|tsx)$': ['ts-jest', {
-      tsconfig: {
-        module: 'commonjs',
-        target: 'es2020',
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true,
-        strict: false,
-        skipLibCheck: true,
-        forceConsistentCasingInFileNames: true,
-        verbatimModuleSyntax: false,
-        moduleResolution: 'node',
+    '^.+\\.(ts|tsx)$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          module: 'commonjs',
+          target: 'es2020',
+          esModuleInterop: true,
+          allowSyntheticDefaultImports: true,
+          strict: false,
+          skipLibCheck: true,
+          forceConsistentCasingInFileNames: true,
+          verbatimModuleSyntax: false,
+          moduleResolution: 'node',
+        },
       },
-    }],
+    ],
   },
 
   // Test file patterns
@@ -67,5 +70,4 @@ module.exports = {
 
   // Pass when no tests are found
   passWithNoTests: true,
-
 };
