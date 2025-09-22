@@ -11,6 +11,7 @@
     "migrate": "prisma migrate dev",
     "studio": "prisma studio",
     "reset": "prisma migrate reset",
+    "format": "prisma format",
     "build": "tsc",
     "test": "jest --passWithNoTests",
     "lint": "eslint src --ext .ts,.tsx",

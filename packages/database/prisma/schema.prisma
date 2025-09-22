@@ -2,8 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
   moduleFormat = "esm"
 }
 
@@ -13,36 +13,87 @@ datasource db {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  discordId   String   @unique
-  username    String
-  email       String?
-  phone       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id            String    @id @default(cuid())
+  name          String?
+  discordId     String    @unique
+  username      String
+  email         String
+  emailVerified Boolean   @default(false)
+  phone         String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
   // KYC tiers
-  kycTier     KycTier  @default(TIER_1)
-  kycVerified Boolean  @default(false)
-  
+  kycTier     KycTier @default(TIER_1)
+  kycVerified Boolean @default(false)
+
   // Wallet screening
   walletAddress String?
-  walletRisk   WalletRisk @default(UNKNOWN)
-  
+  walletRisk    WalletRisk @default(UNKNOWN)
+
   // Relations
-  listings    Listing[]
-  buyerOffers Offer[] @relation("BuyerOffers")
-  sellerOffers Offer[] @relation("SellerOffers")
-  signatures  Signature[]
-  auditLogs   AuditLog[]
-  deliveries  Delivery[]
-  disputes    Dispute[] @relation("DisputeUser")
+  listings         Listing[]
+  buyerOffers      Offer[]       @relation("BuyerOffers")
+  sellerOffers     Offer[]       @relation("SellerOffers")
+  signatures       Signature[]
+  auditLogs        AuditLog[]
+  deliveries       Delivery[]
+  disputes         Dispute[]     @relation("DisputeUser")
   guildMemberships GuildMember[]
-  
+
+  @@unique([email])
   @@index([discordId])
   @@index([email])
   @@index([walletAddress])
   @@map("users")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
 }
 
 model Guild {
@@ -52,26 +103,26 @@ model Guild {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relations
-  members     GuildMember[]
-  listings    Listing[]
-  
+  members  GuildMember[]
+  listings Listing[]
+
   @@index([discordId])
   @@map("guilds")
 }
 
 model GuildMember {
-  id        String   @id @default(cuid())
-  role      GuildRole @default(MEMBER)
-  joinedAt  DateTime @default(now())
-  
+  id       String    @id @default(cuid())
+  role     GuildRole @default(MEMBER)
+  joinedAt DateTime  @default(now())
+
   // Relations
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  guildId   String
-  guild     Guild    @relation(fields: [guildId], references: [id])
-  
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+  guildId String
+  guild   Guild  @relation(fields: [guildId], references: [id])
+
   @@unique([userId, guildId])
   @@index([userId])
   @@index([guildId])
@@ -79,24 +130,24 @@ model GuildMember {
 }
 
 model Listing {
-  id          String      @id @default(cuid())
-  title       String
-  summary     String
-  price       Int         // Price in cents
-  category    String
-  status      ListingStatus @default(ACTIVE)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  
+  id        String        @id @default(cuid())
+  title     String
+  summary   String
+  price     Int // Price in cents
+  category  String
+  status    ListingStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
   // Relations
-  userId      String
-  user        User        @relation(fields: [userId], references: [id])
-  guildId     String?
-  guild       Guild?      @relation(fields: [guildId], references: [id])
-  offers      Offer[]
+  userId          String
+  user            User             @relation(fields: [userId], references: [id])
+  guildId         String?
+  guild           Guild?           @relation(fields: [guildId], references: [id])
+  offers          Offer[]
   robloxSnapshots RobloxSnapshot[]
-  deliveries  Delivery[]
-  
+  deliveries      Delivery[]
+
   @@index([userId])
   @@index([guildId])
   @@index([status])
@@ -105,32 +156,32 @@ model Listing {
 }
 
 model Offer {
-  id          String      @id @default(cuid())
-  amount      Int         // Amount in cents
-  currency    Currency    @default(USD)
-  conditions  String?
-  expiry      DateTime
-  status      OfferStatus @default(PENDING)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  
+  id         String      @id @default(cuid())
+  amount     Int // Amount in cents
+  currency   Currency    @default(USD)
+  conditions String?
+  expiry     DateTime
+  status     OfferStatus @default(PENDING)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
   // Relations
-  listingId   String
-  listing     Listing     @relation(fields: [listingId], references: [id])
-  buyerId     String
-  buyer       User        @relation("BuyerOffers", fields: [buyerId], references: [id])
-  sellerId    String
-  seller      User        @relation("SellerOffers", fields: [sellerId], references: [id])
-  
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id])
+  buyerId   String
+  buyer     User    @relation("BuyerOffers", fields: [buyerId], references: [id])
+  sellerId  String
+  seller    User    @relation("SellerOffers", fields: [sellerId], references: [id])
+
   // Parent offer for counter offers
-  parentId    String?
-  parent      Offer?      @relation("OfferCounter", fields: [parentId], references: [id])
-  counters    Offer[]     @relation("OfferCounter")
-  
-  contracts   Contract[]
-  escrows     Escrow[]
-  deliveries  Delivery[]
-  
+  parentId String?
+  parent   Offer?  @relation("OfferCounter", fields: [parentId], references: [id])
+  counters Offer[] @relation("OfferCounter")
+
+  contracts  Contract[]
+  escrows    Escrow[]
+  deliveries Delivery[]
+
   @@index([listingId])
   @@index([buyerId])
   @@index([sellerId])
@@ -140,33 +191,33 @@ model Offer {
 }
 
 model Contract {
-  id          String          @id @default(cuid())
-  pdfUrl      String?
-  sha256      String?
-  status      ContractStatus  @default(PENDING_SIGNATURE)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  
+  id        String         @id @default(cuid())
+  pdfUrl    String?
+  sha256    String?
+  status    ContractStatus @default(PENDING_SIGNATURE)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
   // Relations
-  offerId     String
-  offer       Offer           @relation(fields: [offerId], references: [id])
-  signatures  Signature[]
-  escrows     Escrow[]
-  deliveries  Delivery[]
-  
+  offerId    String
+  offer      Offer       @relation(fields: [offerId], references: [id])
+  signatures Signature[]
+  escrows    Escrow[]
+  deliveries Delivery[]
+
   @@index([offerId])
   @@index([status])
   @@map("contracts")
 }
 
 model Signature {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  contractId  String
-  contract    Contract @relation(fields: [contractId], references: [id])
-  signedAt    DateTime @default(now())
-  
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id])
+  signedAt   DateTime @default(now())
+
   @@unique([userId, contractId])
   @@index([userId])
   @@index([contractId])
@@ -174,29 +225,29 @@ model Signature {
 }
 
 model Escrow {
-  id          String      @id @default(cuid())
-  rail        EscrowRail
-  amount      Int         // Amount in cents
-  currency    Currency    @default(USD)
-  status      EscrowStatus @default(AWAIT_FUNDS)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  
+  id        String       @id @default(cuid())
+  rail      EscrowRail
+  amount    Int // Amount in cents
+  currency  Currency     @default(USD)
+  status    EscrowStatus @default(AWAIT_FUNDS)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
   // Relations
-  offerId     String
-  offer       Offer       @relation(fields: [offerId], references: [id])
-  contractId  String
-  contract    Contract    @relation(fields: [contractId], references: [id])
-  
+  offerId    String
+  offer      Offer    @relation(fields: [offerId], references: [id])
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id])
+
   // Rail-specific data
-  stripeEscrow      StripeEscrow?
-  stablecoinEscrow  StablecoinEscrow?
-  milestoneEscrow   MilestoneEscrow[]
-  
-  auditLogs   AuditLog[]
-  deliveries  Delivery[]
-  disputes    Dispute[]
-  
+  stripeEscrow     StripeEscrow?
+  stablecoinEscrow StablecoinEscrow?
+  milestoneEscrow  MilestoneEscrow[]
+
+  auditLogs  AuditLog[]
+  deliveries Delivery[]
+  disputes   Dispute[]
+
   @@index([offerId])
   @@index([contractId])
   @@index([status])
@@ -209,10 +260,10 @@ model StripeEscrow {
   paymentIntentId String  @unique
   transferId      String?
   refundId        String?
-  
-  escrowId        String  @unique
-  escrow          Escrow  @relation(fields: [escrowId], references: [id])
-  
+
+  escrowId String @unique
+  escrow   Escrow @relation(fields: [escrowId], references: [id])
+
   @@map("stripe_escrows")
 }
 
@@ -222,47 +273,47 @@ model StablecoinEscrow {
   depositAddr String
   depositTx   String?
   releaseTx   String?
-  
-  escrowId    String  @unique
-  escrow      Escrow  @relation(fields: [escrowId], references: [id])
-  
+
+  escrowId String @unique
+  escrow   Escrow @relation(fields: [escrowId], references: [id])
+
   @@map("stablecoin_escrows")
 }
 
 model MilestoneEscrow {
-  id          String      @id @default(cuid())
+  id          String       @id @default(cuid())
   title       String
   amountCents Int
   status      EscrowStatus @default(AWAIT_FUNDS)
-  
-  escrowId    String
-  escrow      Escrow      @relation(fields: [escrowId], references: [id])
-  
+
+  escrowId String
+  escrow   Escrow @relation(fields: [escrowId], references: [id])
+
   @@index([escrowId])
   @@map("milestone_escrows")
 }
 
 model Delivery {
-  id          String        @id @default(cuid())
+  id          String         @id @default(cuid())
   title       String
   description String?
   status      DeliveryStatus @default(PENDING)
   deliveredAt DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
   // Relations
-  listingId   String
-  listing     Listing       @relation(fields: [listingId], references: [id])
-  offerId     String
-  offer       Offer         @relation(fields: [offerId], references: [id])
-  contractId  String
-  contract    Contract      @relation(fields: [contractId], references: [id])
-  escrowId    String
-  escrow      Escrow        @relation(fields: [escrowId], references: [id])
-  deliveredBy String
-  deliveredByUser User      @relation(fields: [deliveredBy], references: [id])
-  
+  listingId       String
+  listing         Listing  @relation(fields: [listingId], references: [id])
+  offerId         String
+  offer           Offer    @relation(fields: [offerId], references: [id])
+  contractId      String
+  contract        Contract @relation(fields: [contractId], references: [id])
+  escrowId        String
+  escrow          Escrow   @relation(fields: [escrowId], references: [id])
+  deliveredBy     String
+  deliveredByUser User     @relation(fields: [deliveredBy], references: [id])
+
   @@index([listingId])
   @@index([offerId])
   @@index([contractId])
@@ -273,21 +324,21 @@ model Delivery {
 }
 
 model Dispute {
-  id          String      @id @default(cuid())
+  id          String        @id @default(cuid())
   title       String
   description String
   status      DisputeStatus @default(OPEN)
   resolution  String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
   resolvedAt  DateTime?
-  
+
   // Relations
-  escrowId    String
-  escrow      Escrow      @relation(fields: [escrowId], references: [id])
-  userId      String
-  user        User        @relation("DisputeUser", fields: [userId], references: [id])
-  
+  escrowId String
+  escrow   Escrow @relation(fields: [escrowId], references: [id])
+  userId   String
+  user     User   @relation("DisputeUser", fields: [userId], references: [id])
+
   @@index([escrowId])
   @@index([userId])
   @@index([status])
@@ -301,28 +352,28 @@ model RobloxSnapshot {
   memberCount Int
   metadata    Json?
   createdAt   DateTime @default(now())
-  
+
   // Relations
-  listingId   String?
-  listing     Listing?  @relation(fields: [listingId], references: [id])
-  
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id])
+
   @@index([listingId])
   @@index([groupId])
   @@map("roblox_snapshots")
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  action      String
-  details     Json?
-  createdAt   DateTime @default(now())
-  
+  id        String   @id @default(cuid())
+  action    String
+  details   Json?
+  createdAt DateTime @default(now())
+
   // Relations
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id])
-  escrowId    String?
-  escrow      Escrow?  @relation(fields: [escrowId], references: [id])
-  
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id])
+  escrowId String?
+  escrow   Escrow? @relation(fields: [escrowId], references: [id])
+
   @@index([userId])
   @@index([escrowId])
   @@index([action])
@@ -331,12 +382,12 @@ model AuditLog {
 }
 
 model WebhookEvent {
-  id          String   @id @default(cuid())
-  eventId     String   @unique
-  provider    String   // 'stripe', 'custodian', etc.
-  processed   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  
+  id        String   @id @default(cuid())
+  eventId   String   @unique
+  provider  String // 'stripe', 'custodian', etc.
+  processed Boolean  @default(false)
+  createdAt DateTime @default(now())
+
   @@index([eventId])
   @@index([provider])
   @@index([processed])
