@@ -1,28 +1,35 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import pkg from 'pg';
-
-const { Pool } = pkg;
+import type { Pool } from 'pg';
 
 const router: ExpressRouter = Router();
 
-// Create a separate pool for health checks to avoid conflicts
-const healthPool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+// Use the existing pool from the main app
+// This will be set by the main app when mounting the routes
+let pool: Pool | null = null;
+
+export const setPool = (dbPool: Pool) => {
+  pool = dbPool;
+};
 
 router.get('/', async (req, res, _next) => {
   let dbStatus = 'ok';
   let dbError = null;
 
-  try {
-    // Run a simple query to check DB connection
-    await healthPool.query('SELECT 1');
-  } catch (err) {
+  if (pool) {
+    try {
+      // Run a simple query to check DB connection
+      await pool.query('SELECT 1');
+    } catch (err) {
+      dbStatus = 'error';
+      dbError =
+        typeof err === 'object' && err !== null && 'message' in err
+          ? (err as { message: string }).message
+          : String(err);
+    }
+  } else {
     dbStatus = 'error';
-    dbError =
-      typeof err === 'object' && err !== null && 'message' in err
-        ? (err as { message: string }).message
-        : String(err);
+    dbError = 'Database pool not initialized';
   }
 
   res.json({

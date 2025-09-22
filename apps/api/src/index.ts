@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import pkg from 'pg';
 
 import apiRoutes from './routes/api.js';
+import healthRoutes, { setPool } from './routes/health.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const { Pool } = pkg;
@@ -37,31 +38,12 @@ app.use(express.json());
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
-// Basic health check route
-app.get('/health', async (req, res) => {
-  let dbStatus = 'ok';
-  let dbError = null;
 
-  try {
-    // Run a simple query to check DB connection
-    await pool.query('SELECT 1');
-  } catch (err) {
-    dbStatus = 'error';
-    dbError =
-      typeof err === 'object' && err !== null && 'message' in err
-        ? (err as { message: string }).message
-        : String(err);
-  }
+// Set the pool for health routes
+setPool(pool);
 
-  res.json({
-    status: 'ok',
-    version: '1.0.0',
-    db: dbStatus,
-    dbError,
-    message: 'Bloxtr8 API is running',
-    timestamp: new Date().toISOString(),
-  });
-});
+// Health check routes
+app.use('/health', healthRoutes);
 
 // API routes
 app.use('/api', apiRoutes);
