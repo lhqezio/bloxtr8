@@ -1,4 +1,5 @@
 import { config } from '@dotenvx/dotenvx';
+import { createAuthClient } from "better-auth/client"
 import {
   Client,
   GatewayIntentBits,
@@ -9,6 +10,13 @@ import {
 
 // Load environment variables
 config();
+
+type AuthClient = ReturnType<typeof createAuthClient>;
+
+export const authClient: AuthClient = createAuthClient({
+    /** The base URL of the server (optional if you're using the same domain) */
+    //baseURL: "http://localhost:3000"
+})
 
 const client = new Client({
   intents: [

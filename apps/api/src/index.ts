@@ -1,18 +1,23 @@
 import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 import { config } from '@dotenvx/dotenvx';
+import { toNodeHandler } from "better-auth/node";
 import compress from 'compression';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import pkg from 'pg';
 
+import { auth } from "./lib/auth.js";
 const { Pool } = pkg;
 // Load environment variables
 config();
 
 const app = express();
-app.use(compress());
 const port = process.env.PORT || 3000;
+app.all("/api/auth/*", toNodeHandler(auth));
+
+
+app.use(compress());
 
 // Middleware
 app.use(helmet());
