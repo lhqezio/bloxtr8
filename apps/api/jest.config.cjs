@@ -77,4 +77,10 @@ module.exports = {
 
   // Pass when no tests are found
   passWithNoTests: true,
+
+  // Force exit after tests complete to prevent hanging
+  forceExit: true,
+
+  // Detect open handles to help identify resource leaks
+  detectOpenHandles: true,
 };
