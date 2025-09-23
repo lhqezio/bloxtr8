@@ -6,6 +6,10 @@ import {
   REST,
   Routes,
   SlashCommandBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
 } from 'discord.js';
 
 // Load environment variables
@@ -15,8 +19,9 @@ type AuthClient = ReturnType<typeof createAuthClient>;
 
 export const authClient: AuthClient = createAuthClient({
     /** The base URL of the server (optional if you're using the same domain) */
-    //baseURL: "http://localhost:3000"
+    baseURL: "http://localhost:3000"
 })
+
 
 const client = new Client({
   intents: [
@@ -26,6 +31,56 @@ const client = new Client({
     GatewayIntentBits.DirectMessages,
   ],
 });
+const signIn = async (interaction: any) => {
+  try {
+      // Generate OAuth URL for Discord login
+      const { data, error } = await authClient.signIn.social({
+          provider: "discord",
+          callbackURL: `${process.env.API_BASE_URL || "http://localhost:3000"}/api/auth/callback/discord`
+      });
+
+      if (error) {
+          console.error('Auth error:', error);
+          await interaction.reply({
+              content: '❌ Failed to initiate login. Please try again later.',
+              ephemeral: true
+          });
+          return;
+      }
+
+      if (data?.url) {
+          const embed = new EmbedBuilder()
+              .setTitle('🔐 Discord Authentication')
+              .setDescription('Click the button below to authenticate with Discord and link your account!')
+              .setColor(0x5865F2) // Discord blurple
+              .addFields(
+                  { name: 'Step 1', value: 'Click the link below', inline: false },
+                  { name: 'Step 2', value: 'Authorize the application', inline: false },
+                  { name: 'Step 3', value: 'You\'ll be redirected back automatically', inline: false }
+              )
+              .setFooter({ text: 'This link will expire in 10 minutes' })
+              .setTimestamp();
+
+          await interaction.reply({
+              embeds: [embed],
+              content: `**Authentication Link:**\n${data.url}`,
+              ephemeral: true
+          });
+      } else {
+          await interaction.reply({
+              content: '❌ Failed to generate login URL. Please try again later.',
+              ephemeral: true
+          });
+      }
+  } catch (error) {
+      console.error('Sign in error:', error);
+      await interaction.reply({
+          content: '❌ An unexpected error occurred. Please try again later.',
+          ephemeral: true
+      });
+  }
+}
+const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
 
 client.once('clientReady', async () => {
   console.log(`Logged in as ${client.user?.tag}`);
@@ -42,6 +97,10 @@ client.once('clientReady', async () => {
     new SlashCommandBuilder()
       .setName('ping')
       .setDescription('Check bot latency')
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('signin')
+      .setDescription('Get a sign-in link for your Bloxtr8 account')
       .toJSON(),
   ];
 
@@ -92,6 +151,12 @@ client.on('interactionCreate', async interaction => {
     await interaction.editReply({
       content: ` Pong! Latency: ${latency}ms | API Latency: ${apiLatency}ms`,
     });
+  }
+
+  if (interaction.commandName === 'signin') {
+    await signIn(interaction);
+
+
   }
 });
 

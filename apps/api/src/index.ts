@@ -10,7 +10,6 @@ import pkg from 'pg';
 import { auth } from "./lib/auth.js";
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
-import identityRoutes from './routes/identity.js';
 import healthRoutes, { setPool } from './routes/health.js';
 
 const { Pool } = pkg;
@@ -20,7 +19,7 @@ config();
 const app: express.Application = express();
 app.use(compress());
 const port = process.env.PORT || 3000;
-app.all("/api/auth/*", toNodeHandler(auth));
+app.all("/api/auth/*", toNodeHandler(auth)); // For ExpressJS v4
 
 
 
@@ -55,7 +54,6 @@ app.use('/health', healthRoutes);
 
 // API routes
 app.use('/api', apiRoutes);
-app.use('/api', identityRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
