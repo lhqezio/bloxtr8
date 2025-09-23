@@ -26,7 +26,8 @@ RUN pnpm install --frozen-lockfile --reporter=silent --filter @bloxtr8/api...
 COPY packages/ ./packages/
 COPY apps/api/ ./apps/api/
 
-# Build the application
+# Generate Prisma client and build the application
+RUN pnpm --filter @bloxtr8/database generate
 RUN pnpm --filter @bloxtr8/api build
 
 # Production stage
@@ -52,9 +53,10 @@ COPY packages/types/package.json ./packages/types/
 # Install only production dependencies
 RUN pnpm install --frozen-lockfile --reporter=silent --filter @bloxtr8/api... --prod
 
-# Copy built application
+# Copy built application and Prisma client
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/packages/database/src/generated ./packages/database/src/generated
 
 EXPOSE 3000
 CMD ["node", "apps/api/dist/index.js"]
