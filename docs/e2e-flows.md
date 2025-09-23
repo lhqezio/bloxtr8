@@ -13,27 +13,27 @@ flowchart TD
     C -->|Accepted| D[Contract Generation]
     C -->|Countered| B
     C -->|Declined| E[Offer Expired]
-    
+
     D --> F[Digital Signatures]
     F --> G[Escrow Creation]
     G --> H{Payment Rail}
-    
+
     H -->|≤$10k| I[Stripe Payment]
     H -->|>$10k| J[USDC on Base]
-    
+
     I --> K[Funds Held]
     J --> K
-    
+
     K --> L[Delivery Process]
     L --> M{Delivery Confirmed?}
-    
+
     M -->|Yes| N[Funds Released]
     M -->|No| O[Dispute Process]
-    
+
     O --> P{Dispute Resolution}
     P -->|Seller Wins| N
     P -->|Buyer Wins| Q[Funds Refunded]
-    
+
     N --> R[Transaction Complete]
     Q --> R
     E --> R
@@ -49,22 +49,23 @@ sequenceDiagram
     participant DB as Discord Bot
     participant API as API Server
     participant DB as Database
-    
+
     U->>DB: /auth command
     DB->>API: GET /auth/discord
     API->>DB: Discord OAuth URL
     DB->>U: Redirect to Discord OAuth
-    
+
     U->>DB: Complete OAuth
     DB->>API: POST /auth/callback
     API->>DB: Create/Update User
     API->>DB: JWT Token
-    
+
     DB->>U: Welcome message
     DB->>U: KYC verification prompt
 ```
 
 **Key Points:**
+
 - Discord OAuth2 integration
 - User profile creation/update
 - KYC tier assignment
@@ -79,11 +80,11 @@ sequenceDiagram
     participant API as API Server
     participant RL as Roblox API
     participant DB as Database
-    
+
     U->>DB: /listing create
     DB->>API: Check user KYC status
     API->>DB: User verification status
-    
+
     alt User not KYC verified
         DB->>U: KYC verification required
     else User verified
@@ -99,6 +100,7 @@ sequenceDiagram
 ```
 
 **Key Points:**
+
 - KYC verification check
 - Roblox asset verification
 - Modal form for data collection
@@ -112,15 +114,15 @@ sequenceDiagram
     participant S as Seller
     participant DB as Discord Bot
     participant API as API Server
-    
+
     B->>DB: Click "Make Offer" button
     DB->>B: Show offer modal
     B->>DB: Submit offer details
     DB->>API: POST /offers
-    
+
     API->>DB: Offer created
     DB->>S: DM with offer details
-    
+
     alt Seller accepts
         S->>DB: Click "Accept" button
         DB->>API: POST /offers/:id/accept
@@ -143,6 +145,7 @@ sequenceDiagram
 ```
 
 **Key Points:**
+
 - Real-time offer notifications
 - Counter-offer support
 - Automatic expiry handling
@@ -157,22 +160,22 @@ sequenceDiagram
     participant API as API Server
     participant DS as DocuSign
     participant S3 as AWS S3
-    
+
     API->>API: Offer accepted trigger
     API->>S3: Generate contract PDF
     S3->>API: PDF URL
     API->>DS: Create signing session
     DS->>API: Signing URLs
-    
+
     API->>B: Contract signing DM
     API->>S: Contract signing DM
-    
+
     B->>DS: Sign contract
     S->>DS: Sign contract
-    
+
     DS->>API: Signing webhook
     API->>API: Update contract status
-    
+
     alt Both parties signed
         API->>API: Contract executed
         API->>B: Contract executed notification
@@ -185,6 +188,7 @@ sequenceDiagram
 ```
 
 **Key Points:**
+
 - Automated PDF generation
 - DocuSign embedded signing
 - Webhook-driven status updates
@@ -200,16 +204,16 @@ sequenceDiagram
     participant API as API Server
     participant ST as Stripe
     participant DB as Database
-    
+
     API->>API: Contract executed trigger
     API->>DB: Create escrow record
     API->>ST: Create PaymentIntent
     ST->>API: PaymentIntent + client_secret
-    
+
     API->>B: Payment link/button
     B->>ST: Complete payment
     ST->>API: payment_intent.succeeded webhook
-    
+
     API->>DB: Update escrow status
     API->>B: Payment confirmed
     API->>S: Funds held notification
@@ -224,23 +228,24 @@ sequenceDiagram
     participant CU as Custodian
     participant BC as Base Chain
     participant DB as Database
-    
+
     API->>API: Contract executed trigger
     API->>DB: Create escrow record
     API->>CU: Create deposit address
     CU->>API: Deposit address + QR
-    
+
     API->>B: Deposit instructions
     B->>BC: Send USDC to address
     BC->>CU: Transaction confirmed
     CU->>API: Deposit webhook
-    
+
     API->>DB: Update escrow status
     API->>B: Payment confirmed
     API->>S: Funds held notification
 ```
 
 **Key Points:**
+
 - Dual payment rail support
 - Webhook-driven state management
 - Real-time status updates
@@ -255,20 +260,20 @@ sequenceDiagram
     participant DB as Discord Bot
     participant API as API Server
     participant RL as Roblox API
-    
+
     API->>S: Delivery notification
     S->>RL: Transfer Roblox asset
     S->>DB: Mark as delivered
     DB->>API: POST /escrow/:id/deliver
-    
+
     API->>RL: Verify asset transfer
     RL->>API: Transfer confirmation
     API->>DB: Update delivery status
-    
+
     DB->>B: Delivery confirmation request
     B->>RL: Verify asset ownership
     RL->>B: Ownership confirmed
-    
+
     alt Buyer confirms
         B->>DB: Click "Confirm" button
         DB->>API: POST /escrow/:id/confirm
@@ -283,6 +288,7 @@ sequenceDiagram
 ```
 
 **Key Points:**
+
 - Roblox asset verification
 - Confirmation/dispute options
 - Automatic timeout handling
@@ -299,9 +305,9 @@ sequenceDiagram
     participant API as API Server
     participant ST as Stripe/Custodian
     participant DB as Database
-    
+
     API->>API: Delivery confirmed trigger
-    
+
     alt Stripe escrow
         API->>ST: Create transfer to seller
         ST->>API: Transfer completed
@@ -309,7 +315,7 @@ sequenceDiagram
         API->>ST: Release USDC to seller
         ST->>API: Release completed
     end
-    
+
     API->>DB: Update escrow status
     API->>S: Funds released notification
     API->>B: Transaction complete
@@ -324,13 +330,13 @@ sequenceDiagram
     participant S as Seller
     participant M as Moderator
     participant API as API Server
-    
+
     API->>API: Dispute created trigger
     API->>M: Dispute notification
     M->>API: Review evidence pack
-    
+
     M->>API: Make resolution decision
-    
+
     alt Release to seller
         API->>API: Release funds to seller
         API->>S: Funds released
@@ -340,12 +346,13 @@ sequenceDiagram
         API->>B: Funds refunded
         API->>S: Dispute resolved (buyer wins)
     end
-    
+
     API->>API: Update dispute status
     API->>API: Create audit log
 ```
 
 **Key Points:**
+
 - Automated fund release
 - Dispute resolution workflow
 - Comprehensive audit logging

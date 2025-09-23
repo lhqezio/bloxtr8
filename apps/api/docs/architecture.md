@@ -11,23 +11,23 @@ graph TB
     A[Discord Bot] --> B[API Gateway]
     C[Web Dashboard] --> B
     D[Mobile App] --> B
-    
+
     B --> E[Authentication Middleware]
     E --> F[Rate Limiting]
     F --> G[Validation Layer]
     G --> H[Business Logic]
-    
+
     H --> I[Database Layer]
     H --> J[External Services]
-    
+
     J --> K[Stripe API]
     J --> L[DocuSign API]
     J --> M[AWS S3]
     J --> N[TRM Labs]
     J --> O[Chainalysis]
-    
+
     I --> P[PostgreSQL]
-    
+
     Q[Webhooks] --> R[Webhook Handler]
     R --> H
 ```
@@ -37,10 +37,10 @@ graph TB
 ### Authentication
 
 ```typescript
-POST /auth/discord
-POST /auth/refresh
-POST /auth/logout
-GET  /auth/me
+POST / auth / discord;
+POST / auth / refresh;
+POST / auth / logout;
+GET / auth / me;
 ```
 
 ### Users
@@ -192,16 +192,21 @@ interface JWTPayload {
 app.use('/api', authenticateToken);
 
 // Rate limiting
-app.use('/api', rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
-}));
+app.use(
+  '/api',
+  rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+  })
+);
 
 // CORS
-app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(','),
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: process.env.ALLOWED_ORIGINS?.split(','),
+    credentials: true,
+  })
+);
 
 // Security headers
 app.use(helmet());
@@ -220,7 +225,7 @@ enum ErrorType {
   CONFLICT = 'CONFLICT',
   RATE_LIMITED = 'RATE_LIMITED',
   EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR',
-  INTERNAL_ERROR = 'INTERNAL_ERROR'
+  INTERNAL_ERROR = 'INTERNAL_ERROR',
 }
 ```
 
@@ -235,13 +240,13 @@ export function errorHandler(
 ) {
   const statusCode = getStatusCode(error);
   const errorType = getErrorType(error);
-  
+
   res.status(statusCode).json({
     success: false,
     error: errorType,
     message: error.message,
     timestamp: new Date().toISOString(),
-    ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+    ...(process.env.NODE_ENV === 'development' && { stack: error.stack }),
   });
 }
 ```
@@ -251,24 +256,32 @@ export function errorHandler(
 ### Stripe Webhooks
 
 ```typescript
-app.post('/webhooks/stripe', express.raw({type: 'application/json'}), (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  
-  switch (event.type) {
-    case 'payment_intent.succeeded':
-      handlePaymentSuccess(event.data.object);
-      break;
-    case 'payment_intent.payment_failed':
-      handlePaymentFailure(event.data.object);
-      break;
-    case 'charge.dispute.created':
-      handleDisputeCreated(event.data.object);
-      break;
+app.post(
+  '/webhooks/stripe',
+  express.raw({ type: 'application/json' }),
+  (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    const event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+
+    switch (event.type) {
+      case 'payment_intent.succeeded':
+        handlePaymentSuccess(event.data.object);
+        break;
+      case 'payment_intent.payment_failed':
+        handlePaymentFailure(event.data.object);
+        break;
+      case 'charge.dispute.created':
+        handleDisputeCreated(event.data.object);
+        break;
+    }
+
+    res.json({ received: true });
   }
-  
-  res.json({received: true});
-});
+);
 ```
 
 ### Custodian Webhooks
@@ -276,12 +289,12 @@ app.post('/webhooks/stripe', express.raw({type: 'application/json'}), (req, res)
 ```typescript
 app.post('/webhooks/custodian', (req, res) => {
   const { eventId, type, data } = req.body;
-  
+
   // Verify webhook signature
   if (!verifyCustodianSignature(req)) {
     return res.status(401).json({ error: 'Invalid signature' });
   }
-  
+
   switch (type) {
     case 'deposit.confirmed':
       handleDepositConfirmed(data);
@@ -290,7 +303,7 @@ app.post('/webhooks/custodian', (req, res) => {
       handleTransferCompleted(data);
       break;
   }
-  
+
   res.json({ received: true });
 });
 ```
@@ -305,14 +318,14 @@ describe('User Controller', () => {
     const userData = {
       discordId: '123456789',
       username: 'test_user',
-      email: 'test@example.com'
+      email: 'test@example.com',
     };
-    
+
     const response = await request(app)
       .post('/api/users')
       .send(userData)
       .expect(201);
-    
+
     expect(response.body.success).toBe(true);
     expect(response.body.data.username).toBe(userData.username);
   });
@@ -326,28 +339,28 @@ describe('Escrow Flow', () => {
   it('should complete full escrow transaction', async () => {
     // 1. Create listing
     const listing = await createTestListing();
-    
+
     // 2. Create offer
     const offer = await createTestOffer(listing.id);
-    
+
     // 3. Accept offer
     await acceptOffer(offer.id);
-    
+
     // 4. Create contract
     const contract = await createContract(offer.id);
-    
+
     // 5. Create escrow
     const escrow = await createEscrow(offer.id, contract.id);
-    
+
     // 6. Fund escrow
     await fundEscrow(escrow.id);
-    
+
     // 7. Deliver item
     await deliverItem(escrow.id);
-    
+
     // 8. Release funds
     await releaseFunds(escrow.id);
-    
+
     // Verify final state
     const finalEscrow = await getEscrow(escrow.id);
     expect(finalEscrow.status).toBe('RELEASED');
@@ -364,15 +377,17 @@ app.get('/health', async (req, res) => {
   const checks = {
     database: await checkDatabase(),
     redis: await checkRedis(),
-    external_apis: await checkExternalAPIs()
+    external_apis: await checkExternalAPIs(),
   };
-  
-  const isHealthy = Object.values(checks).every(check => check.status === 'healthy');
-  
+
+  const isHealthy = Object.values(checks).every(
+    check => check.status === 'healthy'
+  );
+
   res.status(isHealthy ? 200 : 503).json({
     status: isHealthy ? 'healthy' : 'unhealthy',
     checks,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 ```
@@ -383,17 +398,17 @@ app.get('/health', async (req, res) => {
 // Request metrics
 app.use((req, res, next) => {
   const start = Date.now();
-  
+
   res.on('finish', () => {
     const duration = Date.now() - start;
     metrics.recordRequest({
       method: req.method,
       path: req.path,
       statusCode: res.statusCode,
-      duration
+      duration,
     });
   });
-  
+
   next();
 });
 ```

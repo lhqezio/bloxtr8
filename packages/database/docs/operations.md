@@ -90,7 +90,7 @@ const escrow = await prisma.escrow.findUnique({
 
 ```typescript
 // Create a complete transaction flow
-const transaction = await prisma.$transaction(async (tx) => {
+const transaction = await prisma.$transaction(async tx => {
   // 1. Create offer
   const offer = await tx.offer.create({
     data: {
@@ -263,7 +263,7 @@ async function main() {
 }
 
 main()
-  .catch((e) => {
+  .catch(e => {
     console.error(e);
     process.exit(1);
   })

@@ -56,24 +56,28 @@ The schema supports a complete Discord-native escrow and verification system for
 ## Key Features
 
 ### 🔐 Security & Compliance
+
 - KYC tiers and verification
 - Wallet risk assessment
 - Comprehensive audit logging
 - Immutable transaction records
 
 ### 💰 Multi-Rail Payments
+
 - Stripe for traditional payments (≤$10k)
 - USDC on Base blockchain (>$10k)
 - Milestone-based releases
 - Automatic refund capabilities
 
 ### 🏛️ Guild System
+
 - Discord server integration
 - Role-based permissions
 - Community trading
 - Guild-specific listings
 
 ### 📦 Delivery Tracking
+
 - Status-based workflow
 - Confirmation system
 - Dispute integration

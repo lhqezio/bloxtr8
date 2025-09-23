@@ -17,7 +17,7 @@ erDiagram
         string walletAddress
         enum walletRisk
     }
-    
+
     Guild {
         string id PK
         string discordId UK
@@ -26,7 +26,7 @@ erDiagram
         datetime createdAt
         datetime updatedAt
     }
-    
+
     GuildMember {
         string id PK
         enum role
@@ -34,7 +34,7 @@ erDiagram
         string userId FK
         string guildId FK
     }
-    
+
     Listing {
         string id PK
         string title
@@ -47,7 +47,7 @@ erDiagram
         string userId FK
         string guildId FK
     }
-    
+
     Offer {
         string id PK
         int amount
@@ -62,7 +62,7 @@ erDiagram
         string sellerId FK
         string parentId FK
     }
-    
+
     Contract {
         string id PK
         string pdfUrl
@@ -72,14 +72,14 @@ erDiagram
         datetime updatedAt
         string offerId FK
     }
-    
+
     Signature {
         string id PK
         datetime signedAt
         string userId FK
         string contractId FK
     }
-    
+
     Escrow {
         string id PK
         enum rail
@@ -91,7 +91,7 @@ erDiagram
         string offerId FK
         string contractId FK
     }
-    
+
     StripeEscrow {
         string id PK
         string paymentIntentId UK
@@ -99,7 +99,7 @@ erDiagram
         string refundId
         string escrowId FK
     }
-    
+
     StablecoinEscrow {
         string id PK
         string chain
@@ -108,7 +108,7 @@ erDiagram
         string releaseTx
         string escrowId FK
     }
-    
+
     MilestoneEscrow {
         string id PK
         string title
@@ -116,7 +116,7 @@ erDiagram
         enum status
         string escrowId FK
     }
-    
+
     Delivery {
         string id PK
         string title
@@ -131,7 +131,7 @@ erDiagram
         string escrowId FK
         string deliveredBy FK
     }
-    
+
     Dispute {
         string id PK
         string title
@@ -144,7 +144,7 @@ erDiagram
         string escrowId FK
         string userId FK
     }
-    
+
     RobloxSnapshot {
         string id PK
         string groupId
@@ -154,7 +154,7 @@ erDiagram
         datetime createdAt
         string listingId FK
     }
-    
+
     AuditLog {
         string id PK
         string action
@@ -163,7 +163,7 @@ erDiagram
         string userId FK
         string escrowId FK
     }
-    
+
     WebhookEvent {
         string id PK
         string eventId UK
@@ -181,27 +181,27 @@ erDiagram
     User ||--o{ Delivery : "delivers"
     User ||--o{ Dispute : "initiates"
     User ||--o{ GuildMember : "belongs_to"
-    
+
     %% Guild Relationships
     Guild ||--o{ GuildMember : "has_members"
     Guild ||--o{ Listing : "hosts"
-    
+
     %% Listing Relationships
     Listing ||--o{ Offer : "receives"
     Listing ||--o{ RobloxSnapshot : "verified_by"
     Listing ||--o{ Delivery : "delivered_via"
-    
+
     %% Offer Relationships
     Offer ||--o{ Contract : "becomes"
     Offer ||--o{ Escrow : "funds"
     Offer ||--o{ Delivery : "delivered_via"
     Offer ||--o| Offer : "counters"
-    
+
     %% Contract Relationships
     Contract ||--o{ Signature : "requires"
     Contract ||--o{ Escrow : "secured_by"
     Contract ||--o{ Delivery : "delivered_via"
-    
+
     %% Escrow Relationships
     Escrow ||--o| StripeEscrow : "stripe_data"
     Escrow ||--o| StablecoinEscrow : "crypto_data"
@@ -274,30 +274,35 @@ flowchart TD
 ## Key Features Highlighted
 
 ### 🔐 Security & Compliance
+
 - KYC tiers and verification
 - Wallet risk assessment
 - Comprehensive audit logging
 - Immutable transaction records
 
 ### 💰 Multi-Rail Payments
+
 - Stripe for traditional payments
 - USDC on Base blockchain
 - Milestone-based releases
 - Automatic refund capabilities
 
 ### 🏛️ Guild System
+
 - Discord server integration
 - Role-based permissions
 - Community trading
 - Guild-specific listings
 
 ### 📦 Delivery Tracking
+
 - Status-based workflow
 - Confirmation system
 - Dispute integration
 - Audit trail
 
 ### ⚖️ Dispute Resolution
+
 - Escrow-linked disputes
 - Status tracking
 - Resolution documentation

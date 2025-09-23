@@ -13,17 +13,17 @@ graph TB
     C --> D[Validation Layer]
     D --> E[API Client]
     E --> F[Bloxtr8 API]
-    
+
     F --> G[Database]
     F --> H[External Services]
-    
+
     I[Discord Events] --> J[Event Handler]
     J --> K[User Verification]
     K --> E
-    
+
     L[Modal Interactions] --> M[Modal Handler]
     M --> D
-    
+
     N[Button Interactions] --> O[Button Handler]
     O --> D
 ```
@@ -87,14 +87,17 @@ const commands = [
 // Listing command handler
 export async function handleListingCommand(interaction: CommandInteraction) {
   const subcommand = interaction.options.getSubcommand();
-  
+
   switch (subcommand) {
     case 'create':
       return handleCreateListing(interaction);
     case 'view':
       return handleViewListings(interaction);
     default:
-      return interaction.reply({ content: 'Unknown subcommand', ephemeral: true });
+      return interaction.reply({
+        content: 'Unknown subcommand',
+        ephemeral: true,
+      });
   }
 }
 
@@ -108,39 +111,45 @@ async function handleCreateListing(interaction: CommandInteraction) {
       ephemeral: true,
     });
   }
-  
+
   // Show modal for listing details
   const modal = new ModalBuilder()
     .setCustomId('create_listing_modal')
     .setTitle('Create New Listing');
-    
+
   const titleInput = new TextInputBuilder()
     .setCustomId('title')
     .setLabel('Listing Title')
     .setStyle(TextInputStyle.Short)
     .setMaxLength(200)
     .setRequired(true);
-    
+
   const summaryInput = new TextInputBuilder()
     .setCustomId('summary')
     .setLabel('Description')
     .setStyle(TextInputStyle.Paragraph)
     .setMaxLength(1000)
     .setRequired(true);
-    
+
   const priceInput = new TextInputBuilder()
     .setCustomId('price')
     .setLabel('Price (in USD)')
     .setStyle(TextInputStyle.Short)
     .setPlaceholder('500.00')
     .setRequired(true);
-    
+
   modal.addComponents(
-    new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(titleInput),
-    new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(summaryInput),
-    new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(priceInput)
+    new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(
+      titleInput
+    ),
+    new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(
+      summaryInput
+    ),
+    new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(
+      priceInput
+    )
   );
-  
+
   await interaction.showModal(modal);
 }
 ```
@@ -153,7 +162,7 @@ async function handleCreateListing(interaction: CommandInteraction) {
 // Modal submit handler
 export async function handleModalSubmit(interaction: ModalSubmitInteraction) {
   const customId = interaction.customId;
-  
+
   switch (customId) {
     case 'create_listing_modal':
       return handleCreateListingModal(interaction);
@@ -168,7 +177,7 @@ async function handleCreateListingModal(interaction: ModalSubmitInteraction) {
   const title = interaction.fields.getTextInputValue('title');
   const summary = interaction.fields.getTextInputValue('summary');
   const priceStr = interaction.fields.getTextInputValue('price');
-  
+
   // Validate input
   const price = parseFloat(priceStr);
   if (isNaN(price) || price <= 0) {
@@ -177,7 +186,7 @@ async function handleCreateListingModal(interaction: ModalSubmitInteraction) {
       ephemeral: true,
     });
   }
-  
+
   try {
     // Create listing via API
     const listing = await apiClient.createListing({
@@ -186,7 +195,7 @@ async function handleCreateListingModal(interaction: ModalSubmitInteraction) {
       price: Math.round(price * 100), // Convert to cents
       category: 'GENERAL',
     });
-    
+
     // Send success embed
     const embed = new EmbedBuilder()
       .setTitle('✅ Listing Created Successfully')
@@ -198,7 +207,7 @@ async function handleCreateListingModal(interaction: ModalSubmitInteraction) {
       )
       .setColor(0x00ff00)
       .setTimestamp();
-      
+
     await interaction.reply({ embeds: [embed] });
   } catch (error) {
     await interaction.reply({
@@ -215,11 +224,11 @@ async function handleCreateListingModal(interaction: ModalSubmitInteraction) {
 // Button interaction handler
 export async function handleButtonInteraction(interaction: ButtonInteraction) {
   const customId = interaction.customId;
-  
+
   if (customId.startsWith('offer_')) {
     return handleOfferButton(interaction);
   }
-  
+
   if (customId.startsWith('listing_')) {
     return handleListingButton(interaction);
   }
@@ -227,7 +236,7 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
 
 async function handleOfferButton(interaction: ButtonInteraction) {
   const [, action, offerId] = interaction.customId.split('_');
-  
+
   switch (action) {
     case 'accept':
       return handleAcceptOffer(interaction, offerId);
@@ -238,15 +247,20 @@ async function handleOfferButton(interaction: ButtonInteraction) {
   }
 }
 
-async function handleAcceptOffer(interaction: ButtonInteraction, offerId: string) {
+async function handleAcceptOffer(
+  interaction: ButtonInteraction,
+  offerId: string
+) {
   try {
     await apiClient.acceptOffer(offerId);
-    
+
     const embed = new EmbedBuilder()
       .setTitle('✅ Offer Accepted')
-      .setDescription('The offer has been accepted. A contract will be generated shortly.')
+      .setDescription(
+        'The offer has been accepted. A contract will be generated shortly.'
+      )
       .setColor(0x00ff00);
-      
+
     await interaction.update({ embeds: [embed], components: [] });
   } catch (error) {
     await interaction.reply({
@@ -268,7 +282,7 @@ export class UserVerificationService {
     try {
       // Check if user exists in database
       let user = await apiClient.getUserByDiscordId(discordId);
-      
+
       if (!user) {
         // Create new user
         user = await apiClient.createUser({
@@ -276,14 +290,14 @@ export class UserVerificationService {
           username: 'Unknown', // Will be updated from Discord profile
         });
       }
-      
+
       return user;
     } catch (error) {
       console.error('User verification failed:', error);
       return null;
     }
   }
-  
+
   async updateUserProfile(discordId: string, user: User): Promise<void> {
     try {
       await apiClient.updateUser(user.id, {
@@ -303,43 +317,47 @@ export class UserVerificationService {
 // KYC verification handler
 export async function handleKYCVerification(interaction: CommandInteraction) {
   const user = await verifyUser(interaction.user.id);
-  
+
   if (!user) {
     return interaction.reply({
       content: 'Failed to verify user. Please try again later.',
       ephemeral: true,
     });
   }
-  
+
   if (user.kycVerified) {
     return interaction.reply({
       content: 'You are already KYC verified!',
       ephemeral: true,
     });
   }
-  
+
   // Show KYC verification modal
   const modal = new ModalBuilder()
     .setCustomId('kyc_verification_modal')
     .setTitle('KYC Verification');
-    
+
   const emailInput = new TextInputBuilder()
     .setCustomId('email')
     .setLabel('Email Address')
     .setStyle(TextInputStyle.Short)
     .setRequired(true);
-    
+
   const phoneInput = new TextInputBuilder()
     .setCustomId('phone')
     .setLabel('Phone Number')
     .setStyle(TextInputStyle.Short)
     .setRequired(true);
-    
+
   modal.addComponents(
-    new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(emailInput),
-    new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(phoneInput)
+    new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(
+      emailInput
+    ),
+    new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(
+      phoneInput
+    )
   );
-  
+
   await interaction.showModal(modal);
 }
 ```
@@ -352,10 +370,11 @@ export async function handleKYCVerification(interaction: CommandInteraction) {
 // Global error handler for Discord interactions
 export function handleDiscordError(error: Error, interaction: Interaction) {
   console.error('Discord interaction error:', error);
-  
+
   if (interaction.isRepliable()) {
-    const errorMessage = 'An unexpected error occurred. Please try again later.';
-    
+    const errorMessage =
+      'An unexpected error occurred. Please try again later.';
+
     if (interaction.replied || interaction.deferred) {
       interaction.followUp({ content: errorMessage, ephemeral: true });
     } else {
@@ -375,11 +394,11 @@ export function checkCooldown(userId: string, commandName: string): boolean {
   const key = `${userId}_${commandName}`;
   const cooldown = commandCooldowns.get(key);
   const now = Date.now();
-  
+
   if (cooldown && now < cooldown) {
     return false; // Still on cooldown
   }
-  
+
   // Set cooldown (5 seconds for most commands)
   commandCooldowns.set(key, now + 5000);
   return true;
@@ -398,24 +417,28 @@ describe('Discord Bot Commands', () => {
       fields: {
         getTextInputValue: (id: string) => {
           switch (id) {
-            case 'title': return 'Test Listing';
-            case 'summary': return 'Test description';
-            case 'price': return '100.00';
-            default: return '';
+            case 'title':
+              return 'Test Listing';
+            case 'summary':
+              return 'Test description';
+            case 'price':
+              return '100.00';
+            default:
+              return '';
           }
-        }
-      }
+        },
+      },
     });
-    
+
     await handleCreateListingModal(mockInteraction);
-    
+
     expect(mockInteraction.reply).toHaveBeenCalledWith(
       expect.objectContaining({
         embeds: expect.arrayContaining([
           expect.objectContaining({
-            title: '✅ Listing Created Successfully'
-          })
-        ])
+            title: '✅ Listing Created Successfully',
+          }),
+        ]),
       })
     );
   });

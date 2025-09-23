@@ -169,9 +169,14 @@ This will start:
 ## Documentation
 
 ### End-to-End Flows
+
 - **[Complete Transaction Flow](./docs/e2e-flows.md)** - Step-by-step guide through the entire escrow process
 
+### Scripts Documentation
+- **[Scripts Documentation](./scripts/README.md)** - Complete guide to all pnpm scripts and Node.js utilities
+
 ### Application Documentation
+
 Each application and package has its own focused README and detailed docs:
 
 - **[API Documentation](./apps/api/README.md)** - Express API server details
