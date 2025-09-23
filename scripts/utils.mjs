@@ -6,13 +6,19 @@
  */
 
 import { execSync, spawn } from 'child_process';
-import { existsSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import {
+  existsSync,
+  copyFileSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const projectRoot = join(__dirname, '../..');
+const projectRoot = join(__dirname, '..');
 
 // Color codes for terminal output
 export const colors = {
@@ -23,7 +29,7 @@ export const colors = {
   blue: '\x1b[34m',
   magenta: '\x1b[35m',
   cyan: '\x1b[36m',
-  white: '\x1b[37m'
+  white: '\x1b[37m',
 };
 
 /**
@@ -54,7 +60,7 @@ export function executeCommand(command, options = {}) {
       cwd: projectRoot,
       stdio: 'inherit',
       encoding: 'utf8',
-      ...options
+      ...options,
     });
     return { success: true, result };
   } catch (error) {
@@ -70,18 +76,22 @@ export function executeCommandAsync(command, args = [], options = {}) {
     const child = spawn(command, args, {
       cwd: projectRoot,
       stdio: 'inherit',
-      ...options
+      ...options,
     });
 
-    child.on('close', (code) => {
+    child.on('close', code => {
       if (code === 0) {
         resolve({ success: true, code });
       } else {
-        reject({ success: false, code, error: `Command failed with code ${code}` });
+        reject({
+          success: false,
+          code,
+          error: `Command failed with code ${code}`,
+        });
       }
     });
 
-    child.on('error', (error) => {
+    child.on('error', error => {
       reject({ success: false, error: error.message });
     });
   });
@@ -100,13 +110,13 @@ export function fileExists(filepath) {
 export function copyFile(src, dest) {
   const srcPath = join(projectRoot, src);
   const destPath = join(projectRoot, dest);
-  
+
   // Create destination directory if it doesn't exist
   const destDir = dirname(destPath);
   if (!existsSync(destDir)) {
     mkdirSync(destDir, { recursive: true });
   }
-  
+
   copyFileSync(srcPath, destPath);
 }
 
@@ -123,12 +133,12 @@ export function readFile(filepath) {
 export function writeFile(filepath, content) {
   const fullPath = join(projectRoot, filepath);
   const dir = dirname(fullPath);
-  
+
   // Create directory if it doesn't exist
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  
+
   writeFileSync(fullPath, content, 'utf8');
 }
 
@@ -137,17 +147,21 @@ export function writeFile(filepath, content) {
  */
 export function loadEnvironmentKeys() {
   const keysFile = join(projectRoot, '.env.keys');
-  
+
   if (!existsSync(keysFile)) {
-    printWarning('.env.keys file not found. Environment variables will remain encrypted.');
-    printWarning('To decrypt them, create .env.keys file with the appropriate keys.');
+    printWarning(
+      '.env.keys file not found. Environment variables will remain encrypted.'
+    );
+    printWarning(
+      'To decrypt them, create .env.keys file with the appropriate keys.'
+    );
     return {};
   }
-  
+
   try {
     const keysContent = readFileSync(keysFile, 'utf8');
     const keys = {};
-    
+
     // Parse key=value pairs
     keysContent.split('\n').forEach(line => {
       const trimmed = line.trim();
@@ -158,7 +172,7 @@ export function loadEnvironmentKeys() {
         }
       }
     });
-    
+
     return keys;
   } catch (error) {
     printError(`Failed to load .env.keys: ${error.message}`);
@@ -171,22 +185,24 @@ export function loadEnvironmentKeys() {
  */
 export function setupEnvironment(mode = 'development') {
   printStatus(`Setting up ${mode} environment...`);
-  
+
   const envFile = `.env.${mode}.local`;
   const targetEnv = '.env';
-  
+
   // Check if local environment file exists
   if (!fileExists(envFile)) {
     printError(`Environment file ${envFile} not found!`);
     printStatus('Please create the environment file or decrypt it first:');
-    printStatus(`  pnpm env:decrypt:${mode === 'development' ? 'dev' : 'prod'}`);
+    printStatus(
+      `  pnpm env:decrypt:${mode === 'development' ? 'dev' : 'prod'}`
+    );
     process.exit(1);
   }
-  
+
   // Copy environment file to .env
   copyFile(envFile, targetEnv);
   printStatus(`Copied ${envFile} to ${targetEnv}`);
-  
+
   // Copy .env to each app directory so dotenvx can find it
   const appDirs = ['apps/api', 'apps/discord-bot'];
   appDirs.forEach(appDir => {
@@ -195,7 +211,7 @@ export function setupEnvironment(mode = 'development') {
       printStatus(`Copied .env to ${appDir}/`);
     }
   });
-  
+
   // Load and set environment keys
   const keys = loadEnvironmentKeys();
   if (keys.DOTENV_PRIVATE_KEY_DEV && mode === 'development') {
@@ -205,7 +221,7 @@ export function setupEnvironment(mode = 'development') {
   } else if (keys.DOTENV_PRIVATE_KEY) {
     process.env.DOTENV_PRIVATE_KEY = keys.DOTENV_PRIVATE_KEY;
   }
-  
+
   printSuccess(`${mode} environment setup complete!`);
 }
 
@@ -251,7 +267,9 @@ export function getDockerComposeCommand() {
       execSync('docker-compose --version', { stdio: 'ignore' });
       return 'docker-compose';
     } catch {
-      throw new Error('Docker Compose not found. Please install Docker Compose.');
+      throw new Error(
+        'Docker Compose not found. Please install Docker Compose.'
+      );
     }
   }
 }
@@ -267,15 +285,15 @@ export function sleep(seconds) {
  * Check if a port is available
  */
 export function isPortAvailable(port) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const { createServer } = require('net');
     const server = createServer();
-    
+
     server.listen(port, () => {
       server.once('close', () => resolve(true));
       server.close();
     });
-    
+
     server.on('error', () => resolve(false));
   });
 }
@@ -295,9 +313,9 @@ export function parseArgs(argv = process.argv) {
   const parsed = {
     command: args[0] || 'help',
     flags: {},
-    params: []
+    params: [],
   };
-  
+
   for (let i = 1; i < args.length; i++) {
     const arg = args[i];
     if (arg.startsWith('--')) {
@@ -309,7 +327,7 @@ export function parseArgs(argv = process.argv) {
       parsed.params.push(arg);
     }
   }
-  
+
   return parsed;
 }
 
@@ -322,11 +340,11 @@ export function showScriptHelp(scriptName, commands) {
   console.log(`Usage: node ${scriptName} [COMMAND] [OPTIONS]`);
   console.log('');
   console.log('Commands:');
-  
+
   Object.entries(commands).forEach(([command, description]) => {
     console.log(`  ${command.padEnd(20)} ${description}`);
   });
-  
+
   console.log('');
   console.log('Options:');
   console.log('  --help, -h          Show this help message');
@@ -355,5 +373,5 @@ export default {
   isPortAvailable,
   getProjectRoot,
   parseArgs,
-  showScriptHelp
+  showScriptHelp,
 };
