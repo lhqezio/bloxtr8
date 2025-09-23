@@ -1,5 +1,25 @@
 import request from 'supertest';
 
+// Mock Prisma client before importing app
+jest.mock('@bloxtr8/database', () => ({
+  PrismaClient: jest.fn().mockImplementation(() => ({
+    listing: {
+      create: jest.fn().mockResolvedValue({
+        id: 'test-listing-id',
+        title: 'Test Listing',
+        summary: 'Test summary',
+        price: 10000,
+        category: 'Test Category',
+        userId: 'test-seller-id',
+        guildId: null,
+        status: 'ACTIVE',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    },
+  })),
+}));
+
 import app from '../index.js';
 
 describe('API Routes', () => {
@@ -89,6 +109,99 @@ describe('API Routes', () => {
       expect(response.body).toHaveProperty('downloadUrl');
       expect(response.body).toHaveProperty('key', 'contracts/valid-id.pdf');
       expect(response.body).toHaveProperty('expiresIn', 3600);
+    });
+  });
+
+  describe('POST /api/listings', () => {
+    it('should return 400 for invalid payload - missing required fields', async () => {
+      const response = await request(app)
+        .post('/api/listings')
+        .send({})
+        .expect(400);
+
+      expect(response.headers['content-type']).toMatch(/application\/json/);
+      expect(response.body).toHaveProperty('type');
+      expect(response.body).toHaveProperty('title', 'Bad Request');
+      expect(response.body).toHaveProperty('status', 400);
+      expect(response.body).toHaveProperty('detail');
+      expect(response.body.detail).toContain('Validation failed');
+    });
+
+    it('should return 400 for invalid payload - invalid price', async () => {
+      const response = await request(app)
+        .post('/api/listings')
+        .send({
+          title: 'Test Listing',
+          summary: 'Test summary',
+          price: -100, // Invalid negative price
+          category: 'Test Category',
+          sellerId: 'test-seller-id',
+        })
+        .expect(400);
+
+      expect(response.headers['content-type']).toMatch(/application\/json/);
+      expect(response.body).toHaveProperty('type');
+      expect(response.body).toHaveProperty('title', 'Bad Request');
+      expect(response.body).toHaveProperty('status', 400);
+      expect(response.body).toHaveProperty('detail');
+      expect(response.body.detail).toContain('Validation failed');
+    });
+
+    it('should return 400 for invalid payload - empty title', async () => {
+      const response = await request(app)
+        .post('/api/listings')
+        .send({
+          title: '', // Empty title
+          summary: 'Test summary',
+          price: 10000,
+          category: 'Test Category',
+          sellerId: 'test-seller-id',
+        })
+        .expect(400);
+
+      expect(response.headers['content-type']).toMatch(/application\/json/);
+      expect(response.body).toHaveProperty('type');
+      expect(response.body).toHaveProperty('title', 'Bad Request');
+      expect(response.body).toHaveProperty('status', 400);
+      expect(response.body).toHaveProperty('detail');
+      expect(response.body.detail).toContain('Validation failed');
+    });
+
+    it('should return 201 with listing id for valid payload', async () => {
+      const response = await request(app)
+        .post('/api/listings')
+        .send({
+          title: 'Test Listing',
+          summary: 'Test summary for the listing',
+          price: 10000, // $100.00 in cents
+          category: 'Test Category',
+          sellerId: 'test-seller-id',
+        })
+        .expect(201);
+
+      expect(response.headers['content-type']).toMatch(/application\/json/);
+      expect(response.body).toHaveProperty('id');
+      expect(typeof response.body.id).toBe('string');
+      expect(response.body.id.length).toBeGreaterThan(0);
+    });
+
+    it('should return 201 with listing id for valid payload with optional guildId', async () => {
+      const response = await request(app)
+        .post('/api/listings')
+        .send({
+          title: 'Test Listing with Guild',
+          summary: 'Test summary for the listing with guild',
+          price: 15000, // $150.00 in cents
+          category: 'Test Category',
+          sellerId: 'test-seller-id',
+          guildId: 'test-guild-id',
+        })
+        .expect(201);
+
+      expect(response.headers['content-type']).toMatch(/application\/json/);
+      expect(response.body).toHaveProperty('id');
+      expect(typeof response.body.id).toBe('string');
+      expect(response.body.id.length).toBeGreaterThan(0);
     });
   });
 });
