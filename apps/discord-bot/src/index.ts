@@ -1,16 +1,27 @@
 import { config } from '@dotenvx/dotenvx';
 import { createAuthClient } from "better-auth/client"
 import {
+  ActionRowBuilder,
   Client,
+  EmbedBuilder,
   GatewayIntentBits,
+  ModalBuilder,
   REST,
   Routes,
   SlashCommandBuilder,
-  ActionRowBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  type ChatInputCommandInteraction,
+  type ModalSubmitInteraction,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder,
 } from 'discord.js';
+
+import { createListing, getApiBaseUrl } from './utils/apiClient.js';
+import {
+  ensureUserExists,
+  verifyUserForListing,
+} from './utils/userVerification.js';
 
 // Load environment variables
 config();
@@ -133,20 +144,20 @@ client.on('messageCreate', async message => {
 });
 
 client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
+  // Handle slash commands
+  if (interaction.isChatInputCommand()) {
+    if (interaction.commandName === 'hello') {
+      const provided = interaction.options.getString('name');
+      const targetName =
+        provided || interaction.user.displayName || interaction.user.username;
+      await interaction.reply({ content: `Hello there ${targetName}!` });
+    }
 
-  if (interaction.commandName === 'hello') {
-    const provided = interaction.options.getString('name');
-    const targetName =
-      provided || interaction.user.displayName || interaction.user.username;
-    await interaction.reply({ content: `Hello there ${targetName}!` });
-  }
-
-  if (interaction.commandName === 'ping') {
-    const startTime = Date.now();
-    await interaction.reply({ content: 'Pinging...' });
-    const latency = Date.now() - startTime;
-    const apiLatency = Math.round(client.ws.ping);
+    if (interaction.commandName === 'ping') {
+      const startTime = Date.now();
+      await interaction.reply({ content: 'Pinging...' });
+      const latency = Date.now() - startTime;
+      const apiLatency = Math.round(client.ws.ping);
 
     await interaction.editReply({
       content: ` Pong! Latency: ${latency}ms | API Latency: ${apiLatency}ms`,
