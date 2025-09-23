@@ -1,41 +1,61 @@
 services:
-  # Build the shared base image first (build-only service)
-  base:
-    build:
-      context: .
-      dockerfile: Dockerfile.base
-      target: base
-    image: bloxtr8-base:latest
-    # This service only builds an image, doesn't run a container
-    profiles:
-      - build-only
-
-  setup:
-    image: node:20-alpine
-    working_dir: /app
+  # Database service
+  test-db:
+    image: postgres:16.2-alpine
+    container_name: bloxtr8-db
+    environment:
+      - POSTGRES_DB=bloxtr8-db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - '5432:5432'
     volumes:
-      - .:/app
-      - /app/node_modules
-      - ./.env.keys:/app/.env.keys:ro
-    command: sh ./scripts/env-decrypt-prod.sh && sh ./scripts/env-prod.sh
-    # Remove incorrect dependency on base - setup uses node:20-alpine directly
+      - pgdata:/var/lib/postgresql/data
+    # Optimize PostgreSQL for development
+    command: postgres -c shared_preload_libraries=pg_stat_statements -c max_connections=100 -c shared_buffers=128MB
 
+  # MinIO for file storage
+  minio:
+    image: minio/minio:latest
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+  # API service - production optimized
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      target: production
     ports:
       - '3000:3000'
     environment:
       - NODE_ENV=production
+      - DATABASE_URL_PRISMA=postgresql://postgres:postgres@test-db:5432/bloxtr8-db
     restart: unless-stopped
-    # No depends_on needed - uses bloxtr8-base:latest image directly
+    depends_on:
+      - test-db
 
+  # Discord bot - production optimized
   discord-bot:
     build:
       context: .
       dockerfile: apps/discord-bot/Dockerfile
+      target: production
     environment:
       - NODE_ENV=production
+      - API_BASE_URL=http://api:3000
     restart: unless-stopped
-    # No depends_on needed - uses bloxtr8-base:latest image directly
+    depends_on:
+      - api
+
+# Named volumes
+volumes:
+  pgdata:
+  minio_data:

@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:1.6
+
+FROM node:20-alpine AS development
+
+# Install pnpm
+ENV PNPM_HOME=/root/.local/share/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY turbo.json ./
+
+# Copy all package.json files for workspace setup
+COPY apps/*/package.json ./apps/
+COPY packages/*/package.json ./packages/
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile --reporter=silent
+
+# Copy source code
+COPY . .
+
+# Skip build step - let services build themselves when they start
+# This avoids dependency issues during Docker build
+
+CMD ["pnpm", "dev"]
