@@ -36,11 +36,12 @@ show_help() {
     echo "Usage: $0 [COMMAND]"
     echo ""
     echo "Commands:"
-    echo "  build-base     Build the shared base image"
     echo "  build-fast     Build all services with optimizations"
     echo "  dev            Start development environment with optimizations"
     echo "  dev-build      Start development environment with auto-build"
     echo "  prod           Start production environment"
+    echo "  db-only        Start only the database service"
+    echo "  test           Run tests in Docker environment"
     echo "  clean          Clean up Docker resources"
     echo "  prune          Remove unused Docker resources"
     echo "  rebuild        Force rebuild all images"
@@ -49,27 +50,17 @@ show_help() {
     echo "  help           Show this help message"
     echo ""
     echo "Performance Tips:"
-    echo "  - Use 'build-base' first to create shared base image"
+    echo "  - Use 'build-fast' to build all services in parallel"
     echo "  - Use 'dev' for development with hot reloading"
     echo "  - Use 'clean' to free up disk space"
     echo "  - Use 'prune' to remove unused images and containers"
-}
-
-# Function to build base image
-build_base() {
-    print_status "Building shared base image..."
-    docker compose build base
-    print_success "Base image built successfully!"
 }
 
 # Function to build all services with optimizations
 build_fast() {
     print_status "Building all services with optimizations..."
     
-    # Build base image first
-    build_base
-    
-    # Build other services
+    # Build all services in parallel
     docker compose build --parallel
     print_success "All services built successfully!"
 }
@@ -77,12 +68,6 @@ build_fast() {
 # Function to start development environment
 start_dev() {
     print_status "Starting development environment with optimizations..."
-    
-    # Ensure base image exists
-    if ! docker image inspect bloxtr8-base:latest >/dev/null 2>&1; then
-        print_warning "Base image not found, building it first..."
-        build_base
-    fi
     
     # Start services with build
     docker compose up -d --build
@@ -96,9 +81,6 @@ start_dev() {
 # Function to start development environment with auto-build
 start_dev_build() {
     print_status "Starting development environment with auto-build..."
-    
-    # Always build base image first
-    build_base
     
     # Build and start services
     docker compose up -d --build
@@ -158,11 +140,34 @@ show_stats() {
     docker stats
 }
 
+# Function to start only database service
+start_db_only() {
+    print_status "Starting database service only..."
+    docker compose up -d test-db minio
+    print_success "Database and MinIO services started!"
+    print_status "Services available at:"
+    echo "  - PostgreSQL: localhost:5432"
+    echo "  - MinIO: http://localhost:9001"
+}
+
+# Function to run tests in Docker environment
+run_tests() {
+    print_status "Running tests in Docker environment..."
+    
+    # Start database first
+    docker compose up -d test-db
+    
+    # Wait for database to be ready
+    print_status "Waiting for database to be ready..."
+    sleep 5
+    
+    # Run tests
+    docker compose run --rm api pnpm test
+    print_success "Tests completed!"
+}
+
 # Main script logic
 case "${1:-help}" in
-    "build-base")
-        build_base
-        ;;
     "build-fast")
         build_fast
         ;;
@@ -174,6 +179,12 @@ case "${1:-help}" in
         ;;
     "prod")
         start_prod
+        ;;
+    "db-only")
+        start_db_only
+        ;;
+    "test")
+        run_tests
         ;;
     "clean")
         clean_docker
