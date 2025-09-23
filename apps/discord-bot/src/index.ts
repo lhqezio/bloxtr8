@@ -1,30 +1,3 @@
-/**
- * Discord Bot with Better Auth Integration
- * 
- * This bot provides Discord OAuth authentication using Better Auth.
- * 
- * Available Commands:
- * - /signin: Initiates Discord OAuth flow
- * - /auth-status: Check current authentication status
- * - /logout: Sign out of the current session
- * - /hello: Basic greeting command
- * - /ping: Check bot latency
- * 
- * Environment Variables Required:
- * - DISCORD_BOT_TOKEN: Your Discord bot token
- * - DISCORD_CLIENT_ID: Your Discord application ID
- * - DISCORD_GUILD_ID: Target guild for command registration
- * - API_BASE_URL: Base URL of your API server (defaults to http://localhost:3000)
- * 
- * How Discord OAuth Works:
- * 1. User runs /signin command
- * 2. Bot generates OAuth URL using Better Auth client
- * 3. User clicks link and authorizes on Discord
- * 4. Discord redirects to your API callback
- * 5. Better Auth handles the OAuth flow and creates user session
- * 6. User can check status with /auth-status
- */
-
 import { config } from '@dotenvx/dotenvx';
 import { createAuthClient } from "better-auth/client"
 import {
@@ -33,7 +6,6 @@ import {
   REST,
   Routes,
   SlashCommandBuilder,
-  EmbedBuilder,
 } from 'discord.js';
 
 // Load environment variables
@@ -43,7 +15,7 @@ type AuthClient = ReturnType<typeof createAuthClient>;
 
 export const authClient: AuthClient = createAuthClient({
     /** The base URL of the server (optional if you're using the same domain) */
-    baseURL: process.env.API_BASE_URL || "http://localhost:3000"
+    //baseURL: "http://localhost:3000"
 })
 
 const signIn = async (interaction: any) => {
