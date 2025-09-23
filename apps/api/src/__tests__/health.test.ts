@@ -1,5 +1,14 @@
 import request from 'supertest';
 
+// Mock Prisma client before importing app
+jest.mock('@bloxtr8/database', () => ({
+  PrismaClient: jest.fn().mockImplementation(() => ({
+    listing: {
+      create: jest.fn().mockResolvedValue({}),
+    },
+  })),
+}));
+
 import app from '../index.js';
 
 describe('Health Endpoint', () => {

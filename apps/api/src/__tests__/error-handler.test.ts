@@ -1,6 +1,15 @@
 import type { Request } from 'express';
 import request from 'supertest';
 
+// Mock Prisma client before importing app
+jest.mock('@bloxtr8/database', () => ({
+  PrismaClient: jest.fn().mockImplementation(() => ({
+    listing: {
+      create: jest.fn().mockResolvedValue({}),
+    },
+  })),
+}));
+
 import app from '../index.js';
 import { AppError, createProblemDetails } from '../middleware/errorHandler.js';
 
