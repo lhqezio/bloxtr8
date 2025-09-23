@@ -129,7 +129,7 @@ async function main() {
   });
 
   // Add the actual Discord server where the bot is running
-  const discordServerGuild = await prisma.guild.create({
+  await prisma.guild.create({
     data: {
       discordId: '1417568662021472531',
       name: 'Bloxtr8 Discord Server',

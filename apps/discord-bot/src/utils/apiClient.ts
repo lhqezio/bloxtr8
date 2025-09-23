@@ -43,7 +43,14 @@ export async function createListing(
       body: JSON.stringify(listingData),
     });
 
-    const responseData = await response.json() as any;
+    const responseData = await response.json() as {
+      id?: string;
+      message?: string;
+      errors?: Array<{
+        field: string;
+        message: string;
+      }>;
+    };
 
     if (!response.ok) {
       return {

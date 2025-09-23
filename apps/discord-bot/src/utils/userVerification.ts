@@ -39,7 +39,13 @@ export async function verifyUserForListing(discordId: string): Promise<UserVerif
       };
     }
 
-    const userData = await response.json() as any;
+    const userData = await response.json() as {
+      id: string;
+      discordId: string;
+      username: string;
+      kycVerified: boolean;
+      kycTier: 'TIER_1' | 'TIER_2';
+    };
     
     if (!userData.kycVerified) {
       return {
@@ -87,7 +93,13 @@ export async function ensureUserExists(discordId: string, username: string): Pro
       };
     }
 
-    const userData = await response.json() as any;
+    const userData = await response.json() as {
+      id: string;
+      discordId: string;
+      username: string;
+      kycVerified: boolean;
+      kycTier: 'TIER_1' | 'TIER_2';
+    };
     
     return {
       isVerified: userData.kycVerified,

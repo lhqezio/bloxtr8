@@ -10,9 +10,11 @@ import {
   SlashCommandBuilder,
   TextInputBuilder,
   TextInputStyle,
+  type ChatInputCommandInteraction,
+  type ModalSubmitInteraction,
 } from 'discord.js';
 
-import { createListing, getApiBaseUrl } from './utils/apiClient.js';
+import { createListing } from './utils/apiClient.js';
 import { ensureUserExists, verifyUserForListing } from './utils/userVerification.js';
 
 // Load environment variables
@@ -120,7 +122,7 @@ client.on('interactionCreate', async interaction => {
  * Handles the /listing create slash command
  * Shows verification check and opens modal if user is verified
  */
-async function handleListingCreate(interaction: any) {
+async function handleListingCreate(interaction: ChatInputCommandInteraction) {
   try {
     // Ensure user exists in database
     const userResult = await ensureUserExists(
@@ -219,7 +221,7 @@ async function handleListingCreate(interaction: any) {
  * Handles the modal submission for listing creation
  * Validates input and calls API to create listing
  */
-async function handleListingModalSubmit(interaction: any) {
+async function handleListingModalSubmit(interaction: ModalSubmitInteraction) {
   try {
     // Extract form data
     const title = interaction.fields.getTextInputValue('listing_title');
