@@ -24,12 +24,14 @@ pnpm dev
 ```
 
 **What it does:**
+
 - Sets up development environment variables
 - Starts all applications in development mode with hot reload
 - Uses dotenvx for encrypted environment variable management
 - Runs across all workspace packages using Turborepo
 
 **Prerequisites:**
+
 - `.env.development.local` file exists
 - `.env.keys` file with development keys
 - All dependencies installed
@@ -47,6 +49,7 @@ pnpm build
 ```
 
 **What it does:**
+
 - Sets up production environment variables
 - Builds all TypeScript packages to JavaScript
 - Optimizes for production deployment
@@ -61,6 +64,7 @@ pnpm build:dev
 ```
 
 **What it does:**
+
 - Same as production build but with development environment
 - Useful for testing built packages locally
 
@@ -75,12 +79,14 @@ pnpm test
 ```
 
 **What it does:**
+
 - Sets up development environment for testing
 - Runs Jest tests in all packages
 - Uses Turborepo for parallel test execution
 - Includes unit, integration, and end-to-end tests
 
 **Test Structure:**
+
 - API tests: `apps/api/src/__tests__/`
 - Database tests: Prisma schema validation
 - Discord bot tests: Command and interaction testing
@@ -119,6 +125,7 @@ pnpm db:seed
 ```
 
 **Database Workflow:**
+
 1. **Development**: Use `db:push` for quick schema iterations
 2. **Production**: Use `db:migrate` for versioned schema changes
 3. **Reset**: Use `db:reset` to start fresh (development only)
@@ -232,6 +239,7 @@ pnpm docker:test       # Run tests in Docker environment
 ### Docker Services
 
 The Docker setup includes:
+
 - **API**: Express.js API server
 - **Discord Bot**: Discord.js bot application
 - **PostgreSQL**: Database with persistent storage
@@ -253,6 +261,7 @@ pnpm lint:fix
 ```
 
 **ESLint Configuration:**
+
 - Centralized config in `@bloxtr8/eslint-config`
 - TypeScript-specific rules
 - Import organization
@@ -269,6 +278,7 @@ pnpm format:check
 ```
 
 **Prettier Configuration:**
+
 - Single quotes
 - Semicolons
 - 2-space indentation
@@ -385,6 +395,7 @@ flowchart TD
 ### Required Variables
 
 **Development:**
+
 - `DATABASE_URL` - PostgreSQL connection string
 - `DISCORD_BOT_TOKEN` - Discord bot token
 - `DISCORD_CLIENT_ID` - Discord application ID
@@ -392,6 +403,7 @@ flowchart TD
 - `JWT_SECRET` - JWT signing secret
 
 **Production (additional):**
+
 - `CUSTODIAN_API_KEY` - Custodian service API key
 - `AWS_ACCESS_KEY_ID` - AWS access key
 - `AWS_SECRET_ACCESS_KEY` - AWS secret key
@@ -413,6 +425,7 @@ flowchart TD
 ### Common Issues
 
 **Environment not decrypting:**
+
 ```bash
 # Check if .env.keys exists
 ls -la .env.keys
@@ -425,6 +438,7 @@ pnpm env:decrypt:dev
 ```
 
 **Database connection issues:**
+
 ```bash
 # Check database status
 pnpm db:studio
@@ -437,6 +451,7 @@ pnpm db:generate
 ```
 
 **Build failures:**
+
 ```bash
 # Clean and rebuild
 pnpm docker:clean
@@ -447,6 +462,7 @@ pnpm lint
 ```
 
 **Docker issues:**
+
 ```bash
 # Check container status
 pnpm docker:stats

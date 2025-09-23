@@ -173,6 +173,7 @@ This will start:
 - **[Complete Transaction Flow](./docs/e2e-flows.md)** - Step-by-step guide through the entire escrow process
 
 ### Scripts Documentation
+
 - **[Scripts Documentation](./scripts/README.md)** - Complete guide to all pnpm scripts and Node.js utilities
 
 ### Application Documentation

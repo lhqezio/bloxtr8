@@ -5,35 +5,35 @@
  * Cross-platform replacement for docker-optimize.sh
  */
 
-import { 
-  parseArgs, 
-  showScriptHelp, 
-  printStatus, 
-  printSuccess, 
-  printWarning, 
+import {
+  parseArgs,
+  showScriptHelp,
+  printStatus,
+  printSuccess,
+  printWarning,
   printError,
   executeCommand,
   checkDockerAvailable,
   checkDockerComposeAvailable,
   getDockerComposeCommand,
-  sleep
+  sleep,
 } from './utils.mjs';
 
 const commands = {
   'build-fast': 'Build all services with optimizations',
-  'dev': 'Start development environment with optimizations',
+  dev: 'Start development environment with optimizations',
   'dev-build': 'Start development environment with auto-build',
-  'prod': 'Start production environment',
+  prod: 'Start production environment',
   'db-only': 'Start only the database service',
-  'test': 'Run tests in Docker environment',
-  'clean': 'Clean up Docker resources',
-  'prune': 'Remove unused Docker resources',
-  'rebuild': 'Force rebuild all images',
-  'logs': 'Show logs for all services',
-  'stats': 'Show resource usage statistics',
-  'up': 'Start services with docker compose up -d',
-  'down': 'Stop services with docker compose down',
-  'help': 'Show this help message'
+  test: 'Run tests in Docker environment',
+  clean: 'Clean up Docker resources',
+  prune: 'Remove unused Docker resources',
+  rebuild: 'Force rebuild all images',
+  logs: 'Show logs for all services',
+  stats: 'Show resource usage statistics',
+  up: 'Start services with docker compose up -d',
+  down: 'Stop services with docker compose down',
+  help: 'Show this help message',
 };
 
 /**
@@ -45,9 +45,11 @@ function checkPrerequisites() {
     printStatus('Visit: https://docs.docker.com/get-docker/');
     process.exit(1);
   }
-  
+
   if (!checkDockerComposeAvailable()) {
-    printError('Docker Compose is not available. Please install Docker Compose first.');
+    printError(
+      'Docker Compose is not available. Please install Docker Compose first.'
+    );
     printStatus('Visit: https://docs.docker.com/compose/install/');
     process.exit(1);
   }
@@ -59,10 +61,10 @@ function checkPrerequisites() {
 function buildFast() {
   checkPrerequisites();
   printStatus('Building all services with optimizations...');
-  
+
   const dockerCompose = getDockerComposeCommand();
   const result = executeCommand(`${dockerCompose} build --parallel`);
-  
+
   if (result.success) {
     printSuccess('All services built successfully!');
   } else {
@@ -77,10 +79,10 @@ function buildFast() {
 function startDev() {
   checkPrerequisites();
   printStatus('Starting development environment with optimizations...');
-  
+
   const dockerCompose = getDockerComposeCommand();
   const result = executeCommand(`${dockerCompose} up -d --build`);
-  
+
   if (result.success) {
     printSuccess('Development environment started!');
     printStatus('Services available at:');
@@ -99,10 +101,10 @@ function startDev() {
 function startDevBuild() {
   checkPrerequisites();
   printStatus('Starting development environment with auto-build...');
-  
+
   const dockerCompose = getDockerComposeCommand();
   const result = executeCommand(`${dockerCompose} up -d --build`);
-  
+
   if (result.success) {
     printSuccess('Development environment started with auto-build!');
     printStatus('Services available at:');
@@ -121,10 +123,10 @@ function startDevBuild() {
 function startProd() {
   checkPrerequisites();
   printStatus('Starting production environment...');
-  
+
   const dockerCompose = getDockerComposeCommand();
   const result = executeCommand(`${dockerCompose} -f docker-compose.yml up -d`);
-  
+
   if (result.success) {
     printSuccess('Production environment started!');
   } else {
@@ -139,10 +141,10 @@ function startProd() {
 function startDbOnly() {
   checkPrerequisites();
   printStatus('Starting database service only...');
-  
+
   const dockerCompose = getDockerComposeCommand();
   const result = executeCommand(`${dockerCompose} up -d test-db minio`);
-  
+
   if (result.success) {
     printSuccess('Database and MinIO services started!');
     printStatus('Services available at:');
@@ -160,26 +162,26 @@ function startDbOnly() {
 async function runTests() {
   checkPrerequisites();
   printStatus('Running tests in Docker environment...');
-  
+
   const dockerCompose = getDockerComposeCommand();
-  
+
   // Start database first
   printStatus('Starting test database...');
   let result = executeCommand(`${dockerCompose} up -d test-db`);
-  
+
   if (!result.success) {
     printError('Failed to start test database');
     process.exit(1);
   }
-  
+
   // Wait for database to be ready
   printStatus('Waiting for database to be ready...');
   await sleep(5);
-  
+
   // Run tests
   printStatus('Running tests...');
   result = executeCommand(`${dockerCompose} run --rm api pnpm test`);
-  
+
   if (result.success) {
     printSuccess('Tests completed!');
   } else {
@@ -194,18 +196,18 @@ async function runTests() {
 function cleanDocker() {
   checkPrerequisites();
   printStatus('Cleaning up Docker resources...');
-  
+
   const dockerCompose = getDockerComposeCommand();
-  
+
   // Stop and remove containers
   executeCommand(`${dockerCompose} down`);
-  
+
   // Remove unused images
   executeCommand('docker image prune -f');
-  
+
   // Remove unused volumes
   executeCommand('docker volume prune -f');
-  
+
   printSuccess('Docker cleanup completed!');
 }
 
@@ -215,9 +217,9 @@ function cleanDocker() {
 function pruneDocker() {
   checkPrerequisites();
   printStatus('Pruning unused Docker resources...');
-  
+
   const result = executeCommand('docker system prune -af');
-  
+
   if (result.success) {
     printSuccess('Docker prune completed!');
   } else {
@@ -232,10 +234,10 @@ function pruneDocker() {
 function rebuildAll() {
   checkPrerequisites();
   printStatus('Force rebuilding all images...');
-  
+
   const dockerCompose = getDockerComposeCommand();
   const result = executeCommand(`${dockerCompose} build --no-cache --parallel`);
-  
+
   if (result.success) {
     printSuccess('All images rebuilt successfully!');
   } else {
@@ -250,7 +252,7 @@ function rebuildAll() {
 function showLogs() {
   checkPrerequisites();
   printStatus('Showing logs for all services...');
-  
+
   const dockerCompose = getDockerComposeCommand();
   executeCommand(`${dockerCompose} logs -f`);
 }
@@ -261,7 +263,7 @@ function showLogs() {
 function showStats() {
   checkPrerequisites();
   printStatus('Showing resource usage statistics...');
-  
+
   executeCommand('docker stats');
 }
 
@@ -271,10 +273,10 @@ function showStats() {
 function dockerUp() {
   checkPrerequisites();
   printStatus('Starting services...');
-  
+
   const dockerCompose = getDockerComposeCommand();
   const result = executeCommand(`${dockerCompose} up -d`);
-  
+
   if (result.success) {
     printSuccess('Services started!');
   } else {
@@ -289,10 +291,10 @@ function dockerUp() {
 function dockerDown() {
   checkPrerequisites();
   printStatus('Stopping services...');
-  
+
   const dockerCompose = getDockerComposeCommand();
   const result = executeCommand(`${dockerCompose} down`);
-  
+
   if (result.success) {
     printSuccess('Services stopped!');
   } else {
@@ -306,7 +308,7 @@ function dockerDown() {
  */
 async function main() {
   const { command } = parseArgs();
-  
+
   switch (command) {
     case 'build-fast':
       buildFast();
@@ -381,5 +383,5 @@ export {
   showLogs,
   showStats,
   dockerUp,
-  dockerDown
+  dockerDown,
 };
