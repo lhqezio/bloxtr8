@@ -36,7 +36,7 @@ describe('Listings API Routes', () => {
     mockFindUnique.mockClear();
     mockCreate.mockClear();
     mockGuildFindUnique.mockClear();
-    
+
     // Default mock for guild lookup - return a guild when guildId is provided
     mockGuildFindUnique.mockImplementation(({ where }) => {
       if (where.discordId === 'test-guild-id') {
@@ -152,7 +152,6 @@ describe('Listings API Routes', () => {
       createdAt: '2024-01-01T00:00:00.000Z',
       updatedAt: '2024-01-01T00:00:00.000Z',
     };
-
 
     it('should return 404 for missing listing ID (double slash)', async () => {
       const response = await request(app).get('/api/listings//').expect(404);
