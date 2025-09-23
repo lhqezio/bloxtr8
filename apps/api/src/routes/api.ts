@@ -69,6 +69,48 @@ router.post('/listings', async (req, res, next) => {
   }
 });
 
+// Get listing by ID endpoint
+router.get('/listings/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ID parameter
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+      throw new AppError(
+        'Listing ID is required and must be a non-empty string',
+        400
+      );
+    }
+
+    // Query listing by ID
+    const listing = await prisma.listing.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        summary: true,
+        price: true,
+        category: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        userId: true,
+        guildId: true,
+      },
+    });
+
+    // Return 404 if listing not found
+    if (!listing) {
+      throw new AppError('Listing not found', 404);
+    }
+
+    // Return listing data
+    res.status(200).json(listing);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // PDF upload endpoint - returns presigned PUT URL
 router.post('/contracts/:id/upload', async (req, res, next) => {
   try {
