@@ -50,7 +50,7 @@ module.exports = {
   // Coverage thresholds
   coverageThreshold: {
     global: {
-      branches: 60,  // Adjusted to match current realistic coverage
+      branches: 60, // Adjusted to match current realistic coverage
       functions: 65,
       lines: 70,
       statements: 70,
