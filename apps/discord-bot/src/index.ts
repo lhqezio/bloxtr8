@@ -14,7 +14,7 @@ import {
   type ModalSubmitInteraction,
 } from 'discord.js';
 
-import { createListing } from './utils/apiClient.js';
+import { createListing, getApiBaseUrl } from './utils/apiClient.js';
 import {
   ensureUserExists,
   verifyUserForListing,
@@ -326,7 +326,7 @@ async function handleListingModalSubmit(interaction: ModalSubmitInteraction) {
         },
         {
           name: 'View Listing',
-          value: `[Click here to view](http://localhost:3000/api/listings/${apiResult.data.id})`,
+          value: `[Click here to view](${getApiBaseUrl()}/api/listings/${apiResult.data.id})`,
           inline: false,
         }
       )
