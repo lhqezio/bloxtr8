@@ -19,7 +19,7 @@ type AuthClient = ReturnType<typeof createAuthClient>;
 
 export const authClient: AuthClient = createAuthClient({
     /** The base URL of the server (optional if you're using the same domain) */
-    baseURL: "http://localhost:3000"
+    baseURL: process.env.API_BASE_URL || "http://localhost:3000"
 })
 
 
@@ -33,10 +33,10 @@ const client = new Client({
 });
 const signIn = async (interaction: any) => {
   try {
-      // Generate OAuth URL for Discord login
+      // Generate OAuth URL for Discord login using Better Auth client (per docs)
       const { data, error } = await authClient.signIn.social({
           provider: "discord",
-          callbackURL: `${process.env.API_BASE_URL || "http://localhost:3000"}/api/auth/callback/discord`
+          callbackURL: `${process.env.API_BASE_URL || "http://localhost:3000"}/health`
       });
 
       if (error) {
@@ -52,7 +52,7 @@ const signIn = async (interaction: any) => {
           const embed = new EmbedBuilder()
               .setTitle('🔐 Discord Authentication')
               .setDescription('Click the button below to authenticate with Discord and link your account!')
-              .setColor(0x5865F2) // Discord blurple
+              .setColor(0x5865F2)
               .addFields(
                   { name: 'Step 1', value: 'Click the link below', inline: false },
                   { name: 'Step 2', value: 'Authorize the application', inline: false },
