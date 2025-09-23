@@ -30,9 +30,9 @@ services:
       - /app/node_modules
     working_dir: /app
     command: >
-      sh -c "sh ./scripts/env-decrypt-dev.sh &&
+      sh -c "npx dotenvx decrypt .env.development -f .env.development.local &&
              pnpm --filter @bloxtr8/api... install --frozen-lockfile --reporter=silent &&
-             sh ./scripts/env-dev.sh pnpm --filter @bloxtr8/api dev"
+             pnpm --filter @bloxtr8/api dev"
     environment:
       - NODE_ENV=development
       - WATCHPACK_POLLING=true
@@ -60,9 +60,9 @@ services:
       - /app/node_modules
     working_dir: /app
     command: >
-      sh -c "sh ./scripts/env-decrypt-dev.sh &&
+      sh -c "npx dotenvx decrypt .env.development -f .env.development.local &&
              pnpm --filter @bloxtr8/discord-bot... install --frozen-lockfile --reporter=silent &&
-             sh ./scripts/env-dev.sh pnpm --filter @bloxtr8/discord-bot dev"
+             pnpm --filter @bloxtr8/discord-bot dev"
     environment:
       - NODE_ENV=development
       - WATCHPACK_POLLING=true
