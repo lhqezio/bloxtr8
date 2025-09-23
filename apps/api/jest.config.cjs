@@ -40,9 +40,7 @@ module.exports = {
   testPathIgnorePatterns: ['/node_modules/', '/dist/', '/.turbo/'],
 
   // Transform ignore patterns - allow transformation of workspace packages
-  transformIgnorePatterns: [
-    'node_modules/(?!(.*\\.mjs$|@bloxtr8/.*))',
-  ],
+  transformIgnorePatterns: ['node_modules/(?!(.*\\.mjs$|@bloxtr8/.*))'],
 
   // Coverage configuration
   collectCoverage: true,
