@@ -26,12 +26,12 @@ pnpm test
 ## Usage
 
 ```typescript
-import { 
-  validateEmail, 
-  formatCurrency, 
+import {
+  validateEmail,
+  formatCurrency,
   generateId,
   API_ENDPOINTS,
-  CURRENCY_TYPES 
+  CURRENCY_TYPES,
 } from '@bloxtr8/shared';
 
 // Validate email address

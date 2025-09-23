@@ -26,6 +26,10 @@ pnpm test
 pnpm build
 ```
 
+## Documentation
+
+- **[API Architecture](./docs/architecture.md)** - Complete API design, endpoints, and integration patterns
+
 ## API Endpoints
 
 ### Health Check

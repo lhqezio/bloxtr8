@@ -26,10 +26,10 @@ pnpm test
 ## Usage
 
 ```typescript
-import { 
-  User, 
-  Listing, 
-  Offer, 
+import {
+  User,
+  Listing,
+  Offer,
   Contract,
   Escrow,
   KycTier,
@@ -40,7 +40,7 @@ import {
   EscrowStatus,
   UserSchema,
   ListingSchema,
-  OfferSchema
+  OfferSchema,
 } from '@bloxtr8/types';
 
 // Use type definitions

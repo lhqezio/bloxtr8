@@ -161,19 +161,28 @@ docker compose up --build
 ```
 
 This will start:
+
 - **test-db** → Postgres 16 with persistent storage
 - **api** → Express API running in watch mode
 - **discord-bot** → Discord.js bot running in watch mode
 
 ## Documentation
 
-Each application and package has its own focused README:
+### End-to-End Flows
+- **[Complete Transaction Flow](./docs/e2e-flows.md)** - Step-by-step guide through the entire escrow process
 
-- [API Documentation](./apps/api/README.md) - Express API server details
-- [Discord Bot Documentation](./apps/discord-bot/README.md) - Discord bot features and commands
-- [Database Documentation](./packages/database/README.md) - Database schema and operations
-- [Shared Package Documentation](./packages/shared/README.md) - Shared utilities and constants
-- [Types Documentation](./packages/types/README.md) - TypeScript type definitions
+### Application Documentation
+Each application and package has its own focused README and detailed docs:
+
+- **[API Documentation](./apps/api/README.md)** - Express API server details
+  - [API Architecture](./apps/api/docs/architecture.md) - Complete API design and patterns
+- **[Discord Bot Documentation](./apps/discord-bot/README.md)** - Discord bot features and commands
+  - [Bot Architecture](./apps/discord-bot/docs/architecture.md) - Complete bot design and interactions
+- **[Database Documentation](./packages/database/README.md)** - Database schema and operations
+  - [Database Schema](./packages/database/docs/schema.md) - Visual ERD and schema diagrams
+  - [Database Operations](./packages/database/docs/operations.md) - Prisma usage and best practices
+- **[Shared Package Documentation](./packages/shared/README.md)** - Shared utilities and constants
+- **[Types Documentation](./packages/types/README.md)** - TypeScript type definitions
 
 ## Contributing
 

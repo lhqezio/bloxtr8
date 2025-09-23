@@ -26,6 +26,10 @@ pnpm test
 pnpm build
 ```
 
+## Documentation
+
+- **[Bot Architecture](./docs/architecture.md)** - Complete bot design, commands, and interaction patterns
+
 ## Discord Commands
 
 ### Listing Management
