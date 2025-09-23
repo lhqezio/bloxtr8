@@ -47,135 +47,34 @@ export const authClient: AuthClient = createAuthClient({
 })
 
 const signIn = async (interaction: any) => {
-    try {
-        // Generate OAuth URL for Discord login
-        const { data, error } = await authClient.signIn.social({
-            provider: "discord",
-            callbackURL: `${process.env.API_BASE_URL || "http://localhost:3000"}/api/auth/callback/discord`
-        });
-
-        if (error) {
-            console.error('Auth error:', error);
-            await interaction.reply({
-                content: '❌ Failed to initiate login. Please try again later.',
-                ephemeral: true
-            });
-            return;
-        }
-
-        if (data?.url) {
-            const embed = new EmbedBuilder()
-                .setTitle('🔐 Discord Authentication')
-                .setDescription('Click the button below to authenticate with Discord and link your account!')
-                .setColor(0x5865F2) // Discord blurple
-                .addFields(
-                    { name: 'Step 1', value: 'Click the link below', inline: false },
-                    { name: 'Step 2', value: 'Authorize the application', inline: false },
-                    { name: 'Step 3', value: 'You\'ll be redirected back automatically', inline: false }
-                )
-                .setFooter({ text: 'This link will expire in 10 minutes' })
-                .setTimestamp();
-
-            await interaction.reply({
-                embeds: [embed],
-                content: `**Authentication Link:**\n${data.url}`,
-                ephemeral: true
-            });
-        } else {
-            await interaction.reply({
-                content: '❌ Failed to generate login URL. Please try again later.',
-                ephemeral: true
-            });
-        }
-    } catch (error) {
-        console.error('Sign in error:', error);
-        await interaction.reply({
-            content: '❌ An unexpected error occurred. Please try again later.',
-            ephemeral: true
-        });
+  try {
+    const clientId = process.env.DISCORD_CLIENT_ID;
+    const publicApi = process.env.API_BASE_URL || 'http://localhost:3000';
+    if (!clientId) {
+      await interaction.reply({ content: 'OAuth is not configured', ephemeral: true });
+      return;
     }
+    const redirectUri = encodeURIComponent(`${publicApi}/api/identity/discord/callback`);
+    const scopes = encodeURIComponent('identify email');
+    const authUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scope=${scopes}`;
+
+    const embed = new EmbedBuilder()
+      .setTitle('🔐 Discord Authentication')
+      .setDescription('Click the link below to authenticate with Discord and link your account!')
+      .setColor(0x5865F2)
+      .setTimestamp();
+
+    await interaction.reply({
+      embeds: [embed],
+      content: `**Authentication Link:**\n${authUrl}`,
+      ephemeral: true,
+    });
+  } catch (error) {
+    console.error('Sign in error:', error);
+    await interaction.reply({ content: '❌ Failed to initiate login.', ephemeral: true });
+  }
 }
 
-const checkAuthStatus = async (interaction: any) => {
-    try {
-        // Note: In a real implementation, you'd need to store and retrieve session tokens
-        // This is a simplified version that checks if the user has a valid session
-        const { data: session, error } = await authClient.getSession();
-        
-        if (error) {
-            console.error('Session error:', error);
-            await interaction.reply({
-                content: '❌ Failed to check authentication status. Please try again later.',
-                ephemeral: true
-            });
-            return;
-        }
-        
-        if (session && 'user' in session && session.user) {
-            const embed = new EmbedBuilder()
-                .setTitle('✅ Authentication Status')
-                .setDescription('You are successfully authenticated!')
-                .setColor(0x00FF00) // Green
-                .addFields(
-                    { name: 'Name', value: session.user.name || 'N/A', inline: true },
-                    { name: 'Email', value: session.user.email || 'N/A', inline: true },
-                    { name: 'User ID', value: session.user.id || 'N/A', inline: true }
-                )
-                .setTimestamp();
-
-            await interaction.reply({
-                embeds: [embed],
-                ephemeral: true
-            });
-        } else {
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Not Authenticated')
-                .setDescription('You are not currently logged in.')
-                .setColor(0xFF0000) // Red
-                .addFields(
-                    { name: 'How to authenticate', value: 'Use `/signin` to authenticate with Discord', inline: false }
-                )
-                .setTimestamp();
-
-            await interaction.reply({
-                embeds: [embed],
-                ephemeral: true
-            });
-        }
-    } catch (error) {
-        console.error('Auth status check error:', error);
-        await interaction.reply({
-            content: '❌ Failed to check authentication status. Please try again later.',
-            ephemeral: true
-        });
-    }
-}
-
-const logout = async (interaction: any) => {
-    try {
-        const { error } = await authClient.signOut();
-        
-        if (error) {
-            console.error('Logout error:', error);
-            await interaction.reply({
-                content: '❌ Failed to sign out. Please try again later.',
-                ephemeral: true
-            });
-            return;
-        }
-
-        await interaction.reply({
-            content: '✅ **Successfully signed out**\n\nYou have been logged out of your account.',
-            ephemeral: true
-        });
-    } catch (error) {
-        console.error('Logout error:', error);
-        await interaction.reply({
-            content: '❌ An unexpected error occurred during logout. Please try again later.',
-            ephemeral: true
-        });
-    }
-}
 
 const client = new Client({
   intents: [
@@ -206,14 +105,7 @@ client.once('clientReady', async () => {
       .setName('signin')
       .setDescription('Sign in with Discord OAuth')
       .toJSON(),
-    new SlashCommandBuilder()
-      .setName('auth-status')
-      .setDescription('Check your authentication status')
-      .toJSON(),
-    new SlashCommandBuilder()
-      .setName('logout')
-      .setDescription('Sign out of your account')
-      .toJSON(),
+    // auth-status and logout are not implemented in this flow
   ];
 
   const token = process.env.DISCORD_BOT_TOKEN;
@@ -267,14 +159,6 @@ client.on('interactionCreate', async interaction => {
 
   if (interaction.commandName === 'signin') {
     await signIn(interaction);
-  }
-
-  if (interaction.commandName === 'auth-status') {
-    await checkAuthStatus(interaction);
-  }
-
-  if (interaction.commandName === 'logout') {
-    await logout(interaction);
   }
 });
 
