@@ -18,36 +18,6 @@ export const authClient: AuthClient = createAuthClient({
     //baseURL: "http://localhost:3000"
 })
 
-const signIn = async (interaction: any) => {
-  try {
-    const clientId = process.env.DISCORD_CLIENT_ID;
-    const publicApi = process.env.API_BASE_URL || 'http://localhost:3000';
-    if (!clientId) {
-      await interaction.reply({ content: 'OAuth is not configured', ephemeral: true });
-      return;
-    }
-    const redirectUri = encodeURIComponent(`${publicApi}/api/identity/discord/callback`);
-    const scopes = encodeURIComponent('identify email');
-    const authUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scope=${scopes}`;
-
-    const embed = new EmbedBuilder()
-      .setTitle('🔐 Discord Authentication')
-      .setDescription('Click the link below to authenticate with Discord and link your account!')
-      .setColor(0x5865F2)
-      .setTimestamp();
-
-    await interaction.reply({
-      embeds: [embed],
-      content: `**Authentication Link:**\n${authUrl}`,
-      ephemeral: true,
-    });
-  } catch (error) {
-    console.error('Sign in error:', error);
-    await interaction.reply({ content: '❌ Failed to initiate login.', ephemeral: true });
-  }
-}
-
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -73,11 +43,6 @@ client.once('clientReady', async () => {
       .setName('ping')
       .setDescription('Check bot latency')
       .toJSON(),
-    new SlashCommandBuilder()
-      .setName('signin')
-      .setDescription('Sign in with Discord OAuth')
-      .toJSON(),
-    // auth-status and logout are not implemented in this flow
   ];
 
   const token = process.env.DISCORD_BOT_TOKEN;
@@ -127,10 +92,6 @@ client.on('interactionCreate', async interaction => {
     await interaction.editReply({
       content: ` Pong! Latency: ${latency}ms | API Latency: ${apiLatency}ms`,
     });
-  }
-
-  if (interaction.commandName === 'signin') {
-    await signIn(interaction);
   }
 });
 
