@@ -15,7 +15,10 @@ import {
 } from 'discord.js';
 
 import { createListing } from './utils/apiClient.js';
-import { ensureUserExists, verifyUserForListing } from './utils/userVerification.js';
+import {
+  ensureUserExists,
+  verifyUserForListing,
+} from './utils/userVerification.js';
 
 // Load environment variables
 config();
@@ -105,7 +108,10 @@ client.on('interactionCreate', async interaction => {
       });
     }
 
-    if (interaction.commandName === 'listing' && interaction.options.getSubcommand() === 'create') {
+    if (
+      interaction.commandName === 'listing' &&
+      interaction.options.getSubcommand() === 'create'
+    ) {
       await handleListingCreate(interaction);
     }
   }
@@ -145,10 +151,13 @@ async function handleListingCreate(interaction: ChatInputCommandInteraction) {
       const embed = new EmbedBuilder()
         .setColor(0xff6b6b)
         .setTitle('❌ Verification Required')
-        .setDescription(verificationResult.error || 'Account verification required.')
+        .setDescription(
+          verificationResult.error || 'Account verification required.'
+        )
         .addFields({
           name: 'Next Steps',
-          value: 'Please complete KYC verification to create listings. Contact support for assistance.',
+          value:
+            'Please complete KYC verification to create listings. Contact support for assistance.',
         })
         .setTimestamp();
 
@@ -200,10 +209,18 @@ async function handleListingCreate(interaction: ChatInputCommandInteraction) {
       .setMaxLength(100);
 
     // Add inputs to action rows
-    const titleRow = new ActionRowBuilder<TextInputBuilder>().addComponents(titleInput);
-    const summaryRow = new ActionRowBuilder<TextInputBuilder>().addComponents(summaryInput);
-    const priceRow = new ActionRowBuilder<TextInputBuilder>().addComponents(priceInput);
-    const categoryRow = new ActionRowBuilder<TextInputBuilder>().addComponents(categoryInput);
+    const titleRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+      titleInput
+    );
+    const summaryRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+      summaryInput
+    );
+    const priceRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+      priceInput
+    );
+    const categoryRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+      categoryInput
+    );
 
     modal.addComponents(titleRow, summaryRow, priceRow, categoryRow);
 
@@ -211,7 +228,8 @@ async function handleListingCreate(interaction: ChatInputCommandInteraction) {
   } catch (error) {
     console.error('Error handling listing create:', error);
     await interaction.reply({
-      content: '❌ An error occurred while processing your request. Please try again later.',
+      content:
+        '❌ An error occurred while processing your request. Please try again later.',
       ephemeral: true,
     });
   }
@@ -325,7 +343,8 @@ async function handleListingModalSubmit(interaction: ModalSubmitInteraction) {
   } catch (error) {
     console.error('Error handling modal submission:', error);
     await interaction.editReply({
-      content: '❌ An error occurred while creating your listing. Please try again later.',
+      content:
+        '❌ An error occurred while creating your listing. Please try again later.',
     });
   }
 }

@@ -33,7 +33,10 @@ export interface ApiError {
 export async function createListing(
   listingData: CreateListingRequest,
   apiBaseUrl: string = getApiBaseUrl()
-): Promise<{ success: true; data: CreateListingResponse } | { success: false; error: ApiError }> {
+): Promise<
+  | { success: true; data: CreateListingResponse }
+  | { success: false; error: ApiError }
+> {
   try {
     const response = await fetch(`${apiBaseUrl}/api/listings`, {
       method: 'POST',
@@ -43,7 +46,7 @@ export async function createListing(
       body: JSON.stringify(listingData),
     });
 
-    const responseData = await response.json() as {
+    const responseData = (await response.json()) as {
       id?: string;
       message?: string;
       errors?: Array<{

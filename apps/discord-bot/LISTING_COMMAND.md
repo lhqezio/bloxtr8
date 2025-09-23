@@ -26,6 +26,7 @@ The bot implements a comprehensive user verification system:
 ```
 
 This slash command:
+
 1. Checks if the user exists in the database (creates if not)
 2. Verifies the user has completed KYC verification
 3. Shows a Discord modal for listing creation if verified
@@ -35,14 +36,16 @@ This slash command:
 ### Modal Form
 
 The Discord modal includes the following fields:
+
 - **Title**: Listing title (max 255 characters)
-- **Description**: Detailed description (max 1000 characters)  
+- **Description**: Detailed description (max 1000 characters)
 - **Price**: Price in cents (e.g., 1000 for $10.00)
 - **Category**: Category classification (max 100 characters)
 
 ### API Integration
 
 The bot integrates with the existing API:
+
 - **Endpoint**: `POST /api/listings`
 - **Validation**: Uses Zod schema validation
 - **Error Handling**: Displays API validation errors to users
@@ -51,6 +54,7 @@ The bot integrates with the existing API:
 ### Error Handling
 
 Comprehensive error handling for:
+
 - User not found/not registered
 - KYC verification not completed
 - Invalid form input (price validation)
@@ -60,6 +64,7 @@ Comprehensive error handling for:
 ### Success Response
 
 On successful listing creation, users receive:
+
 - ✅ Success confirmation embed
 - 📋 Listing ID
 - 🔗 Direct link to view the listing
@@ -69,10 +74,12 @@ On successful listing creation, users receive:
 ## Files Created/Modified
 
 ### New Files
+
 - `src/utils/userVerification.ts` - User verification and database operations
 - `src/utils/apiClient.ts` - HTTP client for API communication
 
 ### Modified Files
+
 - `src/index.ts` - Main bot file with command and modal handling
 - `package.json` - Added node-fetch dependency
 

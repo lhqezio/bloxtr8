@@ -13,8 +13,15 @@ router.get('/users/verify/:discordId', async (req, res, next) => {
   try {
     const { discordId } = req.params;
 
-    if (!discordId || typeof discordId !== 'string' || discordId.trim() === '') {
-      throw new AppError('Discord ID is required and must be a non-empty string', 400);
+    if (
+      !discordId ||
+      typeof discordId !== 'string' ||
+      discordId.trim() === ''
+    ) {
+      throw new AppError(
+        'Discord ID is required and must be a non-empty string',
+        400
+      );
     }
 
     const user = await prisma.user.findUnique({
@@ -130,13 +137,13 @@ router.post('/listings', async (req, res, next) => {
         where: { discordId: guildId },
         select: { id: true },
       });
-      
+
       if (!guild) {
         return res.status(400).json({
           message: 'Invalid guild ID provided',
         });
       }
-      
+
       internalGuildId = guild.id;
     }
 
