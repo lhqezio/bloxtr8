@@ -8,6 +8,88 @@ import { AppError } from '../middleware/errorHandler.js';
 const router: ExpressRouter = Router();
 const prisma = new PrismaClient();
 
+// User verification endpoints
+router.get('/users/verify/:discordId', async (req, res, next) => {
+  try {
+    const { discordId } = req.params;
+
+    if (
+      !discordId ||
+      typeof discordId !== 'string' ||
+      discordId.trim() === ''
+    ) {
+      throw new AppError(
+        'Discord ID is required and must be a non-empty string',
+        400
+      );
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { discordId },
+      select: {
+        id: true,
+        discordId: true,
+        username: true,
+        kycVerified: true,
+        kycTier: true,
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/users/ensure', async (req, res, next) => {
+  try {
+    const { discordId, username } = req.body;
+
+    if (!discordId || !username) {
+      throw new AppError('Discord ID and username are required', 400);
+    }
+
+    // Try to find existing user
+    let user = await prisma.user.findUnique({
+      where: { discordId },
+      select: {
+        id: true,
+        discordId: true,
+        username: true,
+        kycVerified: true,
+        kycTier: true,
+      },
+    });
+
+    // Create user if they don't exist
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          discordId,
+          username,
+          kycVerified: false, // Default to unverified
+          kycTier: 'TIER_1', // Default tier
+        },
+        select: {
+          id: true,
+          discordId: true,
+          username: true,
+          kycVerified: true,
+          kycTier: true,
+        },
+      });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Zod schema for listing creation
 const createListingSchema = z.object({
   title: z
@@ -48,6 +130,21 @@ router.post('/listings', async (req, res, next) => {
     const { title, summary, price, category, sellerId, guildId } =
       validationResult.data;
 
+    // Look up guild by discordId if guildId is provided
+    let internalGuildId = null;
+    if (guildId) {
+      const guild = await prisma.guild.findUnique({
+        where: { discordId: guildId },
+        select: { id: true },
+      });
+
+      if (!guild) {
+        throw new AppError('Invalid guild ID provided', 400);
+      }
+
+      internalGuildId = guild.id;
+    }
+
     // Insert listing with sellerId
     const listing = await prisma.listing.create({
       data: {
@@ -56,7 +153,7 @@ router.post('/listings', async (req, res, next) => {
         price,
         category,
         userId: sellerId,
-        guildId,
+        guildId: internalGuildId,
       },
     });
 

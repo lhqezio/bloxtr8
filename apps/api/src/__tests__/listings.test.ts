@@ -14,6 +14,7 @@ const mockCreate = jest.fn().mockResolvedValue({
   createdAt: new Date(),
   updatedAt: new Date(),
 });
+const mockGuildFindUnique = jest.fn();
 
 jest.mock('@bloxtr8/database', () => ({
   PrismaClient: jest.fn().mockImplementation(() => ({
@@ -21,12 +22,30 @@ jest.mock('@bloxtr8/database', () => ({
       create: mockCreate,
       findUnique: mockFindUnique,
     },
+    guild: {
+      findUnique: mockGuildFindUnique,
+    },
   })),
 }));
 
 import app from '../index.js';
 
 describe('Listings API Routes', () => {
+  beforeEach(() => {
+    // Reset mocks before each test
+    mockFindUnique.mockClear();
+    mockCreate.mockClear();
+    mockGuildFindUnique.mockClear();
+
+    // Default mock for guild lookup - return a guild when guildId is provided
+    mockGuildFindUnique.mockImplementation(({ where }) => {
+      if (where.discordId === 'test-guild-id') {
+        return Promise.resolve({ id: 'internal-guild-id' });
+      }
+      return Promise.resolve(null);
+    });
+  });
+
   describe('POST /api/listings', () => {
     it('should return 400 for invalid payload - missing required fields', async () => {
       const response = await request(app)
@@ -133,11 +152,6 @@ describe('Listings API Routes', () => {
       createdAt: '2024-01-01T00:00:00.000Z',
       updatedAt: '2024-01-01T00:00:00.000Z',
     };
-
-    beforeEach(() => {
-      // Reset mocks before each test
-      mockFindUnique.mockClear();
-    });
 
     it('should return 404 for missing listing ID (double slash)', async () => {
       const response = await request(app).get('/api/listings//').expect(404);

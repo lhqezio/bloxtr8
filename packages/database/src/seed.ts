@@ -68,6 +68,34 @@ async function main() {
     },
   });
 
+  // Add verified user for testing Discord bot
+  const verifiedUser = await prisma.user.create({
+    data: {
+      discordId: '426540459599593472',
+      username: 'VerifiedUser',
+      email: 'verified@example.com',
+      phone: '+1234567890',
+      walletAddress: '0xVerifiedUserWallet',
+      kycTier: KycTier.TIER_2,
+      kycVerified: true,
+      walletRisk: 'LOW',
+    },
+  });
+
+  // Add second verified user for testing Discord bot
+  const verifiedUser2 = await prisma.user.create({
+    data: {
+      discordId: '622492102042976271',
+      username: 'VerifiedUser2',
+      email: 'verified2@example.com',
+      phone: '+1234567891',
+      walletAddress: '0xVerifiedUser2Wallet',
+      kycTier: KycTier.TIER_2,
+      kycVerified: true,
+      walletRisk: 'LOW',
+    },
+  });
+
   // --- GUILDS ---
   console.log('Creating guilds and memberships...');
   const robloxTradersGuild = await prisma.guild.create({
@@ -94,6 +122,22 @@ async function main() {
         create: [
           { userId: diane.id, role: GuildRole.ADMIN },
           { userId: alice.id, role: GuildRole.MEMBER },
+          { userId: verifiedUser.id, role: GuildRole.MEMBER },
+        ],
+      },
+    },
+  });
+
+  // Add the actual Discord server where the bot is running
+  await prisma.guild.create({
+    data: {
+      discordId: '1417568662021472531',
+      name: 'Bloxtr8 Discord Server',
+      description: 'Main Discord server for Bloxtr8 platform',
+      members: {
+        create: [
+          { userId: verifiedUser.id, role: GuildRole.ADMIN },
+          { userId: verifiedUser2.id, role: GuildRole.ADMIN },
         ],
       },
     },
