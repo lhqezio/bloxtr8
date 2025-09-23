@@ -139,9 +139,7 @@ router.post('/listings', async (req, res, next) => {
       });
 
       if (!guild) {
-        return res.status(400).json({
-          message: 'Invalid guild ID provided',
-        });
+        throw new AppError('Invalid guild ID provided', 400);
       }
 
       internalGuildId = guild.id;

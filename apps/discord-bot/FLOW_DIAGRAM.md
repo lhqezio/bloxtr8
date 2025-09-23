@@ -1,38 +1,40 @@
 # Listing Creation Flow Diagram
 
-```
-User runs /listing create
-         ↓
-Bot checks user exists in DB
-         ↓
-    User exists?
-         ↓ NO                    ↓ YES
-Create user record         Check KYC verification
-         ↓                        ↓
-    User created              KYC verified?
-         ↓                        ↓ NO                    ↓ YES
-Check KYC verification      Show error message      Show Discord modal
-         ↓                        ↓                        ↓
-    KYC verified?            User must complete      User fills form
-         ↓ NO                    KYC first              ↓
-Show error message              ↓                    Validate input
-         ↓                   End process              ↓
-    End process                                    Valid input?
-                                                     ↓ NO
-                                              Show validation error
-                                                     ↓
-                                                End process
-                                                     ↓ YES
-                                              Call POST /listings
-                                                     ↓
-                                              API call successful?
-                                                     ↓ NO                    ↓ YES
-                                        Show API error message      Show success embed
-                                                     ↓                        ↓
-                                              End process              Display listing ID
-                                                                      and view link
-                                                                           ↓
-                                                                      End process
+```mermaid
+flowchart TD
+    A[User runs /listing create] --> B[Bot checks user exists in DB]
+    B --> C{User exists?}
+
+    C -->|NO| D[Create user record]
+    D --> E[User created]
+    E --> F[Check KYC verification]
+
+    C -->|YES| G[Check KYC verification]
+
+    F --> H{KYC verified?}
+    G --> H
+
+    H -->|NO| I[Show error message]
+    I --> J[User must complete KYC first]
+    J --> K[End process]
+
+    H -->|YES| L[Show Discord modal]
+    L --> M[User fills form]
+    M --> N[Validate input]
+    N --> O{Valid input?}
+
+    O -->|NO| P[Show validation error]
+    P --> Q[End process]
+
+    O -->|YES| R[Call POST /listings]
+    R --> S{API call successful?}
+
+    S -->|NO| T[Show API error message]
+    T --> U[End process]
+
+    S -->|YES| V[Show success embed]
+    V --> W[Display listing ID and view link]
+    W --> X[End process]
 ```
 
 ## Key Components
