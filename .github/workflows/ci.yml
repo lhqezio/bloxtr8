@@ -92,6 +92,12 @@ jobs:
 
           echo "✓ Development environment setup complete"
 
+      - name: Decrypt development environment
+        run: |
+          # Decrypt .env.development to .env.development.local
+          npx dotenvx decrypt .env.development -f .env.development.local
+          echo "✓ Development environment decrypted successfully"
+
       - name: Generate Prisma client
         run: pnpm db:generate
         env:
@@ -118,6 +124,12 @@ jobs:
 
           echo "✓ Production environment setup complete"
 
+      - name: Decrypt production environment for build
+        run: |
+          # Decrypt .env.production to .env.production.local
+          npx dotenvx decrypt .env.production -f .env.production.local
+          echo "✓ Production environment decrypted successfully"
+
       - name: Build packages
         run: pnpm build
         env:
@@ -135,6 +147,12 @@ jobs:
           cp .env.development .env.development.local
 
           echo "✓ Test environment setup complete"
+
+      - name: Decrypt test environment
+        run: |
+          # Decrypt .env.development to .env.development.local for tests
+          npx dotenvx decrypt .env.development -f .env.development.local
+          echo "✓ Test environment decrypted successfully"
 
       - name: Run tests
         run: pnpm test
@@ -217,6 +235,12 @@ jobs:
           cp .env.development .env
 
           echo "✓ Development environment setup complete"
+
+      - name: Decrypt development environment for database tests
+        run: |
+          # Decrypt .env.development to .env.development.local
+          npx dotenvx decrypt .env.development -f .env.development.local
+          echo "✓ Development environment decrypted successfully for database tests"
 
       - name: Generate Prisma client
         run: pnpm db:generate
