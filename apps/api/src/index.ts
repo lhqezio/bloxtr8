@@ -22,7 +22,6 @@ const port = process.env.PORT || 3000;
 app.all("/api/auth/*", toNodeHandler(auth));
 
 
-app.use(compress());
 
 // Rate limiting
 const limiter = rateLimit({
