@@ -69,6 +69,7 @@ router.post('/users/ensure', async (req, res, next) => {
         data: {
           discordId,
           username,
+          email: `${discordId}@discord.local`, // Placeholder email for Discord users
           kycVerified: false, // Default to unverified
           kycTier: 'TIER_1', // Default tier
         },
