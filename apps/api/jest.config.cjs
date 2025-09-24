@@ -61,6 +61,10 @@ module.exports = {
   moduleNameMapper: {
     '^@bloxtr8/(.*)$': '<rootDir>/../../packages/$1/src',
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^better-auth$': '<rootDir>/__mocks__/better-auth.js',
+    '^better-auth/node$': '<rootDir>/__mocks__/better-auth-node.js',
+    '^better-auth/adapters/prisma$':
+      '<rootDir>/__mocks__/better-auth-prisma.js',
   },
 
   // Setup files
