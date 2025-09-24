@@ -1,18 +1,14 @@
 import { config } from '@dotenvx/dotenvx';
 import { createAuthClient } from 'better-auth/client';
 import {
-  
   Client,
   EmbedBuilder,
   GatewayIntentBits,
   REST,
   Routes,
   SlashCommandBuilder,
-  
   type ChatInputCommandInteraction,
- 
 } from 'discord.js';
-
 
 // Load environment variables
 config();
