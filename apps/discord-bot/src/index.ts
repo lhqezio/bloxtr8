@@ -1,27 +1,18 @@
 import { config } from '@dotenvx/dotenvx';
-import { createAuthClient } from "better-auth/client"
+import { createAuthClient } from 'better-auth/client';
 import {
-  ActionRowBuilder,
+  
   Client,
   EmbedBuilder,
   GatewayIntentBits,
-  ModalBuilder,
   REST,
   Routes,
   SlashCommandBuilder,
-  TextInputBuilder,
-  TextInputStyle,
+  
   type ChatInputCommandInteraction,
-  type ModalSubmitInteraction,
-  ButtonBuilder,
-  ButtonStyle,
+ 
 } from 'discord.js';
 
-import { createListing, getApiBaseUrl } from './utils/apiClient.js';
-import {
-  ensureUserExists,
-  verifyUserForListing,
-} from './utils/userVerification.js';
 
 // Load environment variables
 config();
@@ -29,10 +20,9 @@ config();
 type AuthClient = ReturnType<typeof createAuthClient>;
 
 export const authClient: AuthClient = createAuthClient({
-    /** The base URL of the server (optional if you're using the same domain) */
-    baseURL: process.env.API_BASE_URL || "http://localhost:3000"
-})
-
+  /** The base URL of the server (optional if you're using the same domain) */
+  baseURL: process.env.API_BASE_URL || 'http://localhost:3000',
+});
 
 const client = new Client({
   intents: [
@@ -42,56 +32,61 @@ const client = new Client({
     GatewayIntentBits.DirectMessages,
   ],
 });
-const signIn = async (interaction: any) => {
+const signIn = async (interaction: ChatInputCommandInteraction) => {
   try {
-      // Generate OAuth URL for Discord login using Better Auth client (per docs)
-      const { data, error } = await authClient.signIn.social({
-          provider: "discord",
-          callbackURL: `${process.env.API_BASE_URL || "http://localhost:3000"}/health`
-      });
+    // Generate OAuth URL for Discord login using Better Auth client (per docs)
+    const { data, error } = await authClient.signIn.social({
+      provider: 'discord',
+      callbackURL: `${process.env.API_BASE_URL || 'http://localhost:3000'}/health`,
+    });
 
-      if (error) {
-          console.error('Auth error:', error);
-          await interaction.reply({
-              content: '❌ Failed to initiate login. Please try again later.',
-              ephemeral: true
-          });
-          return;
-      }
-
-      if (data?.url) {
-          const embed = new EmbedBuilder()
-              .setTitle('🔐 Discord Authentication')
-              .setDescription('Click the button below to authenticate with Discord and link your account!')
-              .setColor(0x5865F2)
-              .addFields(
-                  { name: 'Step 1', value: 'Click the link below', inline: false },
-                  { name: 'Step 2', value: 'Authorize the application', inline: false },
-                  { name: 'Step 3', value: 'You\'ll be redirected back automatically', inline: false }
-              )
-              .setFooter({ text: 'This link will expire in 10 minutes' })
-              .setTimestamp();
-
-          await interaction.reply({
-              embeds: [embed],
-              content: `**Authentication Link:**\n${data.url}`,
-              ephemeral: true
-          });
-      } else {
-          await interaction.reply({
-              content: '❌ Failed to generate login URL. Please try again later.',
-              ephemeral: true
-          });
-      }
-  } catch (error) {
-      console.error('Sign in error:', error);
+    if (error) {
+      console.error('Auth error:', error);
       await interaction.reply({
-          content: '❌ An unexpected error occurred. Please try again later.',
-          ephemeral: true
+        content: '❌ Failed to initiate login. Please try again later.',
+        ephemeral: true,
       });
+      return;
+    }
+
+    if (data?.url) {
+      const embed = new EmbedBuilder()
+        .setTitle('🔐 Discord Authentication')
+        .setDescription(
+          'Click the button below to authenticate with Discord and link your account!'
+        )
+        .setColor(0x5865f2)
+        .addFields(
+          { name: 'Step 1', value: 'Click the link below', inline: false },
+          { name: 'Step 2', value: 'Authorize the application', inline: false },
+          {
+            name: 'Step 3',
+            value: "You'll be redirected back automatically",
+            inline: false,
+          }
+        )
+        .setFooter({ text: 'This link will expire in 10 minutes' })
+        .setTimestamp();
+
+      await interaction.reply({
+        embeds: [embed],
+        content: `**Authentication Link:**\n${data.url}`,
+        ephemeral: true,
+      });
+    } else {
+      await interaction.reply({
+        content: '❌ Failed to generate login URL. Please try again later.',
+        ephemeral: true,
+      });
+    }
+  } catch (error) {
+    console.error('Sign in error:', error);
+    await interaction.reply({
+      content: '❌ An unexpected error occurred. Please try again later.',
+      ephemeral: true,
+    });
   }
-}
-const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+};
 
 client.once('clientReady', async () => {
   console.log(`Logged in as ${client.user?.tag}`);
@@ -159,16 +154,15 @@ client.on('interactionCreate', async interaction => {
       const latency = Date.now() - startTime;
       const apiLatency = Math.round(client.ws.ping);
 
-    await interaction.editReply({
-      content: ` Pong! Latency: ${latency}ms | API Latency: ${apiLatency}ms`,
-    });
+      await interaction.editReply({
+        content: ` Pong! Latency: ${latency}ms | API Latency: ${apiLatency}ms`,
+      });
+    }
+
+    if (interaction.commandName === 'signin') {
+      await signIn(interaction);
+    }
   }
-
-  if (interaction.commandName === 'signin') {
-    await signIn(interaction);
-
-
-  }
-}});
+});
 
 client.login(process.env.DISCORD_BOT_TOKEN);

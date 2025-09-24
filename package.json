@@ -13,7 +13,7 @@
     "lint:fix": "turbo run lint:fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "db:format":"dotenvx run -- pnpm --filter=@bloxtr8/database format",
+    "db:format": "dotenvx run -- pnpm --filter=@bloxtr8/database format",
     "db:generate": "dotenvx run -- pnpm --filter=@bloxtr8/database generate",
     "db:push": "dotenvx run -- pnpm --filter=@bloxtr8/database push",
     "db:migrate": "dotenvx run -- pnpm --filter=@bloxtr8/database migrate",

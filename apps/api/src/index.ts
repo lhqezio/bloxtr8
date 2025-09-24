@@ -1,5 +1,5 @@
 import { config } from '@dotenvx/dotenvx';
-import { toNodeHandler } from "better-auth/node";
+import { toNodeHandler } from 'better-auth/node';
 import compress from 'compression';
 import cors from 'cors';
 import express from 'express';
@@ -7,7 +7,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import pkg from 'pg';
 
-import { auth } from "./lib/auth.js";
+import { auth } from './lib/auth.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
 import healthRoutes, { setPool } from './routes/health.js';
@@ -19,9 +19,7 @@ config();
 const app: express.Application = express();
 app.use(compress());
 const port = process.env.PORT || 3000;
-app.all("/api/auth/*", toNodeHandler(auth)); // For ExpressJS v4
-
-
+app.all('/api/auth/*', toNodeHandler(auth)); // For ExpressJS v4
 
 // Rate limiting
 const limiter = rateLimit({
