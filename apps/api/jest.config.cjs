@@ -65,6 +65,7 @@ module.exports = {
     '^better-auth/node$': '<rootDir>/__mocks__/better-auth-node.js',
     '^better-auth/adapters/prisma$':
       '<rootDir>/__mocks__/better-auth-prisma.js',
+    '^@bloxtr8/storage$': '<rootDir>/__mocks__/storage.js',
   },
 
   // Setup files
