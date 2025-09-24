@@ -56,7 +56,7 @@ client.once('clientReady', async () => {
       .setName('ping')
       .setDescription('Check bot latency')
       .toJSON(),
-      new SlashCommandBuilder()
+    new SlashCommandBuilder()
       .setName('listing')
       .setDescription('Create a new listing')
       .addSubcommand(subcommand =>
@@ -106,7 +106,10 @@ client.on('interactionCreate', async interaction => {
       const provided = interaction.options.getString('name');
       const targetName =
         provided || interaction.user.displayName || interaction.user.username;
-      await interaction.reply({ content: `Hello there ${targetName}!`, ephemeral: true });
+      await interaction.reply({
+        content: `Hello there ${targetName}!`,
+        ephemeral: true,
+      });
     }
 
     if (interaction.commandName === 'ping') {
@@ -129,7 +132,7 @@ client.on('interactionCreate', async interaction => {
       await handleListingCreate(interaction);
     }
   }
-  
+
   // Handle modal submissions
   if (interaction.isModalSubmit()) {
     if (interaction.customId === 'listing_create_modal') {
@@ -138,11 +141,10 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-
 /**
  * Handles the /listing create slash command
  * Shows verification check and opens modal if user is verified
-*/
+ */
 async function handleListingCreate(interaction: ChatInputCommandInteraction) {
   try {
     // Ensure user exists in database
@@ -150,7 +152,7 @@ async function handleListingCreate(interaction: ChatInputCommandInteraction) {
       interaction.user.id,
       interaction.user.username
     );
-    
+
     if (!userResult.user) {
       await interaction.reply({
         content: `❌ ${userResult.error}`,
@@ -363,7 +365,7 @@ async function handleListingModalSubmit(interaction: ModalSubmitInteraction) {
     });
   }
 }
-async function signIn (interaction: ChatInputCommandInteraction) {
+async function signIn(interaction: ChatInputCommandInteraction) {
   try {
     // Generate OAuth URL for Discord login using Better Auth client (per docs)
     const { data, error } = await authClient.signIn.social({
@@ -417,5 +419,5 @@ async function signIn (interaction: ChatInputCommandInteraction) {
       ephemeral: true,
     });
   }
-};
+}
 client.login(process.env.DISCORD_BOT_TOKEN);
