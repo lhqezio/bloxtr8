@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useState } from "react"
+import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -13,7 +14,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Discord } from "@/components/logo/Discord"
 import { Roblox } from "@/components/logo/Roblox"
-import { authClient } from "@/lib/auth-client"
 
 export function LoginForm({
   className,
@@ -21,32 +21,50 @@ export function LoginForm({
 }: React.ComponentProps<"div">) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading]=useState(false)
 
   async function handleEmailPassword(e: React.FormEvent) {
     e.preventDefault()
-    try {
-      setError(null)
-      setIsLoading(true)
-      await authClient.signIn.email({ email, password })
-    } catch (_err) {
-      setError("Invalid email or password.")
-    } finally {
-      setIsLoading(false)
+    const {error}=await authClient.signIn.email({
+    email,
+    password,
+    callbackURL: "/user",
+    },{
+      onRequest: () => {
+        setIsLoading(true)
+      },
+      onSuccess:() =>{
+        setIsLoading(false)
+      },
+      onError:()=>{
+        setIsLoading(false)
+      }
     }
+  )
+    if(error){
+      console.error(error.statusText)
+    }
+    
   }
 
   async function handleSocial(provider: "discord" | "roblox") {
-    try {
-      setError(null)
-      setIsLoading(true)
-      await authClient.signIn.social({ provider, callbackURL: "/" })
-    } catch (_err) {
-      setError(`Failed to start ${provider} sign-in. Please try again.`)
-    } finally {
-      setIsLoading(false)
+    
+    const {error} = await authClient.signIn.social({ provider, callbackURL: "/user"},{
+      onRequest: () => {
+        setIsLoading(true)
+      },
+      onSuccess: () => {
+        setIsLoading(false)
+      },
+      onError:()=>{
+        setIsLoading(false)
+      }
     }
+  )
+    if(error){
+      console.error(error.statusText)
+    }
+    
   }
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -121,11 +139,6 @@ export function LoginForm({
                   {isLoading ? "Signing in..." : "Login"}
                 </Button>
               </div>
-              {error ? (
-                <div className="text-destructive text-sm" role="alert">
-                  {error}
-                </div>
-              ) : null}
               <div className="text-center text-sm">
                 Don&apos;t have an account?{" "}
                 <Link to="/register" className="underline underline-offset-4">
