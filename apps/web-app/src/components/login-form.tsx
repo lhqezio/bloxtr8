@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,11 +13,41 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Discord } from "@/components/logo/Discord"
 import { Roblox } from "@/components/logo/Roblox"
+import { authClient } from "@/lib/auth-client"
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleEmailPassword(e: React.FormEvent) {
+    e.preventDefault()
+    try {
+      setError(null)
+      setIsLoading(true)
+      await authClient.signIn.email({ email, password })
+    } catch (_err) {
+      setError("Invalid email or password.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handleSocial(provider: "discord" | "roblox") {
+    try {
+      setError(null)
+      setIsLoading(true)
+      await authClient.signIn.social({ provider, callbackURL: "/" })
+    } catch (_err) {
+      setError(`Failed to start ${provider} sign-in. Please try again.`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -27,15 +58,27 @@ export function LoginForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form>
+          <form onSubmit={handleEmailPassword}>
             <div className="grid gap-6">
               <div className="flex flex-col gap-4">
-                <Button variant="outline" className="w-full">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  type="button"
+                  onClick={() => handleSocial("discord")}
+                  disabled={isLoading}
+                >
                   <Discord/>
-                  Login with Discord
+                  {isLoading ? "Redirecting..." : "Login with Discord"}
                 </Button>
-                <Button variant="outline" className="w-full">
-                  <Roblox className="bg-red"/>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  type="button"
+                  onClick={() => handleSocial("roblox")}
+                  disabled={isLoading}
+                >
+                  <Roblox/>
                   Login with Roblox
                 </Button>
               </div>
@@ -52,6 +95,8 @@ export function LoginForm({
                     type="email"
                     placeholder="m@example.com"
                     required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
                 <div className="grid gap-3">
@@ -64,12 +109,23 @@ export function LoginForm({
                       Forgot your password?
                     </a>
                   </div>
-                  <Input id="password" type="password" required />
+                  <Input
+                    id="password"
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
                 </div>
-                <Button type="submit" className="w-full">
-                  Login
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Signing in..." : "Login"}
                 </Button>
               </div>
+              {error ? (
+                <div className="text-destructive text-sm" role="alert">
+                  {error}
+                </div>
+              ) : null}
               <div className="text-center text-sm">
                 Don&apos;t have an account?{" "}
                 <Link to="/register" className="underline underline-offset-4">
