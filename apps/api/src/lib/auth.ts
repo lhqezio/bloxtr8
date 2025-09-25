@@ -31,6 +31,7 @@ export const auth = betterAuth({
           image: profile.avatar_url, // only set if Discord has it
         }
       },
+      updateUserInfoOnLink: true,
       scope: ['identify', 'email'],
       permissions: 2048 | 16384, // Send Messages + Embed Links
       // Read more about the permission here: https://www.better-auth.com/docs/authentication/discord

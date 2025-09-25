@@ -64,13 +64,11 @@ Once logged in, a user can link Discord or Roblox:
 // Link Discord
 await authClient.linkSocial({
   provider: "discord",
-  callbackURL: "/settings/linked-accounts",
 })
 
 // Link Roblox
 await authClient.linkSocial({
   provider: "roblox",
-  callbackURL: "/settings/linked-accounts",
 })
 ```
 
