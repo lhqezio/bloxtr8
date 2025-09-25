@@ -25,6 +25,7 @@ export const auth = betterAuth({
     discord: {
       clientId: process.env.DISCORD_CLIENT_ID as string,
       clientSecret: process.env.DISCORD_CLIENT_SECRET as string,
+      prompt: "consent", // or "none", "consent"
       disableSignUp: true,
       mapProfileToUser: (profile) => {
         return {
@@ -33,6 +34,7 @@ export const auth = betterAuth({
       },
       updateUserInfoOnLink: true,
       scope: ['identify', 'email'],
+
       permissions: 2048 | 16384, // Send Messages + Embed Links
       // Read more about the permission here: https://www.better-auth.com/docs/authentication/discord
     },
