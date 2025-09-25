@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 export const Route = createFileRoute('/')({
   component: App,
 })
-//hello
 function App() {
   return (
     <div className="text-center">
