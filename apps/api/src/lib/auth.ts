@@ -35,10 +35,10 @@ export const auth = betterAuth({
       permissions: 2048 | 16384, // Send Messages + Embed Links
       // Read more about the permission here: https://www.better-auth.com/docs/authentication/discord
     },
-    // roblox: {
-    //   clientId: process.env.ROBLOX_CLIENT_ID as string,
-    //   clientSecret: process.env.ROBLOX_CLIENT_SECRET as string,
-    //   disableSignUp: true,
-    // },
+    roblox: {
+      clientId: process.env.ROBLOX_CLIENT_ID as string,
+      clientSecret: process.env.ROBLOX_CLIENT_SECRET as string,
+      disableSignUp: true,
+    },
   },
 });
