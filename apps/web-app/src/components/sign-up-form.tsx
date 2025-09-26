@@ -38,7 +38,7 @@ export function SignupForm({ className, ...props }: SignupFormProps) {
     setError(null)
 
     // use Better Auth's recommended destructuring
-    const { error: authError } = await authClient.signUp.email(
+    const { data, error: authError } = await authClient.signUp.email(
       {
         email: formData.email,
         password: formData.password,

@@ -41,7 +41,6 @@ router.get('/users/verify/:id', async (req, res, next) => {
         accounts: {
           some: {
             accountId: id,
-            providerId: 'discord',
           },
         },
       },
@@ -82,7 +81,6 @@ router.get('/users/accounts/:id', async (req, res, next) => {
         accounts: {
           some: {
             accountId: id,
-            providerId: 'discord',
           },
         },
       },
