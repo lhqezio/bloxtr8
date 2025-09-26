@@ -41,15 +41,24 @@ router.get('/users/verify/:id', async (req, res, next) => {
         accounts: {
           some: {
             accountId: id,
+            providerId: 'discord',
           },
         },
       },
       select: {
         id: true,
-        discordId: true,
-        username: true,
+        name: true,
+        email: true,
         kycVerified: true,
         kycTier: true,
+        accounts: {
+          where: {
+            providerId: 'discord',
+          },
+          select: {
+            accountId: true,
+          },
+        },
       },
     });
 
@@ -81,6 +90,7 @@ router.get('/users/accounts/:id', async (req, res, next) => {
         accounts: {
           some: {
             accountId: id,
+            providerId: 'discord',
           },
         },
       },
@@ -116,7 +126,7 @@ router.post('/users/ensure', async (req, res, next) => {
       throw new AppError('Discord ID and username are required', 400);
     }
 
-    // Try to find existing user by Discord account relation first
+    // Try to find existing user by Discord account relation
     let user = await prisma.user.findFirst({
       where: {
         accounts: {
@@ -128,48 +138,20 @@ router.post('/users/ensure', async (req, res, next) => {
       },
       select: {
         id: true,
-        discordId: true,
-        username: true,
+        name: true,
+        email: true,
         kycVerified: true,
         kycTier: true,
+        accounts: {
+          where: {
+            providerId: 'discord',
+          },
+          select: {
+            accountId: true,
+          },
+        },
       },
     });
-
-    // If not found via account relation, try direct discordId lookup
-    // This handles existing users without account records
-    if (!user) {
-      user = await prisma.user.findUnique({
-        where: {
-          discordId,
-        },
-        select: {
-          id: true,
-          discordId: true,
-          username: true,
-          kycVerified: true,
-          kycTier: true,
-        },
-      });
-
-      // If user exists but has no account record, create the account record
-      // Use upsert to handle race condition where multiple requests try to create the same account
-      if (user) {
-        await prisma.account.upsert({
-          where: {
-            id: `discord_${discordId}`,
-          },
-          update: {
-            // No updates needed if account already exists
-          },
-          create: {
-            id: `discord_${discordId}`,
-            accountId: discordId,
-            providerId: 'discord',
-            userId: user.id,
-          },
-        });
-      }
-    }
 
     // Create user if they don't exist at all
     if (!user) {
@@ -178,16 +160,15 @@ router.post('/users/ensure', async (req, res, next) => {
         // Create user with placeholder email
         const newUser = await tx.user.create({
           data: {
-            discordId,
-            username,
+            name: username,
             email: `${discordId}@discord.example`, // Placeholder email for Discord users
             kycVerified: false, // Default to unverified
             kycTier: 'TIER_1', // Default tier
           },
           select: {
             id: true,
-            discordId: true,
-            username: true,
+            name: true,
+            email: true,
             kycVerified: true,
             kycTier: true,
           },
@@ -203,7 +184,10 @@ router.post('/users/ensure', async (req, res, next) => {
           },
         });
 
-        return newUser;
+        return {
+          ...newUser,
+          accounts: [{ accountId: discordId }],
+        };
       });
 
       user = result;

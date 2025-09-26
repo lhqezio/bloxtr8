@@ -6,10 +6,11 @@ export interface UserVerificationResult {
   isVerified: boolean;
   user?: {
     id: string;
-    discordId: string;
-    username: string;
+    name: string | null;
+    email: string;
     kycVerified: boolean;
     kycTier: 'TIER_1' | 'TIER_2';
+    accounts: Array<{ accountId: string }>;
   };
   error?: string;
 }
@@ -95,10 +96,11 @@ export async function verifyUserForListing(
 
     const userData = (await response.json()) as {
       id: string;
-      discordId: string;
-      username: string;
+      name: string | null;
+      email: string;
       kycVerified: boolean;
       kycTier: 'TIER_1' | 'TIER_2';
+      accounts: Array<{ accountId: string }>;
     };
 
     if (!userData.kycVerified) {
@@ -154,10 +156,11 @@ export async function ensureUserExists(
 
     const userData = (await response.json()) as {
       id: string;
-      discordId: string;
-      username: string;
+      name: string | null;
+      email: string;
       kycVerified: boolean;
       kycTier: 'TIER_1' | 'TIER_2';
+      accounts: Array<{ accountId: string }>;
     };
 
     return {
