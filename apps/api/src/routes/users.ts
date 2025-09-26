@@ -29,11 +29,7 @@ router.get('/users/verify/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    if (
-      !id ||
-      typeof id !== 'string' ||
-      id.trim() === ''
-    ) {
+    if (!id || typeof id !== 'string' || id.trim() === '') {
       throw new AppError(
         'Account ID is required and must be a non-empty string',
         400
@@ -52,7 +48,7 @@ router.get('/users/verify/:id', async (req, res, next) => {
 
     if (!user) {
       // Return empty array if user not found
-      return res.status(204).json([]);
+      return res.status(200).json([]);
     }
 
     const accounts = await prisma.account.findMany({

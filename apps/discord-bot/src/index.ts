@@ -1,8 +1,6 @@
 import { config } from '@dotenvx/dotenvx';
 import {
   ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   Client,
   EmbedBuilder,
   GatewayIntentBits,
@@ -118,11 +116,10 @@ client.on('interactionCreate', async interaction => {
       });
     }
     if (interaction.commandName === 'verify') {
-      const id =
-        interaction.options.getString('id') || interaction.user.id;
+      const id = interaction.options.getString('id') || interaction.user.id;
       const result = await verify(id);
       if (result.success) {
-        const {embeds} = buildVerificationEmbeds(result.data);
+        const { embeds } = buildVerificationEmbeds(result.data);
         await interaction.reply({
           embeds,
           ephemeral: true,
@@ -301,7 +298,6 @@ const providers: ProviderConfig[] = [
 ];
 function buildVerificationEmbeds(accounts: Account[]) {
   const embeds: EmbedBuilder[] = [];
-  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
 
   for (const provider of providers) {
     const account = accounts.find(a => a.providerId === provider.id);
@@ -310,20 +306,19 @@ function buildVerificationEmbeds(accounts: Account[]) {
       .setTitle(`${provider.label} Account`)
       .setColor(account ? 'Green' : 'Red')
       .addFields({
-        name: account ? `✅ ${provider.label} verified` : `❌ ${provider.label} not linked`,
-        value: account ? `[View Profile](${provider.buildUrl(account.accountId)})` : 'No account found.',
+        name: account
+          ? `✅ ${provider.label} verified`
+          : `❌ ${provider.label} not linked`,
+        value: account
+          ? `[View Profile](${provider.buildUrl(account.accountId)})`
+          : 'No account found.',
       });
 
     embeds.push(embed);
-
-    
-      
   }
 
   return { embeds };
 }
-
-
 
 /**
  * Handles the modal submission for listing creation
