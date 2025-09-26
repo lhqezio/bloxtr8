@@ -55,13 +55,13 @@ export function SignupForm({ className, ...props }: SignupFormProps) {
           window.location.href = "/user"
         },
         onError: (ctx) => {
-          alert(ctx.error.message)
+          setError(ctx.error.message)
         },
       }
     )
 
     if (error) {
-      setError(error)
+      console.error("Error signing up:", error.message);
     }
 
     setIsLoading(false)
