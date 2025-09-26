@@ -7,8 +7,8 @@ const router: ExpressRouter = Router();
 const prisma = new PrismaClient();
 
 router.get('/users/account/:id', async (req, res, next) => {
-  try{
-      const { id } = req.params;
+  try {
+    const { id } = req.params;
 
     const info = await prisma.user.findUnique({
       where: { id },
@@ -45,33 +45,30 @@ router.get('/users/verify/:discordId', async (req, res, next) => {
         accounts: {
           some: {
             accountId: discordId,
-            providerId: "discord",
-          }
-        }
-      }
+            providerId: 'discord',
+          },
+        },
+      },
     });
-  
 
     if (!user) {
       // Return empty array if user not found
       return res.status(204).json([]);
     }
-    
+
     const accounts = await prisma.account.findMany({
       where: {
         userId: user.id,
       },
-      select:{
-        accountId:true,
-        providerId:true,
-      }
+      select: {
+        accountId: true,
+        providerId: true,
+      },
     });
-      
-    
 
     res.status(200).json(accounts);
   } catch (error) {
-    console.error(error)
+    console.error(error);
     next(error);
   }
 });
@@ -121,7 +118,5 @@ router.post('/users/ensure', async (req, res, next) => {
     next(error);
   }
 });
-
-
 
 export default router;

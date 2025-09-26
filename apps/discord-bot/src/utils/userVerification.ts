@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 
-import type { ApiError} from './apiClient.ts';
+import type { ApiError } from './apiClient.ts';
 
 export interface UserVerificationResult {
   isVerified: boolean;
@@ -19,27 +19,27 @@ export interface Account {
   providerId: string;
 }
 export async function verify(
-  discord_id: string,
+  discord_id: string
 ): Promise<
-  | { success: true; data: Account[] }
-  | { success: false; error: ApiError }
+  { success: true; data: Account[] } | { success: false; error: ApiError }
 > {
-  const apiBaseUrl: string = getApiBaseUrl()
+  const apiBaseUrl: string = getApiBaseUrl();
   try {
-    const response = await fetch(`${apiBaseUrl}/api/users/verify/${discord_id}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    const response = await fetch(
+      `${apiBaseUrl}/api/users/verify/${discord_id}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
     if (!response.ok) {
-      
       throw new Error(`HTTP error ${response.status}`);
     }
     if (response.status === 204) {
       return { success: true, data: [] };
-
     }
     const responseData = (await response.json()) as Account[];
 
