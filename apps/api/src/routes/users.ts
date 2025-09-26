@@ -116,9 +116,16 @@ router.post('/users/ensure', async (req, res, next) => {
       throw new AppError('Discord ID and username are required', 400);
     }
 
-    // Try to find existing user
-    let user = await prisma.user.findUnique({
-      where: { discordId },
+    // Try to find existing user by Discord account relation first
+    let user = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: discordId,
+            providerId: 'discord',
+          },
+        },
+      },
       select: {
         id: true,
         discordId: true,
@@ -128,15 +135,12 @@ router.post('/users/ensure', async (req, res, next) => {
       },
     });
 
-    // Create user if they don't exist
+    // If not found via account relation, try direct discordId lookup
+    // This handles existing users without account records
     if (!user) {
-      user = await prisma.user.create({
-        data: {
+      user = await prisma.user.findUnique({
+        where: {
           discordId,
-          username,
-          email: `${discordId}@discord.example`, // Placeholder email for Discord users
-          kycVerified: false, // Default to unverified
-          kycTier: 'TIER_1', // Default tier
         },
         select: {
           id: true,
@@ -146,6 +150,63 @@ router.post('/users/ensure', async (req, res, next) => {
           kycTier: true,
         },
       });
+
+      // If user exists but has no account record, create the account record
+      // Use upsert to handle race condition where multiple requests try to create the same account
+      if (user) {
+        await prisma.account.upsert({
+          where: {
+            id: `discord_${discordId}`,
+          },
+          update: {
+            // No updates needed if account already exists
+          },
+          create: {
+            id: `discord_${discordId}`,
+            accountId: discordId,
+            providerId: 'discord',
+            userId: user.id,
+          },
+        });
+      }
+    }
+
+    // Create user if they don't exist at all
+    if (!user) {
+      // Use transaction to ensure both user and account are created atomically
+      const result = await prisma.$transaction(async tx => {
+        // Create user with placeholder email
+        const newUser = await tx.user.create({
+          data: {
+            discordId,
+            username,
+            email: `${discordId}@discord.example`, // Placeholder email for Discord users
+            kycVerified: false, // Default to unverified
+            kycTier: 'TIER_1', // Default tier
+          },
+          select: {
+            id: true,
+            discordId: true,
+            username: true,
+            kycVerified: true,
+            kycTier: true,
+          },
+        });
+
+        // Create linked Discord account record
+        await tx.account.create({
+          data: {
+            id: `discord_${discordId}`,
+            accountId: discordId,
+            providerId: 'discord',
+            userId: newUser.id,
+          },
+        });
+
+        return newUser;
+      });
+
+      user = result;
     }
 
     res.status(200).json(user);
