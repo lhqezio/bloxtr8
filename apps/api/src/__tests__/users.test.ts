@@ -155,9 +155,7 @@ describe('Users API Routes', () => {
     });
 
     it('should return 400 for empty account ID', async () => {
-      await request(app)
-        .get('/api/users/verify/')
-        .expect(404); // Express returns 404 for empty path param
+      await request(app).get('/api/users/verify/').expect(404); // Express returns 404 for empty path param
 
       // Test with whitespace-only string in path - this will be trimmed and validated
       const response2 = await request(app)
@@ -321,7 +319,7 @@ describe('Users API Routes', () => {
       };
 
       mockUserFindFirst.mockResolvedValue(null);
-      mockTransaction.mockImplementation(async (callback) => {
+      mockTransaction.mockImplementation(async callback => {
         const mockTx = {
           user: {
             create: jest.fn().mockResolvedValue(mockNewUser),
@@ -475,9 +473,7 @@ describe('Users API Routes', () => {
       const longId = 'a'.repeat(1000);
       mockUserFindFirst.mockResolvedValue(null);
 
-      await request(app)
-        .get(`/api/users/verify/${  longId}`)
-        .expect(404);
+      await request(app).get(`/api/users/verify/${longId}`).expect(404);
 
       expect(mockUserFindFirst).toHaveBeenCalledWith({
         where: {
@@ -497,7 +493,7 @@ describe('Users API Routes', () => {
       mockUserFindFirst.mockResolvedValue(null);
 
       await request(app)
-        .get(`/api/users/verify/${  encodeURIComponent(specialId)}`)
+        .get(`/api/users/verify/${encodeURIComponent(specialId)}`)
         .expect(404);
 
       expect(mockUserFindFirst).toHaveBeenCalledWith({
