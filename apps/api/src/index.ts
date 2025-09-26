@@ -19,7 +19,6 @@ config();
 const app: express.Application = express();
 app.use(compress());
 const port = process.env.PORT || 3000;
-app.all('/api/auth/*', toNodeHandler(auth)); // For ExpressJS v4
 
 // Rate limiting
 const limiter = rateLimit({
@@ -35,9 +34,19 @@ app.use(helmet());
 app.use(
   cors({
     credentials: true,
-    origin: true,
+    origin: [
+      'http://localhost:5173',
+    ],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
+// Handle CORS preflight requests globally to avoid 404 on OPTIONS
+app.options('*', cors());
+
+// Mount Better Auth after CORS so preflight works
+app.all('/api/auth/*', toNodeHandler(auth)); // For ExpressJS v4
+// Mount express.json after Better Auth per docs
 app.use(express.json());
 
 const pool = new Pool({
