@@ -5,7 +5,7 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 config();
 
 const prisma = new PrismaClient();
-export const auth = betterAuth({
+export const auth: ReturnType<typeof betterAuth> = betterAuth({
   trustedOrigins: ['http://localhost:5173', 'http://localhost:3000'],
 
   database: prismaAdapter(prisma, {
