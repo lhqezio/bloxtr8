@@ -286,10 +286,10 @@ function getWebAppBaseUrl(): string {
   if (process.env.WEB_APP_BASE_URL) {
     return process.env.WEB_APP_BASE_URL;
   }
-  
+
   // Default to localhost for development, production domain for production
-  return process.env.NODE_ENV === 'production' 
-    ? 'https://web.bloxtr8.com' 
+  return process.env.NODE_ENV === 'production'
+    ? 'https://web.bloxtr8.com'
     : 'http://localhost:5173';
 }
 
