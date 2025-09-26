@@ -26,7 +26,7 @@ export async function verify(
   const apiBaseUrl: string = getApiBaseUrl();
   try {
     const response = await fetch(
-      `${apiBaseUrl}/api/users/verify/${discord_id}`,
+      `${apiBaseUrl}/api/users/accounts/${discord_id}`,
       {
         method: 'GET',
         headers: {
@@ -38,10 +38,13 @@ export async function verify(
     if (!response.ok) {
       throw new Error(`HTTP error ${response.status}`);
     }
-    if (response.status === 204) {
+    
+    const responseData = (await response.json()) as Account[];
+    
+    // Handle empty array response (no user found)
+    if (responseData.length === 0) {
       return { success: true, data: [] };
     }
-    const responseData = (await response.json()) as Account[];
 
     return {
       success: true,

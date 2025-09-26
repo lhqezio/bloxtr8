@@ -44,6 +44,46 @@ router.get('/users/verify/:id', async (req, res, next) => {
           },
         },
       },
+      select: {
+        id: true,
+        discordId: true,
+        username: true,
+        kycVerified: true,
+        kycTier: true,
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+// Account listing endpoint for Discord bot verify command
+router.get('/users/accounts/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+      throw new AppError(
+        'Account ID is required and must be a non-empty string',
+        400
+      );
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: id,
+          },
+        },
+      },
     });
 
     if (!user) {
