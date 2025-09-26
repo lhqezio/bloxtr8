@@ -38,9 +38,9 @@ export async function verify(
     if (!response.ok) {
       throw new Error(`HTTP error ${response.status}`);
     }
-    
+
     const responseData = (await response.json()) as Account[];
-    
+
     // Handle empty array response (no user found)
     if (responseData.length === 0) {
       return { success: true, data: [] };
