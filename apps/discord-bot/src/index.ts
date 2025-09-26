@@ -278,6 +278,21 @@ interface ProviderConfig {
   buildUrl: (accountId: string) => string;
 }
 
+/**
+ * Gets the base URL for the web app based on environment
+ */
+function getWebAppBaseUrl(): string {
+  // Use environment variable if set, otherwise determine based on NODE_ENV
+  if (process.env.WEB_APP_BASE_URL) {
+    return process.env.WEB_APP_BASE_URL;
+  }
+  
+  // Default to localhost for development, production domain for production
+  return process.env.NODE_ENV === 'production' 
+    ? 'https://web.bloxtr8.com' 
+    : 'http://localhost:5173';
+}
+
 // define all providers here
 const providers: ProviderConfig[] = [
   {
@@ -293,7 +308,7 @@ const providers: ProviderConfig[] = [
   {
     id: 'credential',
     label: 'Bloxtr8',
-    buildUrl: id => `https://web.bloxtr8.com/user/${id}`,
+    buildUrl: id => `${getWebAppBaseUrl()}/user/${id}`,
   },
 ];
 function buildVerificationEmbeds(accounts: Account[]) {

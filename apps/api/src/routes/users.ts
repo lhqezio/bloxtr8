@@ -41,6 +41,7 @@ router.get('/users/verify/:id', async (req, res, next) => {
         accounts: {
           some: {
             accountId: id,
+            providerId: 'discord',
           },
         },
       },
@@ -81,6 +82,7 @@ router.get('/users/accounts/:id', async (req, res, next) => {
         accounts: {
           some: {
             accountId: id,
+            providerId: 'discord',
           },
         },
       },
@@ -116,9 +118,16 @@ router.post('/users/ensure', async (req, res, next) => {
       throw new AppError('Discord ID and username are required', 400);
     }
 
-    // Try to find existing user
-    let user = await prisma.user.findUnique({
-      where: { discordId },
+    // Try to find existing user by Discord account
+    let user = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: discordId,
+            providerId: 'discord',
+          },
+        },
+      },
       select: {
         id: true,
         discordId: true,
@@ -130,7 +139,8 @@ router.post('/users/ensure', async (req, res, next) => {
 
     // Create user if they don't exist
     if (!user) {
-      user = await prisma.user.create({
+      // Create user with placeholder email
+      const newUser = await prisma.user.create({
         data: {
           discordId,
           username,
@@ -146,6 +156,18 @@ router.post('/users/ensure', async (req, res, next) => {
           kycTier: true,
         },
       });
+
+      // Create linked Discord account record
+      await prisma.account.create({
+        data: {
+          id: `discord_${discordId}`,
+          accountId: discordId,
+          providerId: 'discord',
+          userId: newUser.id,
+        },
+      });
+
+      user = newUser;
     }
 
     res.status(200).json(user);
