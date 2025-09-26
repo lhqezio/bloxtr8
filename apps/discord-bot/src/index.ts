@@ -1,6 +1,8 @@
 import { config } from '@dotenvx/dotenvx';
 import {
   ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   Client,
   EmbedBuilder,
   GatewayIntentBits,
@@ -116,13 +118,13 @@ client.on('interactionCreate', async interaction => {
       });
     }
     if (interaction.commandName === 'verify') {
-      const discord_id =
+      const id =
         interaction.options.getString('id') || interaction.user.id;
-      const result = await verify(discord_id);
+      const result = await verify(id);
       if (result.success) {
-        const embed = buildVerificationEmbed(result.data);
+        const {embeds} = buildVerificationEmbeds(result.data);
         await interaction.reply({
-          embeds: [embed],
+          embeds,
           ephemeral: true,
         });
       } else {
@@ -297,28 +299,31 @@ const providers: ProviderConfig[] = [
     buildUrl: id => `https://web.bloxtr8.com/user/${id}`,
   },
 ];
-function buildVerificationEmbed(accounts: Account[]) {
-  const embed = new EmbedBuilder()
-    .setTitle('Linked Accounts')
-    .setColor('Blurple');
+function buildVerificationEmbeds(accounts: Account[]) {
+  const embeds: EmbedBuilder[] = [];
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [];
 
   for (const provider of providers) {
     const account = accounts.find(a => a.providerId === provider.id);
 
-    if (account) {
-      embed.addFields({
-        name: `✅ ${provider.label} verified`,
-        value: `[View Profile](${provider.buildUrl(account.accountId)})`,
+    const embed = new EmbedBuilder()
+      .setTitle(`${provider.label} Account`)
+      .setColor(account ? 'Green' : 'Red')
+      .addFields({
+        name: account ? `✅ ${provider.label} verified` : `❌ ${provider.label} not linked`,
+        value: account ? `[View Profile](${provider.buildUrl(account.accountId)})` : 'No account found.',
       });
-    } else {
-      embed.addFields({
-        name: `❌ ${provider.label} not linked`,
-        value: 'No account found.',
-      });
-    }
+
+    embeds.push(embed);
+
+    
+      
   }
-  return embed;
+
+  return { embeds };
 }
+
+
 
 /**
  * Handles the modal submission for listing creation
