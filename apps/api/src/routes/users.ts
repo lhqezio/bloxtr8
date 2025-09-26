@@ -152,9 +152,16 @@ router.post('/users/ensure', async (req, res, next) => {
       });
 
       // If user exists but has no account record, create the account record
+      // Use upsert to handle race condition where multiple requests try to create the same account
       if (user) {
-        await prisma.account.create({
-          data: {
+        await prisma.account.upsert({
+          where: {
+            id: `discord_${discordId}`,
+          },
+          update: {
+            // No updates needed if account already exists
+          },
+          create: {
             id: `discord_${discordId}`,
             accountId: discordId,
             providerId: 'discord',
