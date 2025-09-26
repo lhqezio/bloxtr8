@@ -9,7 +9,7 @@ const getApiBaseUrl = () => {
 
   // In development, use the Vite proxy
   if (import.meta.env.DEV) {
-    return '/api'
+    return 'http://localhost:3000'
   }
 
   // In production, determine based on the current origin
