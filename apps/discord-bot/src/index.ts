@@ -64,8 +64,8 @@ client.once('clientReady', async () => {
       .setDescription('Verify a Discord profile')
       .addStringOption(opt =>
         opt
-          .setName('discord_id')
-          .setDescription('User to verify')
+          .setName('id')
+          .setDescription('Any linked account ID (defaults to your Discord ID)')
           .setRequired(false)
       )
       .toJSON(),
@@ -117,7 +117,7 @@ client.on('interactionCreate', async interaction => {
     }
     if (interaction.commandName === 'verify') {
       const discord_id =
-        interaction.options.getString('discord_id') || interaction.user.id;
+        interaction.options.getString('id') || interaction.user.id;
       const result = await verify(discord_id);
       if (result.success) {
         const embed = buildVerificationEmbed(result.data);
