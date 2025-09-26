@@ -1,5 +1,7 @@
 import fetch from 'node-fetch';
 
+import type { ApiError } from './apiClient.ts';
+
 export interface UserVerificationResult {
   isVerified: boolean;
   user?: {
@@ -10,6 +12,53 @@ export interface UserVerificationResult {
     kycTier: 'TIER_1' | 'TIER_2';
   };
   error?: string;
+}
+
+export interface Account {
+  accountId: string;
+  providerId: string;
+}
+export async function verify(
+  discord_id: string
+): Promise<
+  { success: true; data: Account[] } | { success: false; error: ApiError }
+> {
+  const apiBaseUrl: string = getApiBaseUrl();
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/users/accounts/${discord_id}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error ${response.status}`);
+    }
+
+    const responseData = (await response.json()) as Account[];
+
+    // Handle empty array response (no user found)
+    if (responseData.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    return {
+      success: true,
+      data: responseData,
+    };
+  } catch (error) {
+    console.error('Error verify user:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while verifying user',
+      },
+    };
+  }
 }
 
 /**
@@ -128,5 +177,5 @@ export async function ensureUserExists(
  * Gets the base URL for API calls
  */
 function getApiBaseUrl(): string {
-  return process.env.API_BASE_URL || 'http://api:3000';
+  return process.env.API_BASE_URL || 'http://localhost:3000';
 }

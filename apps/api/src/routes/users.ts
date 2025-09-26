@@ -6,24 +6,44 @@ import { AppError } from '../middleware/errorHandler.js';
 const router: ExpressRouter = Router();
 const prisma = new PrismaClient();
 
-// User verification endpoints
-router.get('/users/verify/:discordId', async (req, res, next) => {
+router.get('/users/account/:id', async (req, res, next) => {
   try {
-    const { discordId } = req.params;
+    const { id } = req.params;
 
-    if (
-      !discordId ||
-      typeof discordId !== 'string' ||
-      discordId.trim() === ''
-    ) {
+    const info = await prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!info) {
+      throw new AppError('User not found', 404);
+    }
+
+    res.status(200).json(info);
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+// User verification endpoints
+router.get('/users/verify/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || typeof id !== 'string' || id.trim() === '') {
       throw new AppError(
-        'Discord ID is required and must be a non-empty string',
+        'Account ID is required and must be a non-empty string',
         400
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { discordId },
+    const user = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: id,
+          },
+        },
+      },
       select: {
         id: true,
         discordId: true,
@@ -39,6 +59,51 @@ router.get('/users/verify/:discordId', async (req, res, next) => {
 
     res.status(200).json(user);
   } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+// Account listing endpoint for Discord bot verify command
+router.get('/users/accounts/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+      throw new AppError(
+        'Account ID is required and must be a non-empty string',
+        400
+      );
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: id,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      // Return empty array if user not found
+      return res.status(200).json([]);
+    }
+
+    const accounts = await prisma.account.findMany({
+      where: {
+        userId: user.id,
+      },
+      select: {
+        accountId: true,
+        providerId: true,
+      },
+    });
+
+    res.status(200).json(accounts);
+  } catch (error) {
+    console.error(error);
     next(error);
   }
 });

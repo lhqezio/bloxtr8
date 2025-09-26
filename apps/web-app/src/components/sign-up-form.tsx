@@ -1,11 +1,11 @@
-import { GalleryVerticalEnd } from "lucide-react"
-import { useState } from "react"
-import { Link } from "@tanstack/react-router"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { authClient } from "@/lib/auth-client"
+import { GalleryVerticalEnd } from 'lucide-react'
+import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { authClient } from '@/lib/auth-client'
 
 interface SignupFormProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string
@@ -13,10 +13,10 @@ interface SignupFormProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function SignupForm({ className, ...props }: SignupFormProps) {
   const [formData, setFormData] = useState({
-    username: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -30,7 +30,7 @@ export function SignupForm({ className, ...props }: SignupFormProps) {
     e.preventDefault()
 
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match.")
+      setError('Passwords do not match.')
       return
     }
 
@@ -38,12 +38,12 @@ export function SignupForm({ className, ...props }: SignupFormProps) {
     setError(null)
 
     // use Better Auth's recommended destructuring
-    const { data, error } = await authClient.signUp.email(
+    const { data, error: authError } = await authClient.signUp.email(
       {
         email: formData.email,
         password: formData.password,
         name: formData.username,
-        callbackURL: "/user", // optional: redirect after verification/sign in
+        callbackURL: '/user', // optional: redirect after verification/sign in
       },
       {
         onRequest: () => {
@@ -52,23 +52,23 @@ export function SignupForm({ className, ...props }: SignupFormProps) {
         },
         onSuccess: () => {
           // auto-redirect, or update UI
-          window.location.href = "/user"
+          window.location.href = '/user'
         },
         onError: (ctx) => {
-          alert(ctx.error.message)
+          setError(ctx.error.message)
         },
-      }
+      },
     )
 
-    if (error) {
-      setError(error)
+    if (authError) {
+      console.error('Error signing up:', authError.message)
     }
 
     setIsLoading(false)
   }
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={cn('flex flex-col gap-6', className)} {...props}>
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col gap-6">
           <div className="flex flex-col items-center gap-2">
@@ -83,7 +83,7 @@ export function SignupForm({ className, ...props }: SignupFormProps) {
             </Link>
             <h1 className="text-xl font-bold">Create your account</h1>
             <div className="text-center text-sm">
-              Already have an account?{" "}
+              Already have an account?{' '}
               <Link to="/login" className="underline underline-offset-4">
                 Log in
               </Link>
@@ -134,7 +134,7 @@ export function SignupForm({ className, ...props }: SignupFormProps) {
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Sign Up"}
+              {isLoading ? 'Creating account...' : 'Sign Up'}
             </Button>
             {error ? (
               <div className="text-destructive text-sm" role="alert">
@@ -145,8 +145,8 @@ export function SignupForm({ className, ...props }: SignupFormProps) {
         </div>
       </form>
       <div className="text-balance text-center text-xs text-muted-foreground [&_a]:underline [&_a]:underline-offset-4 hover:[&_a]:text-primary">
-        By signing up, you agree to our <a href="#">Terms of Service</a>{" "}
-        and <a href="#">Privacy Policy</a>.
+        By signing up, you agree to our <a href="#">Terms of Service</a> and{' '}
+        <a href="#">Privacy Policy</a>.
       </div>
     </div>
   )

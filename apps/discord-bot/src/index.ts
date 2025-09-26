@@ -17,12 +17,13 @@ import {
 import { createListing, getApiBaseUrl } from './utils/apiClient.js';
 import {
   ensureUserExists,
+  verify,
   verifyUserForListing,
 } from './utils/userVerification.js';
+import type { Account } from './utils/userVerification.ts';
 
 // Load environment variables
 config();
-
 
 const client = new Client({
   intents: [
@@ -56,6 +57,16 @@ client.once('clientReady', async () => {
         subcommand
           .setName('create')
           .setDescription('Create a new listing for sale')
+      )
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('verify')
+      .setDescription('Verify a Discord profile')
+      .addStringOption(opt =>
+        opt
+          .setName('id')
+          .setDescription('Any linked account ID (defaults to your Discord ID)')
+          .setRequired(false)
       )
       .toJSON(),
     // new SlashCommandBuilder()
@@ -103,6 +114,22 @@ client.on('interactionCreate', async interaction => {
         content: `Hello there ${targetName}!`,
         ephemeral: true,
       });
+    }
+    if (interaction.commandName === 'verify') {
+      const id = interaction.options.getString('id') || interaction.user.id;
+      const result = await verify(id);
+      if (result.success) {
+        const { embeds } = buildVerificationEmbeds(result.data);
+        await interaction.reply({
+          embeds,
+          ephemeral: true,
+        });
+      } else {
+        await interaction.reply({
+          content: `❌ Verification failed: ${result.error.message}`,
+          ephemeral: true,
+        });
+      }
     }
 
     if (interaction.commandName === 'ping') {
@@ -243,6 +270,54 @@ async function handleListingCreate(interaction: ChatInputCommandInteraction) {
       ephemeral: true,
     });
   }
+}
+interface ProviderConfig {
+  id: 'roblox' | 'discord' | 'credential';
+  label: string;
+  // eslint-disable-next-line no-unused-vars
+  buildUrl: (accountId: string) => string;
+}
+
+// define all providers here
+const providers: ProviderConfig[] = [
+  {
+    id: 'roblox',
+    label: 'Roblox',
+    buildUrl: id => `https://www.roblox.com/users/${id}/profile`,
+  },
+  {
+    id: 'discord',
+    label: 'Discord',
+    buildUrl: id => `https://discord.com/users/${id}`,
+  },
+  {
+    id: 'credential',
+    label: 'Bloxtr8',
+    buildUrl: id => `https://web.bloxtr8.com/user/${id}`,
+  },
+];
+function buildVerificationEmbeds(accounts: Account[]) {
+  const embeds: EmbedBuilder[] = [];
+
+  for (const provider of providers) {
+    const account = accounts.find(a => a.providerId === provider.id);
+
+    const embed = new EmbedBuilder()
+      .setTitle(`${provider.label} Account`)
+      .setColor(account ? 'Green' : 'Red')
+      .addFields({
+        name: account
+          ? `✅ ${provider.label} verified`
+          : `❌ ${provider.label} not linked`,
+        value: account
+          ? `[View Profile](${provider.buildUrl(account.accountId)})`
+          : 'No account found.',
+      });
+
+    embeds.push(embed);
+  }
+
+  return { embeds };
 }
 
 /**

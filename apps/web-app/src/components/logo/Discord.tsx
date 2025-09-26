@@ -1,4 +1,4 @@
-import * as React from "react";
+import * as React from 'react'
 
 const Discord = (props: React.SVGProps<SVGSVGElement>) => (
   <svg {...props} viewBox="0 0 256 199" preserveAspectRatio="xMidYMid">
@@ -7,6 +7,6 @@ const Discord = (props: React.SVGProps<SVGSVGElement>) => (
       fill="#5865F2"
     />
   </svg>
-);
+)
 
-export { Discord };
+export { Discord }

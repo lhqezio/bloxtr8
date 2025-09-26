@@ -1,4 +1,4 @@
-import * as React from "react";
+import * as React from 'react'
 
 const Roblox = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -19,6 +19,6 @@ const Roblox = (props: React.SVGProps<SVGSVGElement>) => (
       fill="white"
     />
   </svg>
-);
+)
 
-export { Roblox };
+export { Roblox }

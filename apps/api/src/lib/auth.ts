@@ -5,8 +5,8 @@ import { prismaAdapter } from 'better-auth/adapters/prisma';
 config();
 
 const prisma = new PrismaClient();
-export const auth = betterAuth({
-  trustedOrigins: ["http://localhost:5173", "http://localhost:3000"],
+export const auth: ReturnType<typeof betterAuth> = betterAuth({
+  trustedOrigins: ['http://localhost:5173', 'http://localhost:3000'],
 
   database: prismaAdapter(prisma, {
     provider: 'postgresql', // or "mysql", "sqlite", ...etc
@@ -25,12 +25,12 @@ export const auth = betterAuth({
     discord: {
       clientId: process.env.DISCORD_CLIENT_ID as string,
       clientSecret: process.env.DISCORD_CLIENT_SECRET as string,
-      prompt: "consent", // or "none", "consent"
+      prompt: 'consent', // or "none", "consent"
       disableSignUp: true,
-      mapProfileToUser: (profile) => {
+      mapProfileToUser: profile => {
         return {
           image: profile.avatar_url, // only set if Discord has it
-        }
+        };
       },
       updateUserInfoOnLink: true,
       scope: ['identify', 'email'],

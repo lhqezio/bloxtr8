@@ -25,6 +25,10 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
+  // Discord integration
+  discordId String? @unique
+  username  String?
+
   // KYC tiers
   kycTier     KycTier @default(TIER_1)
   kycVerified Boolean @default(false)
@@ -45,6 +49,7 @@ model User {
 
   @@unique([email])
   @@index([email])
+  @@index([discordId])
   @@index([walletAddress])
   @@map("users")
 }
