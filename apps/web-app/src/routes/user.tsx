@@ -11,6 +11,18 @@ export const Route = createFileRoute('/user')({
 
 function User() {
   const[isLoading, setIsLoading]=useState(false);
+  authClient.accountInfo({
+  accountId:"1500684724" , // here you pass in the provider given account id, the provider is automatically detected from the account id
+}).then(info =>{
+  console.log(info.data)
+  
+})  ;
+authClient.accountInfo({
+  accountId:"622492102042976271" , // here you pass in the provider given account id, the provider is automatically detected from the account id
+}).then(info =>{
+  console.log(info.data)
+}) ;
+
   async function handleSocial(provider: "discord" | "roblox") {
   
       

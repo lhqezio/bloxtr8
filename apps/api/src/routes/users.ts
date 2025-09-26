@@ -6,6 +6,24 @@ import { AppError } from '../middleware/errorHandler.js';
 const router: ExpressRouter = Router();
 const prisma = new PrismaClient();
 
+router.get('/users/account/:id', async (req, res, next) => {
+  try{
+      const { id } = req.params;
+
+    const info = await prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!info) {
+      throw new AppError('User not found', 404);
+    }
+
+    res.status(200).json(info);
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
 // User verification endpoints
 router.get('/users/verify/:discordId', async (req, res, next) => {
   try {
@@ -22,23 +40,38 @@ router.get('/users/verify/:discordId', async (req, res, next) => {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { discordId },
-      select: {
-        id: true,
-        discordId: true,
-        username: true,
-        kycVerified: true,
-        kycTier: true,
-      },
+    const user = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: discordId,
+            providerId: "discord",
+          }
+        }
+      }
     });
+  
 
     if (!user) {
-      throw new AppError('User not found', 404);
+      // Return empty array if user not found
+      return res.status(204).json([]);
     }
+    
+    const accounts = await prisma.account.findMany({
+      where: {
+        userId: user.id,
+      },
+      select:{
+        accountId:true,
+        providerId:true,
+      }
+    });
+      
+    
 
-    res.status(200).json(user);
+    res.status(200).json(accounts);
   } catch (error) {
+    console.error(error)
     next(error);
   }
 });
@@ -88,5 +121,7 @@ router.post('/users/ensure', async (req, res, next) => {
     next(error);
   }
 });
+
+
 
 export default router;

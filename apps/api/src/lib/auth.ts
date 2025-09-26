@@ -29,7 +29,7 @@ export const auth = betterAuth({
       disableSignUp: true,
       mapProfileToUser: (profile) => {
         return {
-          image: profile.avatar_url, // only set if Discord has it
+          image: profile.image_url, // only set if Discord has it
         }
       },
       updateUserInfoOnLink: true,
