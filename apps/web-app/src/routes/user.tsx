@@ -31,7 +31,7 @@ function User() {
       console.error(error.statusText)
     }
   }
-  const { data: session, isPending, error, refetch } = authClient.useSession()
+  const { data: session, isPending } = authClient.useSession()
   if (isPending) return <p>Loading...</p>
   if (!session) return <p>Not logged in</p>
   return (
