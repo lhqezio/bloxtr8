@@ -25,17 +25,17 @@ router.get('/users/account/:id', async (req, res, next) => {
   }
 });
 // User verification endpoints
-router.get('/users/verify/:discordId', async (req, res, next) => {
+router.get('/users/verify/:id', async (req, res, next) => {
   try {
-    const { discordId } = req.params;
+    const { id } = req.params;
 
     if (
-      !discordId ||
-      typeof discordId !== 'string' ||
-      discordId.trim() === ''
+      !id ||
+      typeof id !== 'string' ||
+      id.trim() === ''
     ) {
       throw new AppError(
-        'Discord ID is required and must be a non-empty string',
+        'Account ID is required and must be a non-empty string',
         400
       );
     }
@@ -44,8 +44,7 @@ router.get('/users/verify/:discordId', async (req, res, next) => {
       where: {
         accounts: {
           some: {
-            accountId: discordId,
-            providerId: 'discord',
+            accountId: id,
           },
         },
       },

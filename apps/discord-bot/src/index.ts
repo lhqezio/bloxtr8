@@ -275,6 +275,7 @@ async function handleListingCreate(interaction: ChatInputCommandInteraction) {
 interface ProviderConfig {
   id: 'roblox' | 'discord' | 'credential';
   label: string;
+  // eslint-disable-next-line no-unused-vars
   buildUrl: (accountId: string) => string;
 }
 
@@ -316,7 +317,6 @@ function buildVerificationEmbed(accounts: Account[]) {
       });
     }
   }
-
   return embed;
 }
 
