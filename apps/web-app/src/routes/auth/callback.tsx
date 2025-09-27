@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { getApiBaseUrl } from '@/lib/api-base-url'
 
 export const Route = createFileRoute('/auth/callback')({
   component: AuthCallbackPage,
@@ -66,7 +67,7 @@ function AuthCallbackPage() {
             const redirectUri = `${window.location.origin}/auth/callback?discordId=${discordId}`
 
             const response = await fetch(
-              'http://localhost:3000/api/users/link-roblox-discord',
+              `${getApiBaseUrl()}/api/users/link-roblox-discord`,
               {
                 method: 'POST',
                 headers: {

@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { CheckCircle, Loader2, XCircle } from 'lucide-react'
 import { authClient } from '@/lib/auth-client'
+import { getApiBaseUrl } from '@/lib/api-base-url'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -47,7 +48,7 @@ function RobloxLinkPage() {
         if (discordId) {
           try {
             const response = await fetch(
-              `http://localhost:3000/api/users/accounts/${discordId}`,
+              `${getApiBaseUrl()}/api/users/accounts/${discordId}`,
             )
             if (response.ok) {
               const accounts = await response.json()
@@ -100,7 +101,7 @@ function RobloxLinkPage() {
 
         try {
           const response = await fetch(
-            'http://localhost:3000/api/users/roblox-oauth-url',
+            `${getApiBaseUrl()}/api/users/roblox-oauth-url`,
             {
               method: 'POST',
               headers: {
@@ -138,7 +139,7 @@ function RobloxLinkPage() {
 
       try {
         const response = await fetch(
-          'http://localhost:3000/api/users/roblox-oauth-url',
+          `${getApiBaseUrl()}/api/users/roblox-oauth-url`,
           {
             method: 'POST',
             headers: {
