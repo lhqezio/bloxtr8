@@ -907,12 +907,15 @@ async function handleLinkRoblox(interaction: ChatInputCommandInteraction) {
 
     // Create connect button
     const connectButton = new ButtonBuilder()
-      .setCustomId('connect_roblox')
       .setLabel('🔗 Connect Roblox Account')
-      .setStyle(ButtonStyle.Primary)
-      .setURL(`${getWebAppBaseUrl()}/auth/link/roblox?discordId=${interaction.user.id}`);
+      .setStyle(ButtonStyle.Link)
+      .setURL(
+        `${getWebAppBaseUrl()}/auth/link/roblox?discordId=${interaction.user.id}`
+      );
 
-    const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(connectButton);
+    const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      connectButton
+    );
 
     await interaction.reply({
       embeds: [linkEmbed],
