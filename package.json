@@ -46,7 +46,10 @@
     "docker:stats": "./scripts/docker-optimize.sh stats",
     "docker:clean": "./scripts/docker-optimize.sh clean",
     "docker:prune": "./scripts/docker-optimize.sh prune",
-    "docker:rebuild": "./scripts/docker-optimize.sh rebuild"
+    "docker:rebuild": "./scripts/docker-optimize.sh rebuild",
+    "dev:hoang": "./scripts/dev-setup.sh",
+    "dev:hoang:stop": "./scripts/dev-stop.sh",
+    "dev:hoang:logs": "./scripts/dev-logs.sh"
   },
   "keywords": [
     "roblox",
