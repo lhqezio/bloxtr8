@@ -1,5 +1,5 @@
 {
-  "name": "web-app",
+  "name": "@bloxtr8/web-app",
   "private": true,
   "type": "module",
   "scripts": {
