@@ -177,6 +177,37 @@ export async function ensureUserExists(
 }
 
 /**
+ * Checks if a user has a specific provider account linked
+ */
+export async function checkProviderAccount(
+  discordId: string,
+  providerId: 'roblox' | 'discord'
+): Promise<boolean> {
+  try {
+    const apiBaseUrl = getApiBaseUrl();
+    const response = await fetch(
+      `${apiBaseUrl}/api/users/accounts/${discordId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const accounts = (await response.json()) as Account[];
+    return accounts.some(account => account.providerId === providerId);
+  } catch (error) {
+    console.error('Error checking provider account:', error);
+    return false;
+  }
+}
+
+/**
  * Gets the base URL for API calls
  */
 function getApiBaseUrl(): string {
