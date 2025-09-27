@@ -15,6 +15,8 @@ export default [
         module: 'readonly',
         require: 'readonly',
         exports: 'readonly',
+        fetch: 'readonly',
+        URLSearchParams: 'readonly',
       },
     },
     rules: {
