@@ -8,7 +8,7 @@ import {
 } from 'discord.js';
 
 // Command handlers
-import { handleHello } from './commands/hello.js';
+import { handleHelp } from './commands/help.js';
 import { handleLinkRoblox } from './commands/linkRoblox.js';
 import {
   handleListingCreate,
@@ -40,11 +40,8 @@ client.once('clientReady', async () => {
   // Register guild slash commands on startup
   const commands = [
     new SlashCommandBuilder()
-      .setName('hello')
-      .setDescription('Say hello in the channel')
-      .addStringOption(opt =>
-        opt.setName('name').setDescription('Name to greet').setRequired(false)
-      )
+      .setName('help')
+      .setDescription('Show available commands and help information')
       .toJSON(),
     new SlashCommandBuilder()
       .setName('ping')
@@ -110,8 +107,8 @@ client.on('messageCreate', async message => {
 client.on('interactionCreate', async interaction => {
   // Handle slash commands
   if (interaction.isChatInputCommand()) {
-    if (interaction.commandName === 'hello') {
-      await handleHello(interaction);
+    if (interaction.commandName === 'help') {
+      await handleHelp(interaction);
     }
     if (interaction.commandName === 'verify') {
       await handleVerify(interaction);
