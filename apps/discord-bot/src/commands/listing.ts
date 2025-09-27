@@ -13,7 +13,9 @@ import { getApiBaseUrl } from '../utils/apiClient.js';
 import { verifyUserForListing } from '../utils/userVerification.js';
 import { ensureUserExists } from '../utils/userVerification.js';
 
-export async function handleListingCreate(interaction: ChatInputCommandInteraction) {
+export async function handleListingCreate(
+  interaction: ChatInputCommandInteraction
+) {
   try {
     // Ensure user exists in database
     const userResult = await ensureUserExists(
@@ -150,7 +152,9 @@ export async function handleListingCreate(interaction: ChatInputCommandInteracti
   }
 }
 
-export async function handleListingModalSubmit(interaction: ModalSubmitInteraction) {
+export async function handleListingModalSubmit(
+  interaction: ModalSubmitInteraction
+) {
   try {
     // Extract form data
     const title = interaction.fields.getTextInputValue('listing_title');

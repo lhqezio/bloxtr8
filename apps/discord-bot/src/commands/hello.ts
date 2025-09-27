@@ -8,7 +8,9 @@ export async function handleHello(interaction: ChatInputCommandInteraction) {
   const helloEmbed = new EmbedBuilder()
     .setColor(0x00d4aa)
     .setTitle('👋 Welcome to Bloxtr8!')
-    .setDescription(`**Hello ${targetName}!** Ready to trade Roblox items safely?`)
+    .setDescription(
+      `**Hello ${targetName}!** Ready to trade Roblox items safely?`
+    )
     .setThumbnail(interaction.user.displayAvatarURL())
     .addFields(
       {

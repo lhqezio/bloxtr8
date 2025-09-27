@@ -10,9 +10,16 @@ import {
 // Command handlers
 import { handleHello } from './commands/hello.js';
 import { handleLinkRoblox } from './commands/linkRoblox.js';
-import { handleListingCreate, handleListingModalSubmit } from './commands/listing.js';
+import {
+  handleListingCreate,
+  handleListingModalSubmit,
+} from './commands/listing.js';
 import { handlePing } from './commands/ping.js';
-import { handleSignup, handleConsentAccept, handleConsentDecline } from './commands/signup.js';
+import {
+  handleSignup,
+  handleConsentAccept,
+  handleConsentDecline,
+} from './commands/signup.js';
 import { handleVerify } from './commands/verify.js';
 
 // Load environment variables

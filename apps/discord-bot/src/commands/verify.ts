@@ -6,7 +6,7 @@ import { verify } from '../utils/userVerification.js';
 export async function handleVerify(interaction: ChatInputCommandInteraction) {
   const id = interaction.options.getString('id') || interaction.user.id;
   const result = await verify(id);
-  
+
   if (result.success) {
     const { embeds } = buildVerificationEmbeds(result.data);
     await interaction.reply({

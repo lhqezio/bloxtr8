@@ -7,9 +7,14 @@ import {
 } from 'discord.js';
 
 import { getWebAppBaseUrl } from '../utils/urls.js';
-import { ensureUserExists, checkProviderAccount } from '../utils/userVerification.js';
+import {
+  ensureUserExists,
+  checkProviderAccount,
+} from '../utils/userVerification.js';
 
-export async function handleLinkRoblox(interaction: ChatInputCommandInteraction) {
+export async function handleLinkRoblox(
+  interaction: ChatInputCommandInteraction
+) {
   try {
     // Check if user exists
     const userResult = await ensureUserExists(
@@ -86,12 +91,15 @@ export async function handleLinkRoblox(interaction: ChatInputCommandInteraction)
     const linkEmbed = new EmbedBuilder()
       .setColor(0x00d4aa)
       .setTitle('🔗 Connect Roblox Account')
-      .setDescription('**Link your Roblox account to unlock trading features!**')
+      .setDescription(
+        '**Link your Roblox account to unlock trading features!**'
+      )
       .setThumbnail(interaction.user.displayAvatarURL())
       .addFields(
         {
           name: '🚀 Quick Setup',
-          value: '**1.** Click the link below\n**2.** Sign in with Roblox\n**3.** Authorize connection',
+          value:
+            '**1.** Click the link below\n**2.** Sign in with Roblox\n**3.** Authorize connection',
           inline: false,
         },
         {
@@ -124,7 +132,9 @@ export async function handleLinkRoblox(interaction: ChatInputCommandInteraction)
         `${getWebAppBaseUrl()}/auth/link/roblox?discordId=${interaction.user.id}`
       );
 
-    const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(connectButton);
+    const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      connectButton
+    );
 
     await interaction.reply({
       embeds: [linkEmbed],
