@@ -1,6 +1,8 @@
 import { config } from '@dotenvx/dotenvx';
 import {
   ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   Client,
   EmbedBuilder,
   GatewayIntentBits,
@@ -10,12 +12,14 @@ import {
   SlashCommandBuilder,
   TextInputBuilder,
   TextInputStyle,
+  type ButtonInteraction,
   type ChatInputCommandInteraction,
   type ModalSubmitInteraction,
 } from 'discord.js';
 
 import { createListing, getApiBaseUrl } from './utils/apiClient.js';
 import {
+  checkProviderAccount,
   ensureUserExists,
   verify,
   verifyUserForListing,
@@ -68,6 +72,14 @@ client.once('clientReady', async () => {
           .setDescription('Any linked account ID (defaults to your Discord ID)')
           .setRequired(false)
       )
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('signup')
+      .setDescription('Sign up for a Bloxtr8 account')
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('linkrblx')
+      .setDescription('Link your Roblox account to Bloxtr8')
       .toJSON(),
     // new SlashCommandBuilder()
     //   .setName('signin')
@@ -151,12 +163,28 @@ client.on('interactionCreate', async interaction => {
     ) {
       await handleListingCreate(interaction);
     }
+    if (interaction.commandName === 'signup') {
+      await handleSignup(interaction);
+    }
+    if (interaction.commandName === 'linkrblx') {
+      await handleLinkRoblox(interaction);
+    }
   }
 
   // Handle modal submissions
   if (interaction.isModalSubmit()) {
     if (interaction.customId === 'listing_create_modal') {
       await handleListingModalSubmit(interaction);
+    }
+  }
+
+  // Handle button interactions
+  if (interaction.isButton()) {
+    if (interaction.customId === 'consent_accept') {
+      await handleConsentAccept(interaction);
+    }
+    if (interaction.customId === 'consent_decline') {
+      await handleConsentDecline(interaction);
     }
   }
 });
@@ -445,6 +473,327 @@ async function handleListingModalSubmit(interaction: ModalSubmitInteraction) {
     await interaction.editReply({
       content:
         '❌ An error occurred while creating your listing. Please try again later.',
+    });
+  }
+}
+
+/**
+ * Handles the /signup command
+ * Shows consent form with accept/decline buttons
+ */
+async function handleSignup(interaction: ChatInputCommandInteraction) {
+  try {
+    // Check if user already exists
+    const existingUser = await verify(interaction.user.id);
+
+    if (existingUser.success && existingUser.data.length > 0) {
+      const embed = new EmbedBuilder()
+        .setColor(0xffa500)
+        .setTitle('⚠️ Account Already Exists')
+        .setDescription(
+          'You already have a Bloxtr8 account linked to this Discord profile.'
+        )
+        .addFields({
+          name: 'Next Steps',
+          value:
+            'Use `/verify` to check your account status or `/linkrblx` to link your Roblox account.',
+        })
+        .setTimestamp();
+
+      await interaction.reply({
+        embeds: [embed],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Show consent form
+    const consentEmbed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle('📋 Bloxtr8 Account Registration')
+      .setDescription(
+        'Welcome to Bloxtr8! Please review our terms and conditions before creating your account.'
+      )
+      .addFields(
+        {
+          name: '📄 Terms of Service',
+          value:
+            'By creating an account, you agree to our Terms of Service and Privacy Policy.',
+          inline: false,
+        },
+        {
+          name: '🔒 Data Collection',
+          value:
+            'We collect your Discord ID, username, and any linked Roblox account information for account management and verification purposes.',
+          inline: false,
+        },
+        {
+          name: '⚖️ KYC Requirements',
+          value:
+            'Account verification (KYC) may be required for certain features like creating listings.',
+          inline: false,
+        },
+        {
+          name: '🚫 Account Restrictions',
+          value:
+            'You must be at least 13 years old to create an account. Accounts may be suspended for violations of our terms.',
+          inline: false,
+        }
+      )
+      .setFooter({
+        text: 'Please read carefully before proceeding',
+      })
+      .setTimestamp();
+
+    // Create accept/decline buttons
+    const acceptButton = new ButtonBuilder()
+      .setCustomId('consent_accept')
+      .setLabel('✅ Accept & Sign Up')
+      .setStyle(ButtonStyle.Success);
+
+    const declineButton = new ButtonBuilder()
+      .setCustomId('consent_decline')
+      .setLabel('❌ Decline')
+      .setStyle(ButtonStyle.Danger);
+
+    const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      acceptButton,
+      declineButton
+    );
+
+    await interaction.reply({
+      embeds: [consentEmbed],
+      components: [buttonRow],
+      ephemeral: true,
+    });
+  } catch (error) {
+    console.error('Error handling signup:', error);
+    await interaction.reply({
+      content:
+        '❌ An error occurred while processing your signup request. Please try again later.',
+      ephemeral: true,
+    });
+  }
+}
+
+/**
+ * Handles consent acceptance - creates user account
+ */
+async function handleConsentAccept(interaction: ButtonInteraction) {
+  try {
+    // Show loading message
+    await interaction.deferUpdate();
+
+    // Create user account
+    const userResult = await ensureUserExists(
+      interaction.user.id,
+      interaction.user.username
+    );
+
+    if (!userResult.user) {
+      const errorEmbed = new EmbedBuilder()
+        .setColor(0xff6b6b)
+        .setTitle('❌ Account Creation Failed')
+        .setDescription(
+          userResult.error ||
+            'Failed to create your account. Please try again later.'
+        )
+        .setTimestamp();
+
+      await interaction.editReply({
+        embeds: [errorEmbed],
+        components: [],
+      });
+      return;
+    }
+
+    // Success message
+    const successEmbed = new EmbedBuilder()
+      .setColor(0x51cf66)
+      .setTitle('✅ Account Created Successfully!')
+      .setDescription(
+        'Your Bloxtr8 account has been created and linked to your Discord profile.'
+      )
+      .addFields(
+        {
+          name: 'Account ID',
+          value: `\`${userResult.user.id}\``,
+          inline: true,
+        },
+        {
+          name: 'Username',
+          value: userResult.user.name || 'Not set',
+          inline: true,
+        },
+        {
+          name: 'KYC Status',
+          value: userResult.user.kycVerified
+            ? '✅ Verified'
+            : '❌ Not Verified',
+          inline: true,
+        },
+        {
+          name: 'Next Steps',
+          value:
+            'Use `/linkrblx` to link your Roblox account, or `/verify` to check your account status.',
+          inline: false,
+        }
+      )
+      .setTimestamp()
+      .setFooter({
+        text: `Welcome to Bloxtr8, ${interaction.user.username}!`,
+        iconURL: interaction.user.displayAvatarURL(),
+      });
+
+    await interaction.editReply({
+      embeds: [successEmbed],
+      components: [],
+    });
+  } catch (error) {
+    console.error('Error handling consent acceptance:', error);
+    await interaction.editReply({
+      content:
+        '❌ An error occurred while creating your account. Please try again later.',
+      components: [],
+    });
+  }
+}
+
+/**
+ * Handles consent decline
+ */
+async function handleConsentDecline(interaction: ButtonInteraction) {
+  try {
+    const declineEmbed = new EmbedBuilder()
+      .setColor(0xff6b6b)
+      .setTitle('❌ Registration Cancelled')
+      .setDescription('You have declined to create a Bloxtr8 account.')
+      .addFields({
+        name: 'Thank You',
+        value:
+          'If you change your mind, you can use `/signup` again at any time.',
+      })
+      .setTimestamp();
+
+    await interaction.update({
+      embeds: [declineEmbed],
+      components: [],
+    });
+  } catch (error) {
+    console.error('Error handling consent decline:', error);
+    await interaction.editReply({
+      content: '❌ An error occurred. Please try again later.',
+      components: [],
+    });
+  }
+}
+
+/**
+ * Handles the /linkrblx command
+ * Provides instructions for linking Roblox account
+ */
+async function handleLinkRoblox(interaction: ChatInputCommandInteraction) {
+  try {
+    // Check if user exists
+    const userResult = await ensureUserExists(
+      interaction.user.id,
+      interaction.user.username
+    );
+
+    if (!userResult.user) {
+      const errorEmbed = new EmbedBuilder()
+        .setColor(0xff6b6b)
+        .setTitle('❌ Account Required')
+        .setDescription(
+          'You must create a Bloxtr8 account first before linking your Roblox account.'
+        )
+        .addFields({
+          name: 'Next Steps',
+          value:
+            'Use `/signup` to create your account, then try `/linkrblx` again.',
+        })
+        .setTimestamp();
+
+      await interaction.reply({
+        embeds: [errorEmbed],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Check if Roblox account is already linked
+    const hasRobloxAccount = await checkProviderAccount(
+      interaction.user.id,
+      'roblox'
+    );
+
+    if (hasRobloxAccount) {
+      const alreadyLinkedEmbed = new EmbedBuilder()
+        .setColor(0xffa500)
+        .setTitle('⚠️ Roblox Account Already Linked')
+        .setDescription(
+          'You already have a Roblox account linked to your Bloxtr8 profile.'
+        )
+        .addFields({
+          name: 'Next Steps',
+          value: 'Use `/verify` to check your linked accounts.',
+        })
+        .setTimestamp();
+
+      await interaction.reply({
+        embeds: [alreadyLinkedEmbed],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Show linking instructions
+    const linkEmbed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle('🔗 Link Your Roblox Account')
+      .setDescription(
+        'To link your Roblox account to Bloxtr8, you need to complete the OAuth flow through our web application.'
+      )
+      .addFields(
+        {
+          name: 'Step 1: Visit the Link Page',
+          value: `[Click here to link your Roblox account](${getWebAppBaseUrl()}/auth/link/roblox?discordId=${interaction.user.id})`,
+          inline: false,
+        },
+        {
+          name: 'Step 2: Sign in with Roblox',
+          value:
+            'You will be redirected to Roblox to authorize the connection.',
+          inline: false,
+        },
+        {
+          name: 'Step 3: Complete the Flow',
+          value:
+            'After authorization, you will be redirected back to Bloxtr8 with your account linked.',
+          inline: false,
+        },
+        {
+          name: '⚠️ Important',
+          value:
+            'Make sure you are signed into the correct Roblox account before proceeding.',
+          inline: false,
+        }
+      )
+      .setFooter({
+        text: 'This process is secure and only links your account - we do not store your Roblox password.',
+      })
+      .setTimestamp();
+
+    await interaction.reply({
+      embeds: [linkEmbed],
+      ephemeral: true,
+    });
+  } catch (error) {
+    console.error('Error handling link Roblox:', error);
+    await interaction.reply({
+      content:
+        '❌ An error occurred while processing your request. Please try again later.',
+      ephemeral: true,
     });
   }
 }
