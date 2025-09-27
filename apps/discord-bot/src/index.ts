@@ -126,7 +126,9 @@ client.on('interactionCreate', async interaction => {
       const helloEmbed = new EmbedBuilder()
         .setColor(0x00d4aa)
         .setTitle('👋 Welcome to Bloxtr8!')
-        .setDescription(`**Hello ${targetName}!** Ready to trade Roblox items safely?`)
+        .setDescription(
+          `**Hello ${targetName}!** Ready to trade Roblox items safely?`
+        )
         .setThumbnail(interaction.user.displayAvatarURL())
         .addFields(
           {
@@ -429,7 +431,8 @@ function buildVerificationEmbeds(accounts: Account[]) {
       })
       .setFooter({
         text: account ? 'Verified' : 'Link to unlock',
-        iconURL: 'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
+        iconURL:
+          'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
       })
       .setTimestamp();
 
@@ -869,12 +872,15 @@ async function handleLinkRoblox(interaction: ChatInputCommandInteraction) {
     const linkEmbed = new EmbedBuilder()
       .setColor(0x00d4aa)
       .setTitle('🔗 Connect Roblox Account')
-      .setDescription('**Link your Roblox account to unlock trading features!**')
+      .setDescription(
+        '**Link your Roblox account to unlock trading features!**'
+      )
       .setThumbnail(interaction.user.displayAvatarURL())
       .addFields(
         {
           name: '🚀 Quick Setup',
-          value: '**1.** Click the link below\n**2.** Sign in with Roblox\n**3.** Authorize connection',
+          value:
+            '**1.** Click the link below\n**2.** Sign in with Roblox\n**3.** Authorize connection',
           inline: false,
         },
         {
@@ -889,7 +895,7 @@ async function handleLinkRoblox(interaction: ChatInputCommandInteraction) {
         },
         {
           name: '🔗 Start Process',
-          value: `[**Connect Roblox Account**](${getWebAppBaseUrl()}/auth/link/roblox?discordId=${interaction.user.id})`,
+          value: 'Click the button below to connect your Roblox account',
           inline: false,
         }
       )
@@ -899,8 +905,18 @@ async function handleLinkRoblox(interaction: ChatInputCommandInteraction) {
       })
       .setTimestamp();
 
+    // Create connect button
+    const connectButton = new ButtonBuilder()
+      .setCustomId('connect_roblox')
+      .setLabel('🔗 Connect Roblox Account')
+      .setStyle(ButtonStyle.Primary)
+      .setURL(`${getWebAppBaseUrl()}/auth/link/roblox?discordId=${interaction.user.id}`);
+
+    const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(connectButton);
+
     await interaction.reply({
       embeds: [linkEmbed],
+      components: [buttonRow],
       ephemeral: true,
     });
   } catch (error) {
