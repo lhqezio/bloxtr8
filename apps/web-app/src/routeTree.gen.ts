@@ -13,6 +13,9 @@ import { Route as UserRouteImport } from './routes/user'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
+import { Route as AuthLinkIndexRouteImport } from './routes/auth/link/index'
+import { Route as AuthLinkRobloxRouteImport } from './routes/auth/link/roblox'
 
 const UserRoute = UserRouteImport.update({
   id: '/user',
@@ -34,18 +37,39 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthLinkIndexRoute = AuthLinkIndexRouteImport.update({
+  id: '/auth/link/',
+  path: '/auth/link/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthLinkRobloxRoute = AuthLinkRobloxRouteImport.update({
+  id: '/auth/link/roblox',
+  path: '/auth/link/roblox',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/user': typeof UserRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/auth/link/roblox': typeof AuthLinkRobloxRoute
+  '/auth/link': typeof AuthLinkIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/user': typeof UserRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/auth/link/roblox': typeof AuthLinkRobloxRoute
+  '/auth/link': typeof AuthLinkIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +77,38 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/user': typeof UserRoute
+  '/auth/callback': typeof AuthCallbackRoute
+  '/auth/link/roblox': typeof AuthLinkRobloxRoute
+  '/auth/link/': typeof AuthLinkIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/register' | '/user'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/register'
+    | '/user'
+    | '/auth/callback'
+    | '/auth/link/roblox'
+    | '/auth/link'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/register' | '/user'
-  id: '__root__' | '/' | '/login' | '/register' | '/user'
+  to:
+    | '/'
+    | '/login'
+    | '/register'
+    | '/user'
+    | '/auth/callback'
+    | '/auth/link/roblox'
+    | '/auth/link'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/register'
+    | '/user'
+    | '/auth/callback'
+    | '/auth/link/roblox'
+    | '/auth/link/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +116,9 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   UserRoute: typeof UserRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
+  AuthLinkRobloxRoute: typeof AuthLinkRobloxRoute
+  AuthLinkIndexRoute: typeof AuthLinkIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +151,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/link/': {
+      id: '/auth/link/'
+      path: '/auth/link'
+      fullPath: '/auth/link'
+      preLoaderRoute: typeof AuthLinkIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/link/roblox': {
+      id: '/auth/link/roblox'
+      path: '/auth/link/roblox'
+      fullPath: '/auth/link/roblox'
+      preLoaderRoute: typeof AuthLinkRobloxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +180,9 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   UserRoute: UserRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
+  AuthLinkRobloxRoute: AuthLinkRobloxRoute,
+  AuthLinkIndexRoute: AuthLinkIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
