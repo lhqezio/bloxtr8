@@ -122,8 +122,29 @@ client.on('interactionCreate', async interaction => {
       const provided = interaction.options.getString('name');
       const targetName =
         provided || interaction.user.displayName || interaction.user.username;
+      
+      const helloEmbed = new EmbedBuilder()
+        .setColor(0x00d4aa) // Bloxtr8 brand color
+        .setTitle('👋 Hello there!')
+        .setDescription(`**Welcome to Bloxtr8, ${targetName}!**\n\n` +
+          'I\'m here to help you with secure Roblox trading. ' +
+          'Use `/signup` to get started or `/verify` to check your account status.')
+        .setThumbnail(interaction.user.displayAvatarURL())
+        .addFields({
+          name: '🚀 Quick Commands',
+          value: '• `/signup` - Create your Bloxtr8 account\n' +
+                 '• `/verify` - Check your account status\n' +
+                 '• `/linkrblx` - Connect your Roblox account\n' +
+                 '• `/listing create` - Create a new listing',
+        })
+        .setFooter({
+          text: 'Ready to start trading? Let\'s go! 🎯',
+          iconURL: 'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
+        })
+        .setTimestamp();
+
       await interaction.reply({
-        content: `Hello there ${targetName}!`,
+        embeds: [helloEmbed],
         ephemeral: true,
       });
     }
@@ -146,12 +167,35 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.commandName === 'ping') {
       const startTime = Date.now();
-      await interaction.reply({ content: 'Pinging...' });
+      await interaction.reply({ content: '🏓 Pinging...' });
       const latency = Date.now() - startTime;
       const apiLatency = Math.round(client.ws.ping);
 
+      const pingEmbed = new EmbedBuilder()
+        .setColor(0x00d4aa) // Bloxtr8 brand color
+        .setTitle('🏓 Pong!')
+        .setDescription('**Bloxtr8 Bot is online and responsive**')
+        .addFields(
+          {
+            name: '⚡ Response Time',
+            value: `**Bot Latency:** ${latency}ms\n**API Latency:** ${apiLatency}ms`,
+            inline: true,
+          },
+          {
+            name: '📊 Status',
+            value: `**Uptime:** ${Math.floor(process.uptime() / 3600)}h ${Math.floor((process.uptime() % 3600) / 60)}m\n**Memory:** ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
+            inline: true,
+          }
+        )
+        .setFooter({
+          text: 'Bloxtr8 Bot • Always here to help! 🚀',
+          iconURL: 'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
+        })
+        .setTimestamp();
+
       await interaction.editReply({
-        content: ` Pong! Latency: ${latency}ms | API Latency: ${apiLatency}ms`,
+        content: '',
+        embeds: [pingEmbed],
       });
     }
     // if (interaction.commandName === 'signin') {
@@ -214,15 +258,44 @@ async function handleListingCreate(interaction: ChatInputCommandInteraction) {
 
     if (!verificationResult.isVerified) {
       const embed = new EmbedBuilder()
-        .setColor(0xff6b6b)
-        .setTitle('❌ Verification Required')
+        .setColor(0xf59e0b) // Amber color for warning
+        .setTitle('🔒 Verification Required')
         .setDescription(
-          verificationResult.error || 'Account verification required.'
+          '**KYC verification needed to create listings**\n\n' +
+          'To ensure the safety of all traders, we require identity verification before you can create listings.'
         )
-        .addFields({
-          name: 'Next Steps',
-          value:
-            'Please complete KYC verification to create listings. Contact support for assistance.',
+        .setThumbnail(interaction.user.displayAvatarURL())
+        .addFields(
+          {
+            name: '📋 What is KYC?',
+            value: '**Know Your Customer** verification helps us:\n' +
+                   '• Verify your identity and age\n' +
+                   '• Prevent fraud and scams\n' +
+                   '• Build trust in the community\n' +
+                   '• Comply with financial regulations',
+            inline: true,
+          },
+          {
+            name: '🚀 How to Get Verified',
+            value: '**Step 1:** Visit our web app\n' +
+                   '**Step 2:** Go to your account settings\n' +
+                   '**Step 3:** Complete the verification form\n' +
+                   '**Step 4:** Upload required documents\n\n' +
+                   '**Processing time:** 1-3 business days',
+            inline: true,
+          },
+          {
+            name: '💡 Need Help?',
+            value: '• Join our support Discord server\n' +
+                   '• Check our verification guide\n' +
+                   '• Contact our support team\n' +
+                   '• All verification is 100% secure',
+            inline: false,
+          }
+        )
+        .setFooter({
+          text: 'Verification protects you and other traders! 🛡️',
+          iconURL: 'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
         })
         .setTimestamp();
 
@@ -346,16 +419,31 @@ function buildVerificationEmbeds(accounts: Account[]) {
     const account = accounts.find(a => a.providerId === provider.id);
 
     const embed = new EmbedBuilder()
-      .setTitle(`${provider.label} Account`)
-      .setColor(account ? 'Green' : 'Red')
+      .setTitle(`${provider.label} Account Status`)
+      .setColor(account ? 0x10b981 : 0xef4444) // Green for verified, red for not linked
+      .setThumbnail(
+        provider.id === 'roblox' 
+          ? 'https://cdn.discordapp.com/attachments/1234567890/1234567890/roblox-icon.png'
+          : provider.id === 'discord'
+          ? 'https://cdn.discordapp.com/attachments/1234567890/1234567890/discord-icon.png'
+          : 'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png'
+      )
       .addFields({
         name: account
-          ? `✅ ${provider.label} verified`
-          : `❌ ${provider.label} not linked`,
+          ? `✅ ${provider.label} Connected`
+          : `❌ ${provider.label} Not Linked`,
         value: account
-          ? `[View Profile](${provider.buildUrl(account.accountId)})`
-          : 'No account found.',
-      });
+          ? `**Account ID:** \`${account.accountId}\`\n` +
+            `**Status:** Connected\n` +
+            `[🔗 View Profile](${provider.buildUrl(account.accountId)})`
+          : `**Status:** Not connected\n` +
+            `**Action:** Use the appropriate command to link your ${provider.label} account`,
+      })
+      .setFooter({
+        text: account ? 'Verified and secure' : 'Link to unlock features',
+        iconURL: 'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
+      })
+      .setTimestamp();
 
     embeds.push(embed);
   }
@@ -392,16 +480,56 @@ async function handleListingModalSubmit(interaction: ModalSubmitInteraction) {
     );
 
     if (!userResult.user) {
+      const errorEmbed = new EmbedBuilder()
+        .setColor(0xef4444) // Red color for error
+        .setTitle('❌ Account Error')
+        .setDescription(
+          '**Unable to access your account**\n\n' +
+          'There was an issue with your account. Please try again or contact support.'
+        )
+        .setThumbnail(interaction.user.displayAvatarURL())
+        .addFields({
+          name: '🔧 Troubleshooting',
+          value: '• Try using `/signup` to create a new account\n' +
+                 '• Check your internet connection\n' +
+                 '• Contact our support team if the issue persists\n' +
+                 '• Join our Discord server for help',
+        })
+        .setFooter({
+          text: 'We\'re here to help! 🛠️',
+          iconURL: 'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
+        })
+        .setTimestamp();
+
       await interaction.reply({
-        content: `❌ ${userResult.error}`,
+        embeds: [errorEmbed],
         ephemeral: true,
       });
       return;
     }
 
     // Show loading message
+    const loadingEmbed = new EmbedBuilder()
+      .setColor(0x00d4aa) // Bloxtr8 brand color
+      .setTitle('⏳ Creating Your Listing...')
+      .setDescription('**Please wait while we process your listing**\n\n' +
+        'This usually takes just a few seconds.')
+      .setThumbnail(interaction.user.displayAvatarURL())
+      .addFields({
+        name: '🔄 Processing',
+        value: '• Validating your information\n' +
+               '• Creating your listing\n' +
+               '• Making it visible to traders\n' +
+               '• Setting up security features',
+      })
+      .setFooter({
+        text: 'Almost ready... 🚀',
+        iconURL: 'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
+      })
+      .setTimestamp();
+
     await interaction.reply({
-      content: '⏳ Creating your listing...',
+      embeds: [loadingEmbed],
       ephemeral: true,
     });
 
@@ -428,40 +556,48 @@ async function handleListingModalSubmit(interaction: ModalSubmitInteraction) {
 
     // Success - show listing created message with ID and link
     const embed = new EmbedBuilder()
-      .setColor(0x51cf66)
-      .setTitle('✅ Listing Created Successfully!')
-      .setDescription('Your listing has been created and is now active.')
+      .setColor(0x00d4aa) // Bloxtr8 brand color
+      .setTitle('🎉 Listing Created Successfully!')
+      .setDescription(
+        '**Your listing is now live and visible to all traders!**\n\n' +
+        'Get ready to receive offers from interested buyers.'
+      )
+      .setThumbnail(interaction.user.displayAvatarURL())
       .addFields(
         {
-          name: 'Listing ID',
-          value: `\`${apiResult.data.id}\``,
+          name: '📋 Listing Details',
+          value: `**Title:** ${title}\n` +
+                 `**Category:** ${category}\n` +
+                 `**Price:** $${(price / 100).toFixed(2)}`,
           inline: true,
         },
         {
-          name: 'Title',
-          value: title,
+          name: '🆔 Listing Info',
+          value: `**ID:** \`${apiResult.data.id}\`\n` +
+                 `**Status:** 🟢 Active\n` +
+                 `**Created:** Just now`,
           inline: true,
         },
         {
-          name: 'Price',
-          value: `$${(price / 100).toFixed(2)}`,
-          inline: true,
+          name: '🚀 What\'s Next?',
+          value: '• **Share your listing** with potential buyers\n' +
+                 '• **Monitor offers** and respond quickly\n' +
+                 '• **Use escrow** for secure transactions\n' +
+                 '• **Update your listing** if needed',
+          inline: false,
         },
         {
-          name: 'Category',
-          value: category,
-          inline: true,
-        },
-        {
-          name: 'View Listing',
-          value: `[Click here to view](${getApiBaseUrl()}/api/listings/${apiResult.data.id})`,
+          name: '🔗 Quick Actions',
+          value: `[📱 **View Listing**](${getApiBaseUrl()}/api/listings/${apiResult.data.id})\n` +
+                 `[🌐 **Web Dashboard**](${getWebAppBaseUrl()}/listings)\n` +
+                 `[📊 **My Listings**](${getWebAppBaseUrl()}/user/listings)`,
           inline: false,
         }
       )
       .setTimestamp()
       .setFooter({
-        text: `Created by ${interaction.user.username}`,
-        iconURL: interaction.user.displayAvatarURL(),
+        text: `Created by ${interaction.user.username} • Good luck with your sale! 🍀`,
+        iconURL: 'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
       });
 
     await interaction.editReply({
@@ -488,15 +624,24 @@ async function handleSignup(interaction: ChatInputCommandInteraction) {
 
     if (existingUser.success && existingUser.data.length > 0) {
       const embed = new EmbedBuilder()
-        .setColor(0xffa500)
-        .setTitle('⚠️ Account Already Exists')
+        .setColor(0xf59e0b) // Amber color for existing account
+        .setTitle('👋 Welcome Back!')
         .setDescription(
-          'You already have a Bloxtr8 account linked to this Discord profile.'
+          '**You already have a Bloxtr8 account!**\n\n' +
+          'Your Discord profile is already connected to Bloxtr8. ' +
+          'Ready to continue your trading journey?'
         )
+        .setThumbnail(interaction.user.displayAvatarURL())
         .addFields({
-          name: 'Next Steps',
-          value:
-            'Use `/verify` to check your account status or `/linkrblx` to link your Roblox account.',
+          name: '🚀 Quick Actions',
+          value: '• **Check Status**: Use `/verify` to see your account details\n' +
+                 '• **Link Roblox**: Use `/linkrblx` to connect your Roblox account\n' +
+                 '• **Create Listing**: Use `/listing create` to start selling\n' +
+                 '• **Get Help**: Join our support server for assistance',
+        })
+        .setFooter({
+          text: 'Welcome back to Bloxtr8! 🎉',
+          iconURL: 'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
         })
         .setTimestamp();
 
@@ -509,52 +654,58 @@ async function handleSignup(interaction: ChatInputCommandInteraction) {
 
     // Show consent form
     const consentEmbed = new EmbedBuilder()
-      .setColor(0x5865f2)
-      .setTitle('📋 Bloxtr8 Account Registration')
+      .setColor(0x00d4aa) // Bloxtr8 brand color
+      .setTitle('🚀 Welcome to Bloxtr8!')
       .setDescription(
-        'Welcome to Bloxtr8! Please review our terms and conditions before creating your account.'
+        '**The secure marketplace for Roblox trading**\n\n' +
+        'Join thousands of users who trust Bloxtr8 for safe, verified transactions. ' +
+        'Please review our terms before creating your account.'
       )
+      .setThumbnail('https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png') // Add your logo URL
       .addFields(
         {
-          name: '📄 Terms of Service',
-          value:
-            'By creating an account, you agree to our Terms of Service and Privacy Policy.',
+          name: '📋 What is Bloxtr8?',
+          value: '• **Secure Escrow**: Your funds are protected until delivery\n' +
+                 '• **Verified Users**: KYC-verified traders only\n' +
+                 '• **Multi-Provider**: Link Discord, Roblox, and more\n' +
+                 '• **Dispute Resolution**: Fair mediation for all transactions',
           inline: false,
         },
         {
-          name: '🔒 Data Collection',
-          value:
-            'We collect your Discord ID, username, and any linked Roblox account information for account management and verification purposes.',
+          name: '🔒 Your Privacy & Security',
+          value: '• We only collect essential account information\n' +
+                 '• All data is encrypted and securely stored\n' +
+                 '• We never share your personal information\n' +
+                 '• You can delete your account at any time',
           inline: false,
         },
         {
-          name: '⚖️ KYC Requirements',
-          value:
-            'Account verification (KYC) may be required for certain features like creating listings.',
-          inline: false,
-        },
-        {
-          name: '🚫 Account Restrictions',
-          value:
-            'You must be at least 13 years old to create an account. Accounts may be suspended for violations of our terms.',
+          name: '⚖️ Terms & Requirements',
+          value: '• You must be **13+ years old** to use Bloxtr8\n' +
+                 '• KYC verification required for trading\n' +
+                 '• Follow our community guidelines\n' +
+                 '• No fraudulent or illegal activities',
           inline: false,
         }
       )
       .setFooter({
-        text: 'Please read carefully before proceeding',
+        text: 'By clicking "Accept & Sign Up", you agree to our Terms of Service and Privacy Policy',
+        iconURL: interaction.user.displayAvatarURL(),
       })
       .setTimestamp();
 
     // Create accept/decline buttons
     const acceptButton = new ButtonBuilder()
       .setCustomId('consent_accept')
-      .setLabel('✅ Accept & Sign Up')
-      .setStyle(ButtonStyle.Success);
+      .setLabel('🚀 Join Bloxtr8')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('✨');
 
     const declineButton = new ButtonBuilder()
       .setCustomId('consent_decline')
-      .setLabel('❌ Decline')
-      .setStyle(ButtonStyle.Danger);
+      .setLabel('Maybe Later')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('👋');
 
     const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
       acceptButton,
@@ -609,40 +760,42 @@ async function handleConsentAccept(interaction: ButtonInteraction) {
 
     // Success message
     const successEmbed = new EmbedBuilder()
-      .setColor(0x51cf66)
-      .setTitle('✅ Account Created Successfully!')
+      .setColor(0x00d4aa) // Bloxtr8 brand color
+      .setTitle('🎉 Welcome to Bloxtr8!')
       .setDescription(
-        'Your Bloxtr8 account has been created and linked to your Discord profile.'
+        '**Your account has been successfully created!**\n\n' +
+        'You\'re now part of the most secure Roblox trading community. ' +
+        'Let\'s get you set up for your first trade!'
       )
+      .setThumbnail(interaction.user.displayAvatarURL())
       .addFields(
         {
-          name: 'Account ID',
-          value: `\`${userResult.user.id}\``,
+          name: '👤 Your Account',
+          value: `**ID:** \`${userResult.user.id}\`\n` +
+                 `**Username:** ${userResult.user.name || 'Not set'}\n` +
+                 `**Status:** ${userResult.user.kycVerified ? '🟢 Verified' : '🟡 Pending Verification'}`,
           inline: true,
         },
         {
-          name: 'Username',
-          value: userResult.user.name || 'Not set',
+          name: '🔗 Linked Accounts',
+          value: '**Discord:** ✅ Connected\n' +
+                 '**Roblox:** ❌ Not linked\n' +
+                 '**Email:** ❌ Not verified',
           inline: true,
         },
         {
-          name: 'KYC Status',
-          value: userResult.user.kycVerified
-            ? '✅ Verified'
-            : '❌ Not Verified',
-          inline: true,
-        },
-        {
-          name: 'Next Steps',
-          value:
-            'Use `/linkrblx` to link your Roblox account, or `/verify` to check your account status.',
+          name: '🚀 What\'s Next?',
+          value: '1. **Link Roblox**: Use `/linkrblx` to connect your Roblox account\n' +
+                 '2. **Verify Identity**: Complete KYC for full trading access\n' +
+                 '3. **Start Trading**: Create your first listing with `/listing create`\n' +
+                 '4. **Check Status**: Use `/verify` anytime to see your account status',
           inline: false,
         }
       )
       .setTimestamp()
       .setFooter({
-        text: `Welcome to Bloxtr8, ${interaction.user.username}!`,
-        iconURL: interaction.user.displayAvatarURL(),
+        text: `Welcome aboard, ${interaction.user.username}! 🎊`,
+        iconURL: 'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
       });
 
     await interaction.editReply({
@@ -665,15 +818,24 @@ async function handleConsentAccept(interaction: ButtonInteraction) {
 async function handleConsentDecline(interaction: ButtonInteraction) {
   try {
     const declineEmbed = new EmbedBuilder()
-      .setColor(0xff6b6b)
-      .setTitle('❌ Registration Cancelled')
-      .setDescription('You have declined to create a Bloxtr8 account.')
+      .setColor(0x6b7280) // Gray color for neutral response
+      .setTitle('👋 No Problem!')
+      .setDescription(
+        '**Registration cancelled**\n\n' +
+        'We understand! Bloxtr8 will always be here when you\'re ready to join the secure trading community.'
+      )
+      .setThumbnail(interaction.user.displayAvatarURL())
       .addFields({
-        name: 'Thank You',
-        value:
-          'If you change your mind, you can use `/signup` again at any time.',
+        name: '💡 Remember',
+        value: '• Use `/signup` anytime to create your account\n' +
+               '• Join our Discord server for updates and support\n' +
+               '• Follow us for the latest features and security updates',
       })
-      .setTimestamp();
+      .setTimestamp()
+      .setFooter({
+        text: 'Thanks for considering Bloxtr8! 🚀',
+        iconURL: 'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
+      });
 
     await interaction.update({
       embeds: [declineEmbed],
@@ -702,15 +864,23 @@ async function handleLinkRoblox(interaction: ChatInputCommandInteraction) {
 
     if (!userResult.user) {
       const errorEmbed = new EmbedBuilder()
-        .setColor(0xff6b6b)
-        .setTitle('❌ Account Required')
+        .setColor(0xef4444) // Red color for error
+        .setTitle('🚫 Account Required')
         .setDescription(
-          'You must create a Bloxtr8 account first before linking your Roblox account.'
+          '**You need a Bloxtr8 account first!**\n\n' +
+          'Create your account to start linking external accounts and accessing trading features.'
         )
+        .setThumbnail(interaction.user.displayAvatarURL())
         .addFields({
-          name: 'Next Steps',
-          value:
-            'Use `/signup` to create your account, then try `/linkrblx` again.',
+          name: '🚀 Get Started',
+          value: '**Step 1:** Use `/signup` to create your Bloxtr8 account\n' +
+                 '**Step 2:** Complete the registration process\n' +
+                 '**Step 3:** Come back and use `/linkrblx` to connect Roblox\n\n' +
+                 'It only takes 2 minutes to get started!',
+        })
+        .setFooter({
+          text: 'Join thousands of secure traders on Bloxtr8! 🎯',
+          iconURL: 'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
         })
         .setTimestamp();
 
@@ -729,14 +899,23 @@ async function handleLinkRoblox(interaction: ChatInputCommandInteraction) {
 
     if (hasRobloxAccount) {
       const alreadyLinkedEmbed = new EmbedBuilder()
-        .setColor(0xffa500)
-        .setTitle('⚠️ Roblox Account Already Linked')
+        .setColor(0x10b981) // Green color for success
+        .setTitle('✅ Roblox Account Connected!')
         .setDescription(
-          'You already have a Roblox account linked to your Bloxtr8 profile.'
+          '**Your Roblox account is already linked!**\n\n' +
+          'You\'re all set to start trading with your verified Roblox profile.'
         )
+        .setThumbnail('https://cdn.discordapp.com/attachments/1234567890/1234567890/roblox-icon.png')
         .addFields({
-          name: 'Next Steps',
-          value: 'Use `/verify` to check your linked accounts.',
+          name: '🎯 What\'s Next?',
+          value: '• **Check Status**: Use `/verify` to see all your linked accounts\n' +
+                 '• **Start Trading**: Use `/listing create` to create your first listing\n' +
+                 '• **Browse Listings**: Visit our web app to find trading opportunities\n' +
+                 '• **Get Verified**: Complete KYC for full trading access',
+        })
+        .setFooter({
+          text: 'You\'re ready to trade! 🚀',
+          iconURL: interaction.user.displayAvatarURL(),
         })
         .setTimestamp();
 
@@ -749,38 +928,50 @@ async function handleLinkRoblox(interaction: ChatInputCommandInteraction) {
 
     // Show linking instructions
     const linkEmbed = new EmbedBuilder()
-      .setColor(0x5865f2)
-      .setTitle('🔗 Link Your Roblox Account')
+      .setColor(0x00d4aa) // Bloxtr8 brand color
+      .setTitle('🔗 Connect Your Roblox Account')
       .setDescription(
-        'To link your Roblox account to Bloxtr8, you need to complete the OAuth flow through our web application.'
+        '**Link your Roblox account to unlock full trading features!**\n\n' +
+        'Connect your Roblox profile to verify your identity and access exclusive trading opportunities.'
       )
+      .setThumbnail('https://cdn.discordapp.com/attachments/1234567890/1234567890/roblox-icon.png') // Add Roblox icon
       .addFields(
         {
-          name: 'Step 1: Visit the Link Page',
-          value: `[Click here to link your Roblox account](${getWebAppBaseUrl()}/auth/link/roblox?discordId=${interaction.user.id})`,
+          name: '🚀 Quick Setup (3 Steps)',
+          value: '**1.** Click the link below to start\n' +
+                 '**2.** Sign in with your Roblox account\n' +
+                 '**3.** Authorize the connection\n\n' +
+                 `[🔗 **Start Linking Process**](${getWebAppBaseUrl()}/auth/link/roblox?discordId=${interaction.user.id})`,
           inline: false,
         },
         {
-          name: 'Step 2: Sign in with Roblox',
-          value:
-            'You will be redirected to Roblox to authorize the connection.',
-          inline: false,
+          name: '✅ What You Get',
+          value: '• **Verified Status**: Show you\'re a real Roblox user\n' +
+                 '• **Enhanced Security**: Multi-factor account verification\n' +
+                 '• **Trading Access**: Create and respond to listings\n' +
+                 '• **Trust Badge**: Build credibility with other traders',
+          inline: true,
         },
         {
-          name: 'Step 3: Complete the Flow',
-          value:
-            'After authorization, you will be redirected back to Bloxtr8 with your account linked.',
-          inline: false,
+          name: '🔒 Security & Privacy',
+          value: '• **OAuth 2.0**: Industry-standard secure connection\n' +
+                 '• **No Passwords**: We never see your Roblox password\n' +
+                 '• **Limited Access**: Only basic profile information\n' +
+                 '• **Revocable**: Unlink anytime from your settings',
+          inline: true,
         },
         {
-          name: '⚠️ Important',
-          value:
-            'Make sure you are signed into the correct Roblox account before proceeding.',
+          name: '⚠️ Important Notes',
+          value: '• Make sure you\'re signed into the **correct** Roblox account\n' +
+                 '• The process takes less than 2 minutes\n' +
+                 '• You can only link **one** Roblox account per Bloxtr8 account\n' +
+                 '• Contact support if you encounter any issues',
           inline: false,
         }
       )
       .setFooter({
-        text: 'This process is secure and only links your account - we do not store your Roblox password.',
+        text: 'Secure • Fast • Trusted by thousands of users',
+        iconURL: interaction.user.displayAvatarURL(),
       })
       .setTimestamp();
 
