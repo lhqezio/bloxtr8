@@ -49,7 +49,8 @@
     "docker:rebuild": "./scripts/docker-optimize.sh rebuild",
     "dev:hoang": "./scripts/dev-setup.sh",
     "dev:hoang:stop": "./scripts/dev-stop.sh",
-    "dev:hoang:logs": "./scripts/dev-logs.sh"
+    "dev:hoang:logs": "./scripts/dev-logs.sh",
+    "dev:hoang:dashboard": "./scripts/dev-dashboard.sh"
   },
   "keywords": [
     "roblox",
