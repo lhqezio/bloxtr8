@@ -41,13 +41,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(data.user)
         setIsAuthenticated(true)
     }
-    if (error) throw error
+    if (error) {
+      throw error
     }
+  }
 
   const logout = async () => {
     await authClient.signOut()
     setUser(null)
     setIsAuthenticated(false)
+    window.location.reload()
   }
 
   return (

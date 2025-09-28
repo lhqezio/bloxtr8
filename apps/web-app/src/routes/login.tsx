@@ -1,6 +1,8 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { GalleryVerticalEnd } from 'lucide-react'
 import { useState } from 'react'
+import {toast} from 'sonner'
+import type { AuthError } from 'better-auth/react'
 import { authClient } from '@/lib/auth-client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -16,28 +18,34 @@ import { Label } from '@/components/ui/label'
 import { Discord } from '@/components/logo/Discord'
 import { Roblox } from '@/components/logo/Roblox'
 
+type LoginSearch = {
+  redirect?: string
+  error?: string
+}
 
 export const Route = createFileRoute('/login')({
-  validateSearch: (search) => ({
+   validateSearch: (search: Record<string, unknown>): LoginSearch=> ({
     redirect: (search.redirect as string) || '/',
+    error: search.error as string,
   }),
   beforeLoad: ({ context, search }) => {
-    if (context.auth.isAuthenticated) {
-      throw redirect({ to: search.redirect })
+        if (context.auth.isAuthenticated) {
+      throw redirect({ to: search.redirect });
     }
   },
   component: LoginPage,
 })
 function LoginPage() {
   const { auth } = Route.useRouteContext()
-  const { redirect: redirectTo } = Route.useSearch()
+  const { redirect: redirectTo, error: socialSignInError } = Route.useSearch()
   const navigate = Route.useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const { error: socialLoginError } = Route.useSearch()
   async function handleSocial(provider: 'discord' | 'roblox') {
     const { error } = await authClient.signIn.social(
-      { provider, callbackURL: '/me' },
+      { provider, callbackURL: '/me' ,errorCallbackURL: '/login',},
       {
         onRequest: () => {
           setIsLoading(true)
@@ -47,13 +55,9 @@ function LoginPage() {
         },
         onError: () => {
           setIsLoading(false)
-          console.error(error)
         },
       },
     )
-    if (error) {
-      console.error(error.statusText)
-    }
   }
   async function handleEmailPassword(e: React.FormEvent) {
     e.preventDefault() // stop page reload
@@ -62,11 +66,14 @@ function LoginPage() {
       await auth.login(email, password)
       navigate({ to: redirectTo, search: { redirect: '/' } })
     } catch (err) {
-      console.error('Login failed', err)
-    } finally {
-      setIsLoading(false)
+      if (typeof err === 'object' && err !== null && 'message' in err) {
+      const e = err as { message: string }
+      toast.error(e.message)
     }
+  } finally {
+    setIsLoading(false)
   }
+}
   return (
     <div className="bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
       <div className="flex w-full max-w-sm flex-col gap-6">
@@ -112,6 +119,17 @@ function LoginPage() {
                       <Roblox />
                       {isLoading ? 'Redirecting...' : 'Login with Roblox'}
                     </Button>
+                    {socialSignInError === 'signup_disabled' && (
+                      <p className="text-center text-sm text-red-600">
+                        Account not found. Please sign up or link this social
+                        account in your profile settings.
+                      </p>
+                    )}
+                    {socialLoginError && socialLoginError !== 'signup_disabled' && (
+                      <p className="text-center text-sm text-red-600">
+                        An unknown error occurred during sign-in.
+                      </p>
+                    )}
                   </div>
                   <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
                     <span className="bg-card text-muted-foreground relative z-10 px-2">

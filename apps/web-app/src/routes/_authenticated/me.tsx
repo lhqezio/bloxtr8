@@ -1,11 +1,18 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
+import {toast} from 'sonner'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
 import { Discord } from '@/components/logo/Discord'
 import { Roblox } from '@/components/logo/Roblox'
 
+type ProfileParam = {
+  error?: string
+}
 export const Route = createFileRoute('/_authenticated/me')({
+  validateSearch: (search: Record< string, unknown>): ProfileParam=> ({
+      error: search.error as string,
+    }),
   component: UserProfile,
   loader: async () => {
       const accounts = await authClient.listAccounts();
@@ -16,6 +23,7 @@ export const Route = createFileRoute('/_authenticated/me')({
 function UserProfile() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false)
+  const {error: linkError} = Route.useSearch();
   const accounts = Route.useLoaderData().data;
   const discordLinked = accounts?.some(
     (acc: any) => acc.providerId === 'discord'
@@ -27,7 +35,7 @@ function UserProfile() {
   const { data: session } = authClient.useSession()
   async function handleSocial(provider: 'discord' | 'roblox') {
     const { error } = await authClient.linkSocial(
-      { provider, callbackURL: '/me' },
+      { provider, callbackURL: '/me', errorCallbackURL: '/me', },
       {
         onRequest: () => {
           setIsLoading(true)
@@ -41,7 +49,7 @@ function UserProfile() {
       },
     )
     if (error) {
-      console.error(error.statusText)
+      console.error(error.message)
     }
   }
   async function handleUnlink(providerId: 'discord' | 'roblox', ){
@@ -59,9 +67,11 @@ function UserProfile() {
       onError: () =>{
         setIsLoading(false);
       }
-
     }
   )
+  if(error){
+    toast.error(error.message);
+  }
   }
   return (
     <div>
@@ -106,6 +116,17 @@ function UserProfile() {
             ? 'Unlink Roblox'
             : 'Link account with Roblox'}        
         </Button>
+        {linkError === 'signup_disabled' && (
+                      <p className="text-center text-sm text-red-600">
+                        Account not found. Please sign up or link this social
+                        account in your profile settings.
+                      </p>
+                    )}
+                    {linkError && linkError !== 'signup_disabled' && (
+                      <p className="text-center text-sm text-red-600">
+                        An unknown error occurred during sign-in.
+                      </p>
+                    )}
       </div>
     </div>
   )
