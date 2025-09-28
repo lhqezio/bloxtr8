@@ -25,16 +25,9 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
     discord: {
       clientId: process.env.DISCORD_CLIENT_ID as string,
       clientSecret: process.env.DISCORD_CLIENT_SECRET as string,
-      prompt: 'consent', // or "none", "consent"
       disableSignUp: true,
-      mapProfileToUser: profile => {
-        return {
-          image: profile.avatar_url, // only set if Discord has it
-        };
-      },
-      updateUserInfoOnLink: true,
+      prompt: 'consent', // or "none", "consent"
       scope: ['identify', 'email'],
-
       permissions: 2048 | 16384, // Send Messages + Embed Links
       // Read more about the permission here: https://www.better-auth.com/docs/authentication/discord
     },

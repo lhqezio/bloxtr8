@@ -1,14 +1,16 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import { authClient } from '@/lib/auth-client'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/lib/auth'
 
 export default function Header() {
   const navigate = useNavigate()
+  const { logout }= useAuth();
   async function handleLogout() {
-    await authClient.signOut({})
+    await logout()
   }
   function handleLogin() {
-    navigate({ to: '/login' })
+    navigate({ to: '/login', search: { redirect: window.location.pathname } })
   }
   const { data: session } = authClient.useSession()
   return (

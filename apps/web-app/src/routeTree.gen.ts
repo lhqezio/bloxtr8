@@ -9,27 +9,33 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as UserRouteImport } from './routes/user'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
+import { Route as AuthenticatedMeRouteImport } from './routes/_authenticated/me'
 import { Route as AuthLinkIndexRouteImport } from './routes/auth/link/index'
 import { Route as AuthLinkRobloxRouteImport } from './routes/auth/link/roblox'
 
-const UserRoute = UserRouteImport.update({
-  id: '/user',
-  path: '/user',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -41,6 +47,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedMeRoute = AuthenticatedMeRouteImport.update({
+  id: '/me',
+  path: '/me',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthLinkIndexRoute = AuthLinkIndexRouteImport.update({
   id: '/auth/link/',
@@ -56,8 +67,9 @@ const AuthLinkRobloxRoute = AuthLinkRobloxRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
-  '/user': typeof UserRoute
+  '/me': typeof AuthenticatedMeRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/link/roblox': typeof AuthLinkRobloxRoute
   '/auth/link': typeof AuthLinkIndexRoute
@@ -65,8 +77,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
-  '/user': typeof UserRoute
+  '/me': typeof AuthenticatedMeRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/link/roblox': typeof AuthLinkRobloxRoute
   '/auth/link': typeof AuthLinkIndexRoute
@@ -74,9 +87,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
-  '/user': typeof UserRoute
+  '/_authenticated/me': typeof AuthenticatedMeRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/link/roblox': typeof AuthLinkRobloxRoute
   '/auth/link/': typeof AuthLinkIndexRoute
@@ -86,8 +101,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/profile'
     | '/register'
-    | '/user'
+    | '/me'
     | '/auth/callback'
     | '/auth/link/roblox'
     | '/auth/link'
@@ -95,17 +111,20 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/profile'
     | '/register'
-    | '/user'
+    | '/me'
     | '/auth/callback'
     | '/auth/link/roblox'
     | '/auth/link'
   id:
     | '__root__'
     | '/'
+    | '/_authenticated'
     | '/login'
+    | '/profile'
     | '/register'
-    | '/user'
+    | '/_authenticated/me'
     | '/auth/callback'
     | '/auth/link/roblox'
     | '/auth/link/'
@@ -113,9 +132,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
+  ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
-  UserRoute: typeof UserRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthLinkRobloxRoute: typeof AuthLinkRobloxRoute
   AuthLinkIndexRoute: typeof AuthLinkIndexRoute
@@ -123,13 +143,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/user': {
-      id: '/user'
-      path: '/user'
-      fullPath: '/user'
-      preLoaderRoute: typeof UserRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/register': {
       id: '/register'
       path: '/register'
@@ -137,11 +150,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -157,6 +184,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/me': {
+      id: '/_authenticated/me'
+      path: '/me'
+      fullPath: '/me'
+      preLoaderRoute: typeof AuthenticatedMeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/auth/link/': {
       id: '/auth/link/'
@@ -175,11 +209,23 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedMeRoute: typeof AuthenticatedMeRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedMeRoute: AuthenticatedMeRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   LoginRoute: LoginRoute,
+  ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
-  UserRoute: UserRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthLinkRobloxRoute: AuthLinkRobloxRoute,
   AuthLinkIndexRoute: AuthLinkIndexRoute,

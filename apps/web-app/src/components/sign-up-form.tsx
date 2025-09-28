@@ -43,7 +43,7 @@ export function SignupForm({ className, ...props }: SignupFormProps) {
         email: formData.email,
         password: formData.password,
         name: formData.username,
-        callbackURL: '/user', // optional: redirect after verification/sign in
+        callbackURL: '/me', 
       },
       {
         onRequest: () => {
@@ -52,7 +52,7 @@ export function SignupForm({ className, ...props }: SignupFormProps) {
         },
         onSuccess: () => {
           // auto-redirect, or update UI
-          window.location.href = '/user'
+          window.location.href = '/me'
         },
         onError: (ctx) => {
           setError(ctx.error.message)
