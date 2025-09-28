@@ -2,7 +2,6 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { GalleryVerticalEnd } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import type { AuthError } from 'better-auth/react'
 import { authClient } from '@/lib/auth-client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -44,7 +43,7 @@ function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const { error: socialLoginError } = Route.useSearch()
   async function handleSocial(provider: 'discord' | 'roblox') {
-    const { error } = await authClient.signIn.social(
+    await authClient.signIn.social(
       { provider, callbackURL: '/me', errorCallbackURL: '/login' },
       {
         onRequest: () => {
@@ -67,8 +66,8 @@ function LoginPage() {
       navigate({ to: redirectTo, search: { redirect: '/' } })
     } catch (err) {
       if (typeof err === 'object' && err !== null && 'message' in err) {
-        const e = err as { message: string }
-        toast.error(e.message)
+        const error = err as { message: string }
+        toast.error(error.message)
       }
     } finally {
       setIsLoading(false)
