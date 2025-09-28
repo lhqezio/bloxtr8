@@ -43,7 +43,7 @@ export function SignupForm({ className, ...props }: SignupFormProps) {
         email: formData.email,
         password: formData.password,
         name: formData.username,
-        callbackURL: '/me', 
+        callbackURL: '/me',
       },
       {
         onRequest: () => {
@@ -84,7 +84,11 @@ export function SignupForm({ className, ...props }: SignupFormProps) {
             <h1 className="text-xl font-bold">Create your account</h1>
             <div className="text-center text-sm">
               Already have an account?{' '}
-              <Link to="/login" search={{ redirect: '/' }} className="underline underline-offset-4">
+              <Link
+                to="/login"
+                search={{ redirect: '/' }}
+                className="underline underline-offset-4"
+              >
                 Log in
               </Link>
             </div>

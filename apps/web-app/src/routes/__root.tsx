@@ -4,10 +4,10 @@ import { TanstackDevtools } from '@tanstack/react-devtools'
 
 import Header from '../components/Header'
 import type { useAuth } from '@/lib/auth'
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from '@/components/ui/sonner'
 
 interface MyRouterContext {
-  auth: ReturnType<typeof useAuth>;
+  auth: ReturnType<typeof useAuth>
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
@@ -15,7 +15,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
     <>
       <Header />
       <Outlet />
-      <Toaster richColors closeButton expand={true} position="top-right"/>
+      <Toaster richColors closeButton expand={true} position="top-right" />
       <TanstackDevtools
         config={{
           position: 'bottom-left',

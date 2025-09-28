@@ -18,28 +18,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // restore session on load
   useEffect(() => {
     async function restore() {
-        try {
+      try {
         const { data: session } = await authClient.getSession()
         if (session?.user) {
-            setUser(session.user)
-            setIsAuthenticated(true)
+          setUser(session.user)
+          setIsAuthenticated(true)
         }
-        } finally {
+      } finally {
         setIsLoading(false)
-        }
+      }
     }
     restore()
-    }, [])
+  }, [])
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Loading...
+      </div>
+    )
   }
 
   const login = async (email: string, password: string) => {
     const { data, error } = await authClient.signIn.email({ email, password })
-    if(data){
-        setUser(data.user)
-        setIsAuthenticated(true)
+    if (data) {
+      setUser(data.user)
+      setIsAuthenticated(true)
     }
     if (error) {
       throw error
@@ -62,6 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext)
-  if (context ===undefined) {throw new Error("useAuth must be used within an AuthProvider")}
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
   return context
 }

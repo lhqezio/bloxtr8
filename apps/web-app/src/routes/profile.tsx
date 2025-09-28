@@ -5,9 +5,5 @@ export const Route = createFileRoute('/profile')({
 })
 
 function Profile() {
-  return(
-    <div>
-      hello profile
-    </div>
-  )
+  return <div>hello profile</div>
 }

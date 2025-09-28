@@ -1,7 +1,7 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { GalleryVerticalEnd } from 'lucide-react'
 import { useState } from 'react'
-import {toast} from 'sonner'
+import { toast } from 'sonner'
 import type { AuthError } from 'better-auth/react'
 import { authClient } from '@/lib/auth-client'
 import { cn } from '@/lib/utils'
@@ -24,13 +24,13 @@ type LoginSearch = {
 }
 
 export const Route = createFileRoute('/login')({
-   validateSearch: (search: Record<string, unknown>): LoginSearch=> ({
+  validateSearch: (search: Record<string, unknown>): LoginSearch => ({
     redirect: (search.redirect as string) || '/',
     error: search.error as string,
   }),
   beforeLoad: ({ context, search }) => {
-        if (context.auth.isAuthenticated) {
-      throw redirect({ to: search.redirect });
+    if (context.auth.isAuthenticated) {
+      throw redirect({ to: search.redirect })
     }
   },
   component: LoginPage,
@@ -45,7 +45,7 @@ function LoginPage() {
   const { error: socialLoginError } = Route.useSearch()
   async function handleSocial(provider: 'discord' | 'roblox') {
     const { error } = await authClient.signIn.social(
-      { provider, callbackURL: '/me' ,errorCallbackURL: '/login',},
+      { provider, callbackURL: '/me', errorCallbackURL: '/login' },
       {
         onRequest: () => {
           setIsLoading(true)
@@ -67,13 +67,13 @@ function LoginPage() {
       navigate({ to: redirectTo, search: { redirect: '/' } })
     } catch (err) {
       if (typeof err === 'object' && err !== null && 'message' in err) {
-      const e = err as { message: string }
-      toast.error(e.message)
+        const e = err as { message: string }
+        toast.error(e.message)
+      }
+    } finally {
+      setIsLoading(false)
     }
-  } finally {
-    setIsLoading(false)
   }
-}
   return (
     <div className="bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
       <div className="flex w-full max-w-sm flex-col gap-6">
@@ -107,7 +107,9 @@ function LoginPage() {
                       disabled={true}
                     >
                       <Discord />
-                      {isLoading ? 'Redirecting...' : 'Login with Discord (coming soon)'}
+                      {isLoading
+                        ? 'Redirecting...'
+                        : 'Login with Discord (coming soon)'}
                     </Button>
                     <Button
                       variant="outline"
@@ -125,11 +127,12 @@ function LoginPage() {
                         account in your profile settings.
                       </p>
                     )}
-                    {socialLoginError && socialLoginError !== 'signup_disabled' && (
-                      <p className="text-center text-sm text-red-600">
-                        An unknown error occurred during sign-in.
-                      </p>
-                    )}
+                    {socialLoginError &&
+                      socialLoginError !== 'signup_disabled' && (
+                        <p className="text-center text-sm text-red-600">
+                          An unknown error occurred during sign-in.
+                        </p>
+                      )}
                   </div>
                   <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
                     <span className="bg-card text-muted-foreground relative z-10 px-2">

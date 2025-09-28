@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth'
 
 export default function Header() {
   const navigate = useNavigate()
-  const { logout }= useAuth();
+  const { logout } = useAuth()
   async function handleLogout() {
     await logout()
   }
