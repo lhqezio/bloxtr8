@@ -94,10 +94,7 @@ function RobloxLinkPage() {
     try {
       if (discordId) {
         // For Discord users, get OAuth URL from server
-        const timestamp = Date.now()
-        const random = Math.random().toString(36).substring(2)
-        const state = `discord_${discordId}_${timestamp}_${random}`
-        const redirectUri = `${window.location.origin}/auth/callback?discordId=${discordId}`
+        const redirectUri = `${window.location.origin}/auth/callback`
 
         try {
           const response = await fetch(
@@ -109,7 +106,7 @@ function RobloxLinkPage() {
               },
               body: JSON.stringify({
                 redirectUri,
-                state,
+                discordId,
               }),
             },
           )

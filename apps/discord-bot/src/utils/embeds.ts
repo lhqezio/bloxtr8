@@ -1,10 +1,9 @@
 import { EmbedBuilder } from 'discord.js';
 
-import { getWebAppBaseUrl } from './urls.js';
 import type { Account } from './userVerification.js';
 
 interface ProviderConfig {
-  id: 'roblox' | 'discord' | 'credential';
+  id: 'roblox' | 'discord';
   label: string;
   // eslint-disable-next-line no-unused-vars
   buildUrl: (accountId: string) => string;
@@ -22,11 +21,6 @@ const providers: ProviderConfig[] = [
     label: 'Discord',
     buildUrl: id => `https://discord.com/users/${id}`,
   },
-  {
-    id: 'credential',
-    label: 'Bloxtr8',
-    buildUrl: id => `${getWebAppBaseUrl()}/user/${id}`,
-  },
 ];
 
 export function buildVerificationEmbeds(accounts: Account[]) {
@@ -41,15 +35,13 @@ export function buildVerificationEmbeds(accounts: Account[]) {
       .setThumbnail(
         provider.id === 'roblox'
           ? 'https://cdn.discordapp.com/attachments/1234567890/1234567890/roblox-icon.png'
-          : provider.id === 'discord'
-            ? 'https://cdn.discordapp.com/attachments/1234567890/1234567890/discord-icon.png'
-            : 'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png'
+          : 'https://cdn.discordapp.com/attachments/1234567890/1234567890/discord-icon.png'
       )
       .addFields({
         name: account ? '✅ Connected' : '❌ Not Linked',
         value: account
           ? `[View Profile](${provider.buildUrl(account.accountId)})`
-          : `Use \`/linkrblx\` to connect`,
+          : `Use \`/link\` to connect`,
       })
       .setFooter({
         text: account ? 'Verified' : 'Link to unlock',

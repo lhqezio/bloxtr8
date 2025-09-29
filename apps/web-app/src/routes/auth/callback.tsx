@@ -47,10 +47,20 @@ function AuthCallbackPage() {
           return
         }
 
+        // Determine Discord ID from URL parameter or state parameter
+        let discordUserId = discordId
+        if (!discordUserId && state && state.startsWith('discord_')) {
+          // Extract Discord ID from state parameter if not in URL
+          const stateParts = state.split('_')
+          if (stateParts.length >= 2) {
+            discordUserId = stateParts[1]
+          }
+        }
+
         // If we have a Discord ID, this is a Discord user linking Roblox
-        if (discordId) {
+        if (discordUserId) {
           // Validate state parameter for CSRF protection
-          if (!state || !state.startsWith(`discord_${discordId}_`)) {
+          if (!state || !state.startsWith(`discord_${discordUserId}_`)) {
             setStatus('error')
             setMessage('Invalid state parameter. Please try again.')
             return
@@ -64,7 +74,7 @@ function AuthCallbackPage() {
             // 4. Call the API to link the accounts
 
             // Get the current URL to use as redirect URI
-            const redirectUri = `${window.location.origin}/auth/callback?discordId=${discordId}`
+            const redirectUri = `${window.location.origin}/auth/callback`
 
             const response = await fetch(
               `${getApiBaseUrl()}/api/users/link-roblox-discord`,
@@ -74,7 +84,7 @@ function AuthCallbackPage() {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  discordId,
+                  discordId: discordUserId,
                   oauthCode: code,
                   state,
                   redirectUri,
@@ -88,7 +98,10 @@ function AuthCallbackPage() {
 
               // Redirect to success page after 3 seconds
               setTimeout(() => {
-                navigate({ to: '/auth/link/roblox', search: { discordId } })
+                navigate({
+                  to: '/auth/link/roblox',
+                  search: { discordId: discordUserId },
+                })
               }, 3000)
             } else {
               const errorData = await response.json()

@@ -29,7 +29,7 @@ export async function handleSignup(interaction: ChatInputCommandInteraction) {
           },
           {
             name: '🔗 Link',
-            value: '`/linkrblx` - Connect Roblox',
+            value: '`/link` - Connect Roblox',
             inline: true,
           },
           {
@@ -160,7 +160,7 @@ export async function handleConsentAccept(interaction: ButtonInteraction) {
         },
         {
           name: '🚀 Next Steps',
-          value: '`/linkrblx` - Connect Roblox\n`/verify` - Check status',
+          value: '`/link` - Connect Roblox\n`/verify` - Check status',
           inline: false,
         }
       )

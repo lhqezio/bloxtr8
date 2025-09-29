@@ -6,6 +6,7 @@ import {
   validateDiscordUser,
   validateOAuthState,
 } from '../lib/discord-verification.js';
+import { metrics } from '../lib/metrics.js';
 import { validateRobloxOAuth } from '../lib/roblox-oauth.js';
 import { AppError } from '../middleware/errorHandler.js';
 
@@ -316,6 +317,8 @@ router.post(
   linkAccountLimiter,
   async (req, res, next) => {
     try {
+      metrics.incrementOAuthAttempt();
+
       const { discordId, oauthCode, state, redirectUri } = req.body;
 
       if (!discordId || !oauthCode || !state || !redirectUri) {
@@ -327,26 +330,29 @@ router.post(
 
       // Validate state parameter to prevent CSRF
       if (!validateOAuthState(state, discordId)) {
+        console.warn('Invalid OAuth state', { discordId, hasState: !!state });
         throw new AppError('Invalid or expired state parameter', 400);
       }
 
       // Verify Discord user exists
-      console.log('Validating Discord user:', discordId);
+      console.info('Validating Discord user', { discordId });
       const discordUserExists = await validateDiscordUser(discordId);
       if (!discordUserExists) {
-        console.log('Discord user validation failed for:', discordId);
+        console.warn('Discord user validation failed', { discordId });
+        metrics.incrementDiscordValidationFailure();
         throw new AppError('Discord user not found or invalid', 404);
       }
 
       // Validate OAuth code with Roblox API and get real Roblox user ID
-      console.log(
-        'Validating Roblox OAuth code:',
-        oauthCode,
-        'with redirect URI:',
-        redirectUri
-      );
-      const robloxUserId = await validateRobloxOAuth(oauthCode, redirectUri);
-      console.log('Roblox user ID obtained:', robloxUserId);
+      console.info('Validating Roblox OAuth code', { discordId, redirectUri });
+      let robloxUserId: string;
+      try {
+        robloxUserId = await validateRobloxOAuth(oauthCode, redirectUri);
+        console.info('Roblox user ID obtained', { discordId, robloxUserId });
+      } catch (error) {
+        metrics.incrementRobloxValidationFailure();
+        throw error;
+      }
 
       // Find the user by Discord account
       const user = await prisma.user.findFirst({
@@ -373,6 +379,10 @@ router.post(
       });
 
       if (existingRobloxAccount) {
+        console.info('Roblox account already linked', {
+          discordId,
+          robloxUserId,
+        });
         return res.status(200).json({
           success: true,
           message: 'Roblox account already linked',
@@ -390,6 +400,13 @@ router.post(
         },
       });
 
+      console.info('Roblox account linked successfully', {
+        discordId,
+        robloxUserId,
+        userId: user.id,
+      });
+      metrics.incrementOAuthSuccess();
+
       res.status(201).json({
         success: true,
         message: 'Roblox account linked successfully',
@@ -397,7 +414,13 @@ router.post(
       });
     } catch (error) {
       console.error('Error linking Roblox account for Discord user:', error);
-      next(error);
+      metrics.incrementOAuthFailure();
+      // Don't expose internal error details to client
+      if (error instanceof AppError) {
+        next(error);
+      } else {
+        next(new AppError('Failed to link Roblox account', 500));
+      }
     }
   }
 );
@@ -405,12 +428,19 @@ router.post(
 // Generate Roblox OAuth URL
 router.post('/users/roblox-oauth-url', async (req, res, next) => {
   try {
-    const { redirectUri, state } = req.body;
+    const { redirectUri, discordId } = req.body;
 
-    console.log('Generating OAuth URL with:', { redirectUri, state });
+    console.info('Generating OAuth URL', {
+      discordId,
+      hasRedirectUri: !!redirectUri,
+    });
 
     if (!redirectUri) {
       throw new AppError('Redirect URI is required', 400);
+    }
+
+    if (!discordId) {
+      throw new AppError('Discord ID is required', 400);
     }
 
     const clientId = process.env.ROBLOX_CLIENT_ID;
@@ -419,7 +449,11 @@ router.post('/users/roblox-oauth-url', async (req, res, next) => {
       throw new AppError('Roblox OAuth not configured', 500);
     }
 
-    console.log('Using client ID:', clientId);
+    // Generate secure state parameter server-side
+    const { generateOAuthState } = await import(
+      '../lib/discord-verification.js'
+    );
+    const state = generateOAuthState(discordId);
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -432,22 +466,22 @@ router.post('/users/roblox-oauth-url', async (req, res, next) => {
       params.append('state', state);
     }
 
-    const authUrl = `https://authorize.roblox.com/v1/authorize?${params.toString()}`;
+    const authUrl = `https://authorize.roblox.com/?${params.toString()}`;
 
-    console.log('Generated OAuth URL:', authUrl);
+    console.info('Generated OAuth URL', { discordId, hasState: !!state });
 
     res.status(200).json({
       success: true,
       authUrl,
-      debug: {
-        clientId,
-        redirectUri,
-        hasState: !!state,
-      },
     });
   } catch (error) {
     console.error('Error generating OAuth URL:', error);
-    next(error);
+    // Don't expose internal error details to client
+    if (error instanceof AppError) {
+      next(error);
+    } else {
+      next(new AppError('Failed to generate OAuth URL', 500));
+    }
   }
 });
 

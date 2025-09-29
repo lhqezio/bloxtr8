@@ -26,7 +26,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
       clientId: process.env.DISCORD_CLIENT_ID as string,
       clientSecret: process.env.DISCORD_CLIENT_SECRET as string,
       prompt: 'consent', // or "none", "consent"
-      disableSignUp: true,
+      disableSignUp: false, // Allow auto-creation of accounts
       mapProfileToUser: profile => {
         return {
           image: profile.avatar_url, // only set if Discord has it

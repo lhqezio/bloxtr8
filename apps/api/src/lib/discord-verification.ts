@@ -1,3 +1,5 @@
+import { randomBytes } from 'crypto';
+
 import { config } from '@dotenvx/dotenvx';
 
 config();
@@ -65,12 +67,13 @@ export async function validateDiscordUser(discordId: string): Promise<boolean> {
  */
 export function generateOAuthState(discordId: string): string {
   const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2);
+  // Use crypto.randomBytes for cryptographically secure random values
+  const random = randomBytes(16).toString('hex');
   return `discord_${discordId}_${timestamp}_${random}`;
 }
 
 /**
- * Validate OAuth state parameter
+ * Validate OAuth state parameter with expiration check
  */
 export function validateOAuthState(
   state: string | undefined,
@@ -100,6 +103,7 @@ export function validateOAuthState(
   const now = Date.now();
   const maxAge = 10 * 60 * 1000; // 10 minutes
   if (now - timestamp > maxAge) {
+    console.warn('OAuth state expired', { discordId, timestamp, now, maxAge });
     return false;
   }
 
