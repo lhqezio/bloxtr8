@@ -96,7 +96,6 @@ router.get('/users/accounts/:id', async (req, res, next) => {
         accounts: {
           some: {
             accountId: id,
-            providerId: 'discord',
           },
         },
       },

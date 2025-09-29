@@ -20,14 +20,14 @@ export interface Account {
   providerId: string;
 }
 export async function verify(
-  discord_id: string
+  id: string
 ): Promise<
   { success: true; data: Account[] } | { success: false; error: ApiError }
 > {
   const apiBaseUrl: string = getApiBaseUrl();
   try {
     const response = await fetch(
-      `${apiBaseUrl}/api/users/accounts/${discord_id}`,
+      `${apiBaseUrl}/api/users/accounts/${id}`,
       {
         method: 'GET',
         headers: {
