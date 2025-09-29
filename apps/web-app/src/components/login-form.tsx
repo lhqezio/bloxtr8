@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { authClient } from '@/lib/auth-client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -19,21 +20,24 @@ export function LoginForm({
 
   async function handleDiscordLogin() {
     const { error } = await authClient.signIn.social(
-      { provider: 'discord', callbackURL: '/user' },
+      { provider: 'discord', callbackURL: '/profile' },
       {
         onRequest: () => {
           setIsLoading(true)
         },
         onSuccess: () => {
           setIsLoading(false)
+          toast.success('Successfully signed in with Discord!')
         },
-        onError: () => {
+        onError: (ctx) => {
           setIsLoading(false)
+          toast.error(ctx.error.message || 'Failed to sign in with Discord')
         },
       },
     )
     if (error) {
       console.error(error.statusText)
+      toast.error('Authentication failed. Please try again.')
     }
   }
 

@@ -8,7 +8,7 @@ export default function Header() {
     await authClient.signOut({})
   }
   function handleLogin() {
-    navigate({ to: '/login' })
+    navigate({ to: '/login', search: { redirect: '', error: '' } })
   }
   const { data: session } = authClient.useSession()
   return (

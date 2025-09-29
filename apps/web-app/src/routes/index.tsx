@@ -1,3 +1,4 @@
+import { toast } from 'sonner'
 import { createFileRoute } from '@tanstack/react-router'
 import logo from '../logo.svg'
 import { Button } from '@/components/ui/button'
@@ -9,7 +10,7 @@ function App() {
   return (
     <div className="text-center">
       <header className="min-h-screen flex flex-col items-center justify-center bg-background text-primary-foreground text-[calc(10px+2vmin)]">
-        <Button>Click me</Button>
+        <Button onClick={() => toast('hello')}>Click me</Button>
         <img
           src={logo}
           className="h-[40vmin] pointer-events-none animate-[spin_20s_linear_infinite]"

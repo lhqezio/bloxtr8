@@ -251,7 +251,7 @@ function RobloxLinkPage() {
                 </div>
                 {message.includes('must be logged in') ? (
                   <Button
-                    onClick={() => navigate({ to: '/login' })}
+                    onClick={() => navigate({ to: '/login', search: { redirect: '', error: '' } })}
                     className="w-full"
                   >
                     Sign In
