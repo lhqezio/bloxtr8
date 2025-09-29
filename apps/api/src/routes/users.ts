@@ -466,7 +466,7 @@ router.post('/users/roblox-oauth-url', async (req, res, next) => {
       params.append('state', state);
     }
 
-    const authUrl = `https://authorize.roblox.com/?${params.toString()}`;
+    const authUrl = `https://apis.roblox.com/oauth/v1/authorize?${params.toString()}`;
 
     console.info('Generated OAuth URL', { discordId, hasState: !!state });
 
