@@ -6,16 +6,16 @@ import { LoginForm } from '@/components/login-form'
 export const Route = createFileRoute('/login')({
   validateSearch: (search: Record<string, unknown>) => {
     return {
-      redirect: (search.redirect as string) ?? '/profile',
+      redirect: (search.redirect as string) || '/profile',
       error: search.error as string,
     }
   },
   beforeLoad: async ({ search }) => {
     const session = await authClient.getSession()
 
-    if (session) {
+    if (session.data) {
       throw redirect({
-        to: search.redirect as string,
+        to: search.redirect,
       })
     }
   },

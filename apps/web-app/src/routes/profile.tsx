@@ -5,7 +5,7 @@ export const Route = createFileRoute('/profile')({
   beforeLoad: async ({ location }) => {
     const session = await authClient.getSession()
 
-    if (!session) {
+    if (!session.data) {
       throw redirect({
         to: '/login',
         search: {
@@ -25,7 +25,8 @@ function Profile() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-4">Account Information</h2>
         <p className="text-gray-600 dark:text-gray-300">
-          Welcome to your profile page! This is where you can manage your account settings.
+          Welcome to your profile page! This is where you can manage your
+          account settings.
         </p>
       </div>
     </div>
