@@ -1,8 +1,8 @@
-import { Router } from 'express';
+import { Router, type Router as ExpressRouter } from 'express';
 
 import { metrics } from '../lib/metrics.js';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 // Health check endpoint for monitoring
 router.get('/health', (req, res) => {

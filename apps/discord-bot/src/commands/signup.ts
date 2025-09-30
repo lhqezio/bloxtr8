@@ -18,7 +18,10 @@ export async function handleSignup(interaction: ChatInputCommandInteraction) {
     // Check if user already exists
     const existingUser = await verify(interaction.user.id);
 
-    if (existingUser.success && existingUser.data.length > 0) {
+    if (existingUser.success && (
+      (Array.isArray(existingUser.data) && existingUser.data.length > 0) ||
+      (!Array.isArray(existingUser.data) && existingUser.data.user)
+    )) {
       const embed = new EmbedBuilder()
         .setColor(0xf59e0b)
         .setTitle('👋 Welcome Back!')

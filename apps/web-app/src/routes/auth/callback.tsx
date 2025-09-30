@@ -76,8 +76,11 @@ function AuthCallbackPage() {
           // Redirect to success page after 3 seconds
           setTimeout(() => {
             navigate({
-              to: '/auth/link/roblox',
-              search: { discordId },
+              to: '/auth/link/success',
+              search: {
+                message: urlMessage || 'Account linked successfully!',
+                discordId,
+              },
             })
           }, 3000)
           return
