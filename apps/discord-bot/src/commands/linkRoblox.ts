@@ -6,9 +6,9 @@ import {
   type ChatInputCommandInteraction,
 } from 'discord.js';
 
-import { getWebAppBaseUrl } from '../utils/urls.js';
+import { getWebAppBaseUrl, getApiBaseUrl } from '../utils/urls.js';
 import {
-  ensureUserExists,
+  checkUserExists,
   checkProviderAccount,
 } from '../utils/userVerification.js';
 
@@ -16,13 +16,13 @@ export async function handleLinkRoblox(
   interaction: ChatInputCommandInteraction
 ) {
   try {
-    // Check if user exists
-    const userResult = await ensureUserExists(
-      interaction.user.id,
-      interaction.user.username
-    );
+    // Defer the reply immediately to extend the timeout to 15 minutes
+    await interaction.deferReply({ ephemeral: true });
 
-    if (!userResult.user) {
+    // Check if user exists (without creating them)
+    const userResult = await checkUserExists(interaction.user.id);
+
+    if (!userResult.isVerified || !userResult.user) {
       const errorEmbed = new EmbedBuilder()
         .setColor(0xef4444)
         .setTitle('🚫 Account Required')
@@ -38,9 +38,8 @@ export async function handleLinkRoblox(
         })
         .setTimestamp();
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [errorEmbed],
-        ephemeral: true,
       });
       return;
     }
@@ -80,12 +79,64 @@ export async function handleLinkRoblox(
         })
         .setTimestamp();
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [alreadyLinkedEmbed],
-        ephemeral: true,
       });
       return;
     }
+
+    // Generate secure link token
+    const tokenResponse = await fetch(
+      `${getApiBaseUrl()}/api/users/link-token`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          discordId: interaction.user.id,
+          purpose: 'roblox_link',
+        }),
+      }
+    );
+
+    if (!tokenResponse.ok) {
+      let errorMessage =
+        'Failed to generate secure link. Please try again later.';
+
+      try {
+        const errorData = (await tokenResponse.json()) as { message?: string };
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } catch {
+        // Use default error message
+      }
+
+      const errorEmbed = new EmbedBuilder()
+        .setColor(0xef4444)
+        .setTitle('❌ Error')
+        .setDescription(errorMessage)
+        .addFields({
+          name: '💡 Need Help?',
+          value: errorMessage.includes('sign up')
+            ? 'Use `/signup` command to create your account first'
+            : 'Please contact support if this issue persists',
+          inline: false,
+        })
+        .setTimestamp();
+
+      await interaction.editReply({
+        embeds: [errorEmbed],
+      });
+      return;
+    }
+
+    const tokenData = (await tokenResponse.json()) as {
+      token: string;
+      expiresIn: number;
+    };
+    const { token, expiresIn } = tokenData;
 
     // Show linking instructions
     const linkEmbed = new EmbedBuilder()
@@ -113,40 +164,61 @@ export async function handleLinkRoblox(
           inline: true,
         },
         {
+          name: '⏰ Expires',
+          value: `This link expires in ${Math.floor(expiresIn / 60)} minutes`,
+          inline: true,
+        },
+        {
+          name: '🕐 Expires At',
+          value: `<t:${Math.floor((Date.now() + expiresIn * 1000) / 1000)}:R>`,
+          inline: true,
+        },
+        {
           name: '🔗 Start Process',
           value: 'Click the button below to connect your Roblox account',
           inline: false,
         }
       )
       .setFooter({
-        text: 'Secure • Fast • Trusted',
+        text: 'Secure • Fast • Trusted • Link expires in 15 minutes',
         iconURL: interaction.user.displayAvatarURL(),
       })
       .setTimestamp();
 
-    // Create connect button
+    // Create connect button with secure token
     const connectButton = new ButtonBuilder()
       .setLabel('🔗 Connect Roblox Account')
       .setStyle(ButtonStyle.Link)
-      .setURL(
-        `${getWebAppBaseUrl()}/auth/link/roblox?discordId=${interaction.user.id}`
-      );
+      .setURL(`${getWebAppBaseUrl()}/auth/link/roblox?token=${token}`);
 
     const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
       connectButton
     );
 
-    await interaction.reply({
+    await interaction.editReply({
       embeds: [linkEmbed],
       components: [buttonRow],
-      ephemeral: true,
     });
   } catch (error) {
     console.error('Error handling link Roblox:', error);
-    await interaction.reply({
-      content:
-        '❌ An error occurred while processing your request. Please try again later.',
-      ephemeral: true,
-    });
+
+    // Try to edit the reply if it was deferred, otherwise send a follow-up
+    try {
+      await interaction.editReply({
+        content:
+          '❌ An error occurred while processing your request. Please try again later.',
+      });
+    } catch {
+      // If edit fails, try to send a follow-up message
+      try {
+        await interaction.followUp({
+          content:
+            '❌ An error occurred while processing your request. Please try again later.',
+          ephemeral: true,
+        });
+      } catch (followUpError) {
+        console.error('Failed to send error message:', followUpError);
+      }
+    }
   }
 }

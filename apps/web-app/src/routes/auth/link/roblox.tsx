@@ -17,42 +17,36 @@ export const Route = createFileRoute('/auth/link/roblox')({
   component: RobloxLinkPage,
   validateSearch: (search: Record<string, unknown>) => {
     return {
-      discordId: (search.discordId as string) || undefined,
+      token: (search.token as string) || undefined,
     }
   },
 })
 
 function RobloxLinkPage() {
   const navigate = useNavigate()
-  const { discordId } = useSearch({ from: '/auth/link/roblox' })
+  const { token } = useSearch({ from: '/auth/link/roblox' })
   const [status, setStatus] = useState<
     'loading' | 'success' | 'error' | 'linking'
   >('loading')
   const [message, setMessage] = useState('')
   const [isLinking, setIsLinking] = useState(false)
+  const [userData, setUserData] = useState<any>(null)
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const session = await authClient.getSession()
-
-        if (!session.data?.user && !discordId) {
-          setStatus('error')
-          setMessage(
-            'You must be logged in to link your Roblox account. Please sign in first.',
-          )
-          return
-        }
-
-        // If we have a Discord ID, check if Roblox is already linked
-        if (discordId) {
+        // If we have a token, validate it
+        if (token) {
           try {
             const response = await fetch(
-              `${getApiBaseUrl()}/api/users/accounts/${discordId}`,
+              `${getApiBaseUrl()}/api/users/link-token/${token}`,
             )
             if (response.ok) {
-              const accounts = await response.json()
-              const hasRobloxAccount = accounts.some(
+              const tokenData = await response.json()
+              setUserData(tokenData.user)
+
+              // Check if Roblox is already linked
+              const hasRobloxAccount = tokenData.user.accounts.some(
                 (account: any) => account.providerId === 'roblox',
               )
 
@@ -63,20 +57,39 @@ function RobloxLinkPage() {
                 setStatus('linking')
                 setMessage('Ready to link your Roblox account')
               }
+            } else if (response.status === 404) {
+              setStatus('error')
+              setMessage(
+                'Invalid or expired token. Please generate a new link from Discord.',
+              )
+            } else if (response.status === 410) {
+              setStatus('error')
+              setMessage(
+                'Token has expired or been used. Please generate a new link from Discord.',
+              )
             } else {
-              setStatus('linking')
-              setMessage('Ready to link your Roblox account')
+              setStatus('error')
+              setMessage('Failed to validate token. Please try again later.')
             }
           } catch (error) {
-            console.error('Error checking Discord user accounts:', error)
-            setStatus('linking')
-            setMessage('Ready to link your Roblox account')
+            console.error('Error validating token:', error)
+            setStatus('error')
+            setMessage('An error occurred while validating your token.')
           }
           return
         }
 
-        // Check if Roblox account is already linked for authenticated users
-        // For now, assume not linked and show linking option
+        // No token provided - check if user is logged in via web app
+        const session = await authClient.getSession()
+        if (!session.data?.user) {
+          setStatus('error')
+          setMessage(
+            'No valid token provided. Please use the Discord bot `/link` command to get a secure link.',
+          )
+          return
+        }
+
+        // For web app users, check if Roblox is linked
         setStatus('linking')
         setMessage('Ready to link your Roblox account')
       } catch (error) {
@@ -87,18 +100,18 @@ function RobloxLinkPage() {
     }
 
     checkAuth()
-  }, [discordId])
+  }, [token])
 
   const handleLinkRoblox = async () => {
     setIsLinking(true)
     try {
-      if (discordId) {
-        // For Discord users, get OAuth URL from server
-        const redirectUri = `${window.location.origin}/auth/callback`
+      if (token && userData) {
+        // For token-based users, get OAuth URL from server
+        const redirectUri = `${getApiBaseUrl()}/api/oauth/roblox/callback`
 
         try {
           const response = await fetch(
-            `${getApiBaseUrl()}/api/users/roblox-oauth-url`,
+            `${getApiBaseUrl()}/api/oauth/roblox/url`,
             {
               method: 'POST',
               headers: {
@@ -106,7 +119,10 @@ function RobloxLinkPage() {
               },
               body: JSON.stringify({
                 redirectUri,
-                discordId,
+                discordId: userData.accounts.find(
+                  (acc: any) => acc.providerId === 'discord',
+                )?.accountId,
+                token, // Include token for validation
               }),
             },
           )
@@ -132,11 +148,11 @@ function RobloxLinkPage() {
       }
 
       // For authenticated users, get OAuth URL from server
-      const redirectUri = `${window.location.origin}/auth/callback`
+      const redirectUri = `${getApiBaseUrl()}/api/oauth/roblox/callback`
 
       try {
         const response = await fetch(
-          `${getApiBaseUrl()}/api/users/roblox-oauth-url`,
+          `${getApiBaseUrl()}/api/oauth/roblox/url`,
           {
             method: 'POST',
             headers: {
@@ -189,7 +205,9 @@ function RobloxLinkPage() {
             </div>
             <CardTitle className="text-xl">Link Roblox Account</CardTitle>
             <CardDescription>
-              Connect your Roblox account to your Bloxtr8 profile
+              {token
+                ? 'Connect your Roblox account to complete your Discord setup'
+                : 'Connect your Roblox account to your Bloxtr8 profile'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -235,7 +253,7 @@ function RobloxLinkPage() {
                   {message}
                 </div>
                 <Button onClick={handleGoToProfile} className="w-full">
-                  Go to Profile
+                  {token ? 'Return to Discord' : 'Go to Profile'}
                 </Button>
               </div>
             )}
@@ -261,6 +279,23 @@ function RobloxLinkPage() {
                   >
                     Sign In
                   </Button>
+                ) : message.includes('Discord user not found') ? (
+                  <div className="space-y-2">
+                    <Button
+                      onClick={() =>
+                        navigate({
+                          to: '/login',
+                          search: { redirect: '', error: '' },
+                        })
+                      }
+                      className="w-full"
+                    >
+                      Sign Up with Discord
+                    </Button>
+                    <div className="text-xs text-muted-foreground text-center">
+                      Or use the Discord bot: <code>/signup</code>
+                    </div>
+                  </div>
                 ) : (
                   <Button
                     onClick={handleLinkRoblox}

@@ -17,6 +17,9 @@ export async function handleListingCreate(
   interaction: ChatInputCommandInteraction
 ) {
   try {
+    // Defer the reply immediately to extend the timeout to 15 minutes
+    await interaction.deferReply({ ephemeral: true });
+
     // Ensure user exists in database
     const userResult = await ensureUserExists(
       interaction.user.id,
@@ -39,9 +42,8 @@ export async function handleListingCreate(
         })
         .setTimestamp();
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [errorEmbed],
-        ephemeral: true,
       });
       return;
     }
@@ -78,9 +80,8 @@ export async function handleListingCreate(
         })
         .setTimestamp();
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [embed],
-        ephemeral: true,
       });
       return;
     }
@@ -144,11 +145,25 @@ export async function handleListingCreate(
     await interaction.showModal(modal);
   } catch (error) {
     console.error('Error handling listing create:', error);
-    await interaction.reply({
-      content:
-        '❌ An error occurred while processing your request. Please try again later.',
-      ephemeral: true,
-    });
+
+    // Try to edit the reply if it was deferred, otherwise send a follow-up
+    try {
+      await interaction.editReply({
+        content:
+          '❌ An error occurred while processing your request. Please try again later.',
+      });
+    } catch {
+      // If edit fails, try to send a follow-up message
+      try {
+        await interaction.followUp({
+          content:
+            '❌ An error occurred while processing your request. Please try again later.',
+          ephemeral: true,
+        });
+      } catch (followUpError) {
+        console.error('Failed to send error message:', followUpError);
+      }
+    }
   }
 }
 

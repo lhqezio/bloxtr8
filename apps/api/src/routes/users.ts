@@ -1,18 +1,14 @@
+import crypto from 'crypto';
+
 import { PrismaClient } from '@bloxtr8/database';
 import { Router, type Router as ExpressRouter } from 'express';
-import rateLimit from 'express-rate-limit';
 
-import {
-  validateDiscordUser,
-  validateOAuthState,
-} from '../lib/discord-verification.js';
-import { metrics } from '../lib/metrics.js';
-import { validateRobloxOAuth } from '../lib/roblox-oauth.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const router: ExpressRouter = Router();
 const prisma = new PrismaClient();
 
+// Get user account by ID
 router.get('/users/account/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -31,6 +27,7 @@ router.get('/users/account/:id', async (req, res, next) => {
     next(error);
   }
 });
+
 // User verification endpoints
 router.get('/users/verify/:id', async (req, res, next) => {
   try {
@@ -59,11 +56,9 @@ router.get('/users/verify/:id', async (req, res, next) => {
         kycVerified: true,
         kycTier: true,
         accounts: {
-          where: {
-            providerId: 'discord',
-          },
           select: {
             accountId: true,
+            providerId: true,
           },
         },
       },
@@ -101,6 +96,13 @@ router.get('/users/accounts/:id', async (req, res, next) => {
           },
         },
       },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        kycVerified: true,
+        kycTier: true,
+      },
     });
 
     if (!user) {
@@ -118,13 +120,286 @@ router.get('/users/accounts/:id', async (req, res, next) => {
       },
     });
 
-    res.status(200).json(accounts);
+    // Try to get Discord user info from Discord API
+    let discordUserInfo = null;
+    try {
+      const discordResponse = await fetch(
+        `https://discord.com/api/v10/users/${id}`,
+        {
+          headers: {
+            Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+          },
+        }
+      );
+
+      if (discordResponse.ok) {
+        discordUserInfo = await discordResponse.json();
+      }
+    } catch (discordError) {
+      console.warn('Failed to fetch Discord user info:', discordError);
+    }
+
+    // Try to get Roblox user info if Roblox account is linked
+    let robloxUserInfo = null;
+    const robloxAccount = accounts.find(acc => acc.providerId === 'roblox');
+    if (robloxAccount) {
+      try {
+        const robloxResponse = await fetch(
+          `https://users.roblox.com/v1/users/${robloxAccount.accountId}`
+        );
+        if (robloxResponse.ok) {
+          robloxUserInfo = await robloxResponse.json();
+        }
+      } catch (robloxError) {
+        console.warn('Failed to fetch Roblox user info:', robloxError);
+      }
+    }
+
+    const response = {
+      user,
+      accounts,
+      discordUserInfo,
+      robloxUserInfo,
+    };
+
+    res.status(200).json(response);
   } catch (error) {
     console.error(error);
     next(error);
   }
 });
 
+// Generate link token for Discord user
+router.post('/users/link-token', async (req, res, next) => {
+  try {
+    const { discordId, purpose = 'roblox_link' } = req.body;
+
+    if (!discordId) {
+      throw new AppError('Discord ID is required', 400);
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: String(discordId),
+            providerId: 'discord',
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found. Please sign up first.', 404);
+    }
+
+    // Clean up any existing tokens for this user and purpose
+    await prisma.linkToken.deleteMany({
+      where: {
+        discordId: String(discordId),
+        purpose,
+      },
+    });
+
+    // Generate secure token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Create token
+    const linkToken = await prisma.linkToken.create({
+      data: {
+        token,
+        discordId: String(discordId),
+        purpose,
+        expiresAt,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      token: linkToken.token,
+      expiresAt: linkToken.expiresAt,
+      expiresIn: 15 * 60, // 15 minutes in seconds
+    });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+// Validate and consume link token
+router.get('/users/link-token/:token', async (req, res, next) => {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      throw new AppError('Token is required', 400);
+    }
+
+    // Find token
+    const linkToken = await prisma.linkToken.findUnique({
+      where: { token },
+    });
+
+    if (!linkToken) {
+      throw new AppError('Invalid or expired token', 404);
+    }
+
+    // Check if token is expired
+    if (linkToken.expiresAt < new Date()) {
+      // Clean up expired token
+      await prisma.linkToken.delete({
+        where: { id: linkToken.id },
+      });
+      throw new AppError('Token has expired', 410);
+    }
+
+    // Check if token is already used
+    if (linkToken.used) {
+      throw new AppError('Token has already been used', 410);
+    }
+
+    // Get user data
+    const user = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: linkToken.discordId,
+            providerId: 'discord',
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        accounts: {
+          select: {
+            accountId: true,
+            providerId: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      token: linkToken.token,
+      discordId: linkToken.discordId,
+      purpose: linkToken.purpose,
+      expiresAt: linkToken.expiresAt,
+      user,
+    });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+// Mark token as used
+router.post('/users/link-token/:token/use', async (req, res, next) => {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      throw new AppError('Token is required', 400);
+    }
+
+    // Find and update token
+    const linkToken = await prisma.linkToken.update({
+      where: { token },
+      data: { used: true },
+    });
+
+    if (!linkToken) {
+      throw new AppError('Token not found', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Token marked as used',
+    });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+// Transfer Roblox account between users (admin function)
+router.post('/users/transfer-roblox', async (req, res, next) => {
+  try {
+    const { fromDiscordId, toDiscordId, robloxId } = req.body;
+
+    if (!fromDiscordId || !toDiscordId || !robloxId) {
+      throw new AppError(
+        'From Discord ID, To Discord ID, and Roblox ID are required',
+        400
+      );
+    }
+
+    // Find target user by Discord ID
+    const targetUser = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: String(toDiscordId),
+            providerId: 'discord',
+          },
+        },
+      },
+    });
+
+    if (!targetUser) {
+      throw new AppError('Target user not found', 404);
+    }
+
+    // Find the Roblox account
+    const robloxAccount = await prisma.account.findFirst({
+      where: {
+        accountId: String(robloxId),
+        providerId: 'roblox',
+      },
+    });
+
+    if (!robloxAccount) {
+      throw new AppError('Roblox account not found', 404);
+    }
+
+    // Check if target user already has this Roblox account
+    if (robloxAccount.userId === targetUser.id) {
+      return res.status(200).json({
+        success: true,
+        message: 'Roblox account already linked to target user',
+        userId: targetUser.id,
+        robloxId: String(robloxId),
+      });
+    }
+
+    // Transfer the Roblox account
+    await prisma.account.update({
+      where: { id: robloxAccount.id },
+      data: { userId: targetUser.id },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Roblox account transferred successfully',
+      fromUserId: robloxAccount.userId,
+      toUserId: targetUser.id,
+      robloxId: String(robloxId),
+    });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+// Ensure user exists (create if not)
 router.post('/users/ensure', async (req, res, next) => {
   try {
     const { discordId, username } = req.body;
@@ -299,228 +574,6 @@ router.get('/users/:userId/accounts', async (req, res, next) => {
   } catch (error) {
     console.error('Error fetching user accounts:', error);
     next(error);
-  }
-});
-
-// Rate limiting for account linking
-const linkAccountLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 linking attempts per windowMs
-  message: 'Too many account linking attempts, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Handle Roblox OAuth callback for Discord users with proper validation
-router.post(
-  '/users/link-roblox-discord',
-  linkAccountLimiter,
-  async (req, res, next) => {
-    try {
-      metrics.incrementOAuthAttempt();
-
-      const { discordId, oauthCode, state, redirectUri } = req.body;
-
-      if (!discordId || !oauthCode || !state || !redirectUri) {
-        throw new AppError(
-          'Discord ID, OAuth code, state, and redirect URI are required',
-          400
-        );
-      }
-
-      // Validate state parameter to prevent CSRF
-      if (!validateOAuthState(state, discordId)) {
-        console.warn('Invalid OAuth state', { discordId, hasState: !!state });
-        throw new AppError('Invalid or expired state parameter', 400);
-      }
-
-      // Verify Discord user exists
-      console.info('Validating Discord user', { discordId });
-      const discordUserExists = await validateDiscordUser(discordId);
-      if (!discordUserExists) {
-        console.warn('Discord user validation failed', { discordId });
-        metrics.incrementDiscordValidationFailure();
-        throw new AppError('Discord user not found or invalid', 404);
-      }
-
-      // Validate OAuth code with Roblox API and get real Roblox user ID
-      console.info('Validating Roblox OAuth code', { discordId, redirectUri });
-      let robloxUserId: string;
-      try {
-        robloxUserId = await validateRobloxOAuth(oauthCode, redirectUri);
-        console.info('Roblox user ID obtained', { discordId, robloxUserId });
-      } catch (error) {
-        metrics.incrementRobloxValidationFailure();
-        throw error;
-      }
-
-      // Find the user by Discord account
-      const user = await prisma.user.findFirst({
-        where: {
-          accounts: {
-            some: {
-              accountId: discordId,
-              providerId: 'discord',
-            },
-          },
-        },
-      });
-
-      if (!user) {
-        throw new AppError('User not found', 404);
-      }
-
-      // Check if Roblox account is already linked
-      const existingRobloxAccount = await prisma.account.findFirst({
-        where: {
-          userId: user.id,
-          providerId: 'roblox',
-        },
-      });
-
-      if (existingRobloxAccount) {
-        console.info('Roblox account already linked', {
-          discordId,
-          robloxUserId,
-        });
-        return res.status(200).json({
-          success: true,
-          message: 'Roblox account already linked',
-          account: existingRobloxAccount,
-        });
-      }
-
-      // Create Roblox account link with verified user ID
-      const robloxAccount = await prisma.account.create({
-        data: {
-          id: `roblox_${robloxUserId}`,
-          accountId: robloxUserId,
-          providerId: 'roblox',
-          userId: user.id,
-        },
-      });
-
-      console.info('Roblox account linked successfully', {
-        discordId,
-        robloxUserId,
-        userId: user.id,
-      });
-      metrics.incrementOAuthSuccess();
-
-      res.status(201).json({
-        success: true,
-        message: 'Roblox account linked successfully',
-        account: robloxAccount,
-      });
-    } catch (error) {
-      console.error('Error linking Roblox account for Discord user:', error);
-      metrics.incrementOAuthFailure();
-      // Don't expose internal error details to client
-      if (error instanceof AppError) {
-        next(error);
-      } else {
-        next(new AppError('Failed to link Roblox account', 500));
-      }
-    }
-  }
-);
-
-// Generate Roblox OAuth URL
-router.post('/users/roblox-oauth-url', async (req, res, next) => {
-  try {
-    const { redirectUri, discordId } = req.body;
-
-    console.info('Generating OAuth URL', {
-      discordId,
-      hasRedirectUri: !!redirectUri,
-    });
-
-    if (!redirectUri) {
-      throw new AppError('Redirect URI is required', 400);
-    }
-
-    if (!discordId) {
-      throw new AppError('Discord ID is required', 400);
-    }
-
-    const clientId = process.env.ROBLOX_CLIENT_ID;
-    if (!clientId) {
-      console.error('ROBLOX_CLIENT_ID not found in environment variables');
-      throw new AppError('Roblox OAuth not configured', 500);
-    }
-
-    // Generate secure state parameter server-side
-    const { generateOAuthState } = await import(
-      '../lib/discord-verification.js'
-    );
-    const state = generateOAuthState(discordId);
-
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      response_type: 'code',
-      scope: 'openid',
-    });
-
-    if (state) {
-      params.append('state', state);
-    }
-
-    const authUrl = `https://apis.roblox.com/oauth/v1/authorize?${params.toString()}`;
-
-    console.info('Generated OAuth URL', { discordId, hasState: !!state });
-
-    res.status(200).json({
-      success: true,
-      authUrl,
-    });
-  } catch (error) {
-    console.error('Error generating OAuth URL:', error);
-    // Don't expose internal error details to client
-    if (error instanceof AppError) {
-      next(error);
-    } else {
-      next(new AppError('Failed to generate OAuth URL', 500));
-    }
-  }
-});
-
-// Test endpoint to debug OAuth flow
-router.post('/users/test-oauth', async (req, res, _next) => {
-  try {
-    const { discordId, oauthCode, state, redirectUri } = req.body;
-
-    console.log('Test OAuth request received:', {
-      discordId,
-      oauthCode: oauthCode ? 'present' : 'missing',
-      state,
-      redirectUri,
-    });
-
-    // Test state validation
-    const stateValid = validateOAuthState(state, discordId);
-    console.log('State validation result:', stateValid);
-
-    // Test Discord user validation
-    const discordValid = await validateDiscordUser(discordId);
-    console.log('Discord validation result:', discordValid);
-
-    res.status(200).json({
-      success: true,
-      message: 'Test completed',
-      results: {
-        stateValid,
-        discordValid,
-        hasOAuthCode: !!oauthCode,
-        hasRedirectUri: !!redirectUri,
-      },
-    });
-  } catch (error) {
-    console.error('Test OAuth error:', error);
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
   }
 });
 

@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { getApiBaseUrl } from '@/lib/api-base-url'
 
 export const Route = createFileRoute('/auth/callback')({
   component: AuthCallbackPage,
@@ -18,13 +17,22 @@ export const Route = createFileRoute('/auth/callback')({
       state: (search.state as string) || undefined,
       error: (search.error as string) || undefined,
       discordId: (search.discordId as string) || undefined,
+      success: (search.success as string) || undefined,
+      message: (search.message as string) || undefined,
     }
   },
 })
 
 function AuthCallbackPage() {
   const navigate = useNavigate()
-  const { code, state, error, discordId } = useSearch({
+  const {
+    code,
+    state,
+    error,
+    discordId,
+    success,
+    message: urlMessage,
+  } = useSearch({
     from: '/auth/callback',
   })
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>(
@@ -33,100 +41,54 @@ function AuthCallbackPage() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    const handleCallback = async () => {
+    const handleCallback = () => {
       try {
         if (error) {
           setStatus('error')
-          setMessage(`Authentication failed: ${error}`)
+          let errorMessage = `Authentication failed: ${error}`
+
+          // Handle specific error types with better messages
+          if (error === 'oauth_code_used') {
+            errorMessage =
+              'OAuth code has already been used. Please try linking your account again.'
+          } else if (error === 'user_not_found') {
+            errorMessage =
+              'Discord user not found. Please ensure you are logged in with Discord first.'
+          } else if (error === 'account_conflict') {
+            errorMessage = 'Roblox account is already linked to another user.'
+          } else if (error === 'oauth_validation_failed') {
+            errorMessage = 'Failed to validate OAuth code. Please try again.'
+          } else if (error === 'callback_error') {
+            errorMessage =
+              'An error occurred while processing the authentication.'
+          } else if (error === 'user_creation_failed') {
+            errorMessage = 'Failed to create user account. Please try again.'
+          }
+
+          setMessage(errorMessage)
           return
         }
 
-        if (!code) {
-          setStatus('error')
-          setMessage('No authorization code received')
-          return
-        }
-
-        // Determine Discord ID from URL parameter or state parameter
-        let discordUserId = discordId
-        if (!discordUserId && state && state.startsWith('discord_')) {
-          // Extract Discord ID from state parameter if not in URL
-          const stateParts = state.split('_')
-          if (stateParts.length >= 2) {
-            discordUserId = stateParts[1]
-          }
-        }
-
-        // If we have a Discord ID, this is a Discord user linking Roblox
-        if (discordUserId) {
-          // Validate state parameter for CSRF protection
-          if (!state || !state.startsWith(`discord_${discordUserId}_`)) {
-            setStatus('error')
-            setMessage('Invalid state parameter. Please try again.')
-            return
-          }
-
-          try {
-            // In a real implementation, you would:
-            // 1. Exchange the code for an access token
-            // 2. Use the access token to get user info from Roblox
-            // 3. Extract the Roblox user ID
-            // 4. Call the API to link the accounts
-
-            // Get the current URL to use as redirect URI
-            const redirectUri = `${window.location.origin}/auth/callback`
-
-            const response = await fetch(
-              `${getApiBaseUrl()}/api/users/link-roblox-discord`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  discordId: discordUserId,
-                  oauthCode: code,
-                  state,
-                  redirectUri,
-                }),
-              },
-            )
-
-            if (response.ok) {
-              setStatus('success')
-              setMessage('Roblox account linked successfully!')
-
-              // Redirect to success page after 3 seconds
-              setTimeout(() => {
-                navigate({
-                  to: '/auth/link/roblox',
-                  search: { discordId: discordUserId },
-                })
-              }, 3000)
-            } else {
-              const errorData = await response.json()
-              console.error('API Error:', errorData)
-              setStatus('error')
-              setMessage(
-                `Failed to link account: ${errorData.message || 'Unknown error'}`,
-              )
-            }
-          } catch (linkError) {
-            console.error('Error linking Roblox account:', linkError)
-            setStatus('error')
-            setMessage(
-              `An error occurred while linking your account: ${linkError instanceof Error ? linkError.message : 'Unknown error'}`,
-            )
-          }
-        } else {
-          // Regular OAuth callback for authenticated users
+        if (success) {
           setStatus('success')
-          setMessage('Authentication successful!')
+          setMessage(urlMessage || 'Account linked successfully!')
 
-          // Redirect to user profile
+          // Redirect to success page after 3 seconds
           setTimeout(() => {
-            navigate({ to: '/user' })
-          }, 2000)
+            navigate({
+              to: '/auth/link/roblox',
+              search: { discordId },
+            })
+          }, 3000)
+          return
+        }
+
+        // All OAuth processing is now handled in the API callback
+        // This web app callback just displays the result
+        if (!success && !error) {
+          setStatus('error')
+          setMessage('No authorization result received')
+          return
         }
       } catch (callbackError) {
         console.error('Error handling OAuth callback:', callbackError)

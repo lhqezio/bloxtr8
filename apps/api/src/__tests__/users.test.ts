@@ -8,6 +8,11 @@ const mockAccountFindMany = jest.fn();
 const mockAccountCreate = jest.fn();
 const mockAccountUpsert = jest.fn();
 const mockTransaction = jest.fn();
+const mockLinkTokenFindUnique = jest.fn();
+const mockLinkTokenCreate = jest.fn();
+const mockLinkTokenUpdate = jest.fn();
+const mockLinkTokenDelete = jest.fn();
+const mockLinkTokenDeleteMany = jest.fn();
 
 jest.mock('@bloxtr8/database', () => ({
   PrismaClient: jest.fn().mockImplementation(() => ({
@@ -20,6 +25,13 @@ jest.mock('@bloxtr8/database', () => ({
       findMany: mockAccountFindMany,
       create: mockAccountCreate,
       upsert: mockAccountUpsert,
+    },
+    linkToken: {
+      findUnique: mockLinkTokenFindUnique,
+      create: mockLinkTokenCreate,
+      update: mockLinkTokenUpdate,
+      delete: mockLinkTokenDelete,
+      deleteMany: mockLinkTokenDeleteMany,
     },
     $transaction: mockTransaction,
   })),
@@ -104,7 +116,7 @@ describe('Users API Routes', () => {
         email: 'test@example.com',
         kycVerified: true,
         kycTier: 'TIER_2',
-        accounts: [{ accountId: 'discord-123' }],
+        accounts: [{ accountId: 'discord-123', providerId: 'discord' }],
       };
 
       mockUserFindFirst.mockResolvedValue(mockUser);
@@ -130,11 +142,9 @@ describe('Users API Routes', () => {
           kycVerified: true,
           kycTier: true,
           accounts: {
-            where: {
-              providerId: 'discord',
-            },
             select: {
               accountId: true,
+              providerId: true,
             },
           },
         },
@@ -197,7 +207,12 @@ describe('Users API Routes', () => {
         .get('/api/users/accounts/discord-123')
         .expect(200);
 
-      expect(response.body).toEqual(mockAccounts);
+      expect(response.body).toEqual({
+        user: mockUser,
+        accounts: mockAccounts,
+        discordUserInfo: null,
+        robloxUserInfo: null,
+      });
       expect(mockUserFindFirst).toHaveBeenCalledWith({
         where: {
           accounts: {
@@ -206,6 +221,13 @@ describe('Users API Routes', () => {
               providerId: 'discord',
             },
           },
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          kycVerified: true,
+          kycTier: true,
         },
       });
       expect(mockAccountFindMany).toHaveBeenCalledWith({
@@ -530,6 +552,297 @@ describe('Users API Routes', () => {
         .expect(200);
 
       expect(response.body.name).toBe(unicodeUsername);
+    });
+  });
+
+  describe('POST /api/users/link-token', () => {
+    it('should generate link token for valid user', async () => {
+      const mockUser = { id: 'user-123' };
+      const mockLinkToken = {
+        id: 'token-123',
+        token: 'generated-token',
+        discordId: '123456789',
+        purpose: 'roblox_link',
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      };
+
+      mockUserFindFirst.mockResolvedValue(mockUser);
+      mockLinkTokenDeleteMany.mockResolvedValue({ count: 1 });
+      mockLinkTokenCreate.mockResolvedValue(mockLinkToken);
+
+      const response = await request(app)
+        .post('/api/users/link-token')
+        .send({
+          discordId: '123456789',
+          purpose: 'roblox_link',
+        })
+        .expect(201);
+
+      expect(response.body).toMatchObject({
+        success: true,
+        token: 'generated-token',
+        expiresAt: expect.any(String),
+        expiresIn: 15 * 60,
+      });
+      expect(mockUserFindFirst).toHaveBeenCalledWith({
+        where: {
+          accounts: {
+            some: {
+              accountId: '123456789',
+              providerId: 'discord',
+            },
+          },
+        },
+      });
+      expect(mockLinkTokenCreate).toHaveBeenCalledWith({
+        data: {
+          token: expect.any(String),
+          discordId: '123456789',
+          purpose: 'roblox_link',
+          expiresAt: expect.any(Date),
+        },
+      });
+    });
+
+    it('should return 400 when discordId is missing', async () => {
+      const response = await request(app)
+        .post('/api/users/link-token')
+        .send({})
+        .expect(400);
+
+      expect(response.body).toMatchObject({
+        type: 'https://bloxtr8.com/problems/bad-request',
+        title: 'Bad Request',
+        status: 400,
+        detail: 'Discord ID is required',
+      });
+    });
+
+    it('should return 404 when user is not found', async () => {
+      mockUserFindFirst.mockResolvedValue(null);
+
+      const response = await request(app)
+        .post('/api/users/link-token')
+        .send({
+          discordId: 'nonexistent-123',
+        })
+        .expect(404);
+
+      expect(response.body).toMatchObject({
+        type: 'https://bloxtr8.com/problems/not-found',
+        title: 'Not Found',
+        status: 404,
+        detail: 'User not found. Please sign up first.',
+      });
+    });
+
+    it('should use default purpose when not provided', async () => {
+      const mockUser = { id: 'user-123' };
+      const mockLinkToken = {
+        id: 'token-123',
+        token: 'generated-token',
+        discordId: '123456789',
+        purpose: 'roblox_link',
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      };
+
+      mockUserFindFirst.mockResolvedValue(mockUser);
+      mockLinkTokenDeleteMany.mockResolvedValue({ count: 1 });
+      mockLinkTokenCreate.mockResolvedValue(mockLinkToken);
+
+      const response = await request(app)
+        .post('/api/users/link-token')
+        .send({
+          discordId: '123456789',
+        })
+        .expect(201);
+
+      expect(response.body).toMatchObject({
+        success: true,
+        token: 'generated-token',
+      });
+      expect(mockLinkTokenCreate).toHaveBeenCalledWith({
+        data: {
+          token: expect.any(String),
+          discordId: '123456789',
+          purpose: 'roblox_link',
+          expiresAt: expect.any(Date),
+        },
+      });
+    });
+  });
+
+  describe('GET /api/users/link-token/:token', () => {
+    it('should validate and return token data', async () => {
+      const mockLinkToken = {
+        id: 'token-123',
+        token: 'valid-token',
+        discordId: '123456789',
+        purpose: 'roblox_link',
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+        used: false,
+      };
+      const mockUser = {
+        id: 'user-123',
+        name: 'Test User',
+        email: 'test@example.com',
+        accounts: [{ accountId: '123456789', providerId: 'discord' }],
+      };
+
+      mockLinkTokenFindUnique.mockResolvedValue(mockLinkToken);
+      mockUserFindFirst.mockResolvedValue(mockUser);
+
+      const response = await request(app)
+        .get('/api/users/link-token/valid-token')
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        success: true,
+        token: 'valid-token',
+        discordId: '123456789',
+        purpose: 'roblox_link',
+        expiresAt: expect.any(String),
+        user: expect.objectContaining({
+          id: 'user-123',
+          name: 'Test User',
+          email: 'test@example.com',
+        }),
+      });
+    });
+
+    it('should return 404 when token is invalid', async () => {
+      mockLinkTokenFindUnique.mockResolvedValue(null);
+
+      const response = await request(app)
+        .get('/api/users/link-token/invalid-token')
+        .expect(404);
+
+      expect(response.body).toMatchObject({
+        type: 'https://bloxtr8.com/problems/not-found',
+        title: 'Not Found',
+        status: 404,
+        detail: 'Invalid or expired token',
+      });
+    });
+
+    it('should return 410 when token is expired', async () => {
+      const expiredToken = {
+        id: 'token-123',
+        token: 'expired-token',
+        discordId: '123456789',
+        purpose: 'roblox_link',
+        expiresAt: new Date(Date.now() - 1000), // 1 second ago
+        used: false,
+      };
+
+      mockLinkTokenFindUnique.mockResolvedValue(expiredToken);
+      mockLinkTokenDelete.mockResolvedValue(expiredToken);
+
+      const response = await request(app)
+        .get('/api/users/link-token/expired-token')
+        .expect(410);
+
+      expect(response.body).toMatchObject({
+        type: 'https://bloxtr8.com/problems/unknown-error',
+        title: 'Unknown Error',
+        status: 410,
+        detail: 'Token has expired',
+      });
+      expect(mockLinkTokenDelete).toHaveBeenCalledWith({
+        where: { id: 'token-123' },
+      });
+    });
+
+    it('should return 410 when token is already used', async () => {
+      const usedToken = {
+        id: 'token-123',
+        token: 'used-token',
+        discordId: '123456789',
+        purpose: 'roblox_link',
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+        used: true,
+      };
+
+      mockLinkTokenFindUnique.mockResolvedValue(usedToken);
+
+      const response = await request(app)
+        .get('/api/users/link-token/used-token')
+        .expect(410);
+
+      expect(response.body).toMatchObject({
+        type: 'https://bloxtr8.com/problems/unknown-error',
+        title: 'Unknown Error',
+        status: 410,
+        detail: 'Token has already been used',
+      });
+    });
+
+    it('should return 404 when user is not found', async () => {
+      const mockLinkToken = {
+        id: 'token-123',
+        token: 'valid-token',
+        discordId: '123456789',
+        purpose: 'roblox_link',
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+        used: false,
+      };
+
+      mockLinkTokenFindUnique.mockResolvedValue(mockLinkToken);
+      mockUserFindFirst.mockResolvedValue(null);
+
+      const response = await request(app)
+        .get('/api/users/link-token/valid-token')
+        .expect(404);
+
+      expect(response.body).toMatchObject({
+        type: 'https://bloxtr8.com/problems/not-found',
+        title: 'Not Found',
+        status: 404,
+        detail: 'User not found',
+      });
+    });
+  });
+
+  describe('POST /api/users/link-token/:token/use', () => {
+    it('should mark token as used', async () => {
+      const mockLinkToken = {
+        id: 'token-123',
+        token: 'valid-token',
+        discordId: '123456789',
+        purpose: 'roblox_link',
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+        used: true,
+      };
+
+      mockLinkTokenUpdate.mockResolvedValue(mockLinkToken);
+
+      const response = await request(app)
+        .post('/api/users/link-token/valid-token/use')
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        success: true,
+        message: 'Token marked as used',
+      });
+      expect(mockLinkTokenUpdate).toHaveBeenCalledWith({
+        where: { token: 'valid-token' },
+        data: { used: true },
+      });
+    });
+
+    it('should return 404 when token is not found', async () => {
+      mockLinkTokenUpdate.mockResolvedValue(null);
+
+      const response = await request(app)
+        .post('/api/users/link-token/nonexistent-token/use')
+        .expect(404);
+
+      expect(response.body).toMatchObject({
+        type: 'https://bloxtr8.com/problems/not-found',
+        title: 'Not Found',
+        status: 404,
+        detail: 'Token not found',
+      });
     });
   });
 });
