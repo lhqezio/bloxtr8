@@ -12,6 +12,9 @@ import { ensureUserExists } from '../utils/userVerification.js';
 
 export async function handleSignup(interaction: ChatInputCommandInteraction) {
   try {
+    // Defer the reply immediately to extend the timeout to 15 minutes
+    await interaction.deferReply({ ephemeral: true });
+
     // Check if user already exists
     const existingUser = await verify(interaction.user.id);
 
@@ -29,7 +32,7 @@ export async function handleSignup(interaction: ChatInputCommandInteraction) {
           },
           {
             name: '🔗 Link',
-            value: '`/linkrblx` - Connect Roblox',
+            value: '`/link` - Connect Roblox',
             inline: true,
           },
           {
@@ -44,9 +47,8 @@ export async function handleSignup(interaction: ChatInputCommandInteraction) {
         })
         .setTimestamp();
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [embed],
-        ephemeral: true,
       });
       return;
     }
@@ -98,18 +100,31 @@ export async function handleSignup(interaction: ChatInputCommandInteraction) {
       declineButton
     );
 
-    await interaction.reply({
+    await interaction.editReply({
       embeds: [consentEmbed],
       components: [buttonRow],
-      ephemeral: true,
     });
   } catch (error) {
     console.error('Error handling signup:', error);
-    await interaction.reply({
-      content:
-        '❌ An error occurred while processing your signup request. Please try again later.',
-      ephemeral: true,
-    });
+
+    // Try to edit the reply if it was deferred, otherwise send a follow-up
+    try {
+      await interaction.editReply({
+        content:
+          '❌ An error occurred while processing your signup request. Please try again later.',
+      });
+    } catch {
+      // If edit fails, try to send a follow-up message
+      try {
+        await interaction.followUp({
+          content:
+            '❌ An error occurred while processing your signup request. Please try again later.',
+          ephemeral: true,
+        });
+      } catch (followUpError) {
+        console.error('Failed to send error message:', followUpError);
+      }
+    }
   }
 }
 
@@ -160,7 +175,7 @@ export async function handleConsentAccept(interaction: ButtonInteraction) {
         },
         {
           name: '🚀 Next Steps',
-          value: '`/linkrblx` - Connect Roblox\n`/verify` - Check status',
+          value: '`/link` - Connect Roblox\n`/verify` - Check status',
           inline: false,
         }
       )

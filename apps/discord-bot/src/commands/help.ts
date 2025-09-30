@@ -9,7 +9,7 @@ export async function handleHelp(interaction: ChatInputCommandInteraction) {
       {
         name: '🚀 Getting Started',
         value:
-          '`/signup` - Create your Bloxtr8 account\n`/linkrblx` - Link your Roblox account',
+          '`/signup` - Create your Bloxtr8 account\n`/link` - Link your Roblox account',
         inline: false,
       },
       {

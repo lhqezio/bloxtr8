@@ -19,10 +19,38 @@ export interface Account {
   accountId: string;
   providerId: string;
 }
+
+export interface VerifyResponse {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    kycVerified: boolean;
+    kycTier: 'TIER_1' | 'TIER_2';
+  };
+  accounts: Account[];
+  discordUserInfo: {
+    id: string;
+    username: string;
+    discriminator: string;
+    avatar: string | null;
+    display_name: string | null;
+  } | null;
+  robloxUserInfo: {
+    id: number;
+    name: string;
+    displayName: string;
+    description: string;
+    created: string;
+    isBanned: boolean;
+  } | null;
+}
+
 export async function verify(
   discord_id: string
 ): Promise<
-  { success: true; data: Account[] } | { success: false; error: ApiError }
+  | { success: true; data: VerifyResponse | Account[] }
+  | { success: false; error: ApiError }
 > {
   const apiBaseUrl: string = getApiBaseUrl();
   try {
@@ -33,6 +61,8 @@ export async function verify(
         headers: {
           'Content-Type': 'application/json',
         },
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(5000), // 5 second timeout
       }
     );
 
@@ -40,16 +70,25 @@ export async function verify(
       throw new Error(`HTTP error ${response.status}`);
     }
 
-    const responseData = (await response.json()) as Account[];
+    const responseData = (await response.json()) as VerifyResponse | Account[];
 
-    // Handle empty array response (no user found)
-    if (responseData.length === 0) {
+    // Handle empty array response (no user found) - legacy format
+    if (Array.isArray(responseData) && responseData.length === 0) {
       return { success: true, data: [] };
     }
 
+    // Handle legacy array format
+    if (Array.isArray(responseData)) {
+      return {
+        success: true,
+        data: responseData,
+      };
+    }
+
+    // Handle new detailed response format
     return {
       success: true,
-      data: responseData,
+      data: responseData as VerifyResponse,
     };
   } catch (error) {
     console.error('Error verify user:', error);
@@ -78,6 +117,8 @@ export async function verifyUserForListing(
         headers: {
           'Content-Type': 'application/json',
         },
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(5000), // 5 second timeout
       }
     );
 
@@ -126,6 +167,72 @@ export async function verifyUserForListing(
 }
 
 /**
+ * Checks if a user exists in the database without creating them
+ * This is used for commands that require an existing user
+ */
+export async function checkUserExists(
+  discordId: string
+): Promise<UserVerificationResult> {
+  try {
+    const apiBaseUrl = getApiBaseUrl();
+    const response = await fetch(
+      `${apiBaseUrl}/api/users/verify/${discordId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return {
+          isVerified: false,
+          user: undefined,
+          error: 'User not found. Please sign up first.',
+        };
+      }
+      return {
+        isVerified: false,
+        user: undefined,
+        error: 'Failed to check user account. Please try again later.',
+      };
+    }
+
+    const userData = (await response.json()) as {
+      id: string;
+      name: string;
+      email: string;
+      kycVerified: boolean;
+      kycTier: 'TIER_1' | 'TIER_2';
+      accounts: { accountId: string }[];
+    };
+
+    return {
+      isVerified: true,
+      user: {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        kycVerified: userData.kycVerified,
+        kycTier: userData.kycTier,
+        accounts: userData.accounts || [],
+      },
+    };
+  } catch (error) {
+    console.error('Error checking user existence:', error);
+    return {
+      isVerified: false,
+      user: undefined,
+      error: 'Network error occurred while checking user account.',
+    };
+  }
+}
+
+/**
  * Ensures a user exists in the database via API, creating them if necessary
  * This is called when a Discord user first interacts with the bot
  */
@@ -144,6 +251,8 @@ export async function ensureUserExists(
         discordId,
         username,
       }),
+      // Add timeout to prevent hanging requests
+      signal: AbortSignal.timeout(5000), // 5 second timeout
     });
 
     if (!response.ok) {
@@ -192,6 +301,8 @@ export async function checkProviderAccount(
         headers: {
           'Content-Type': 'application/json',
         },
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(5000), // 5 second timeout
       }
     );
 

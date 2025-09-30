@@ -128,6 +128,22 @@ model GuildMember {
   @@map("guild_members")
 }
 
+model LinkToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  discordId String
+  purpose   String   // e.g., 'roblox_link'
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([token])
+  @@index([discordId])
+  @@index([expiresAt])
+  @@map("link_tokens")
+}
+
 model Listing {
   id        String        @id @default(cuid())
   title     String

@@ -71,7 +71,7 @@ client.once('clientReady', async () => {
       .setDescription('Sign up for a Bloxtr8 account')
       .toJSON(),
     new SlashCommandBuilder()
-      .setName('linkrblx')
+      .setName('link')
       .setDescription('Link your Roblox account to Bloxtr8')
       .toJSON(),
   ];
@@ -125,7 +125,7 @@ client.on('interactionCreate', async interaction => {
     if (interaction.commandName === 'signup') {
       await handleSignup(interaction);
     }
-    if (interaction.commandName === 'linkrblx') {
+    if (interaction.commandName === 'link') {
       await handleLinkRoblox(interaction);
     }
   }
