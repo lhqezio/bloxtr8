@@ -32,8 +32,7 @@ async function main() {
   console.log('Creating users...');
   const alice = await prisma.user.create({
     data: {
-      discordId: 'alice_discord_123',
-      username: 'Alice',
+      name: 'Alice',
       email: 'alice@example.com',
       walletAddress: '0xAliceWalletAddress',
       kycTier: KycTier.TIER_2,
@@ -43,8 +42,7 @@ async function main() {
 
   const bob = await prisma.user.create({
     data: {
-      discordId: 'bob_discord_456',
-      username: 'Bob',
+      name: 'Bob',
       email: 'bob@example.com',
       walletAddress: '0xBobWalletAddress',
     },
@@ -52,8 +50,7 @@ async function main() {
 
   const charlie = await prisma.user.create({
     data: {
-      discordId: 'charlie_discord_789',
-      username: 'Charlie',
+      name: 'Charlie',
       email: 'charlie@example.com',
       walletAddress: '0xCharlieSanctionedWallet',
       walletRisk: 'SANCTIONED',
@@ -62,8 +59,7 @@ async function main() {
 
   const diane = await prisma.user.create({
     data: {
-      discordId: 'diane_discord_101',
-      username: 'Diane',
+      name: 'Diane',
       email: 'diane@example.com',
     },
   });
@@ -71,8 +67,7 @@ async function main() {
   // Add verified user for testing Discord bot
   const verifiedUser = await prisma.user.create({
     data: {
-      discordId: '426540459599593472',
-      username: 'VerifiedUser',
+      name: 'VerifiedUser',
       email: 'verified@example.com',
       phone: '+1234567890',
       walletAddress: '0xVerifiedUserWallet',
@@ -85,8 +80,7 @@ async function main() {
   // Add second verified user for testing Discord bot
   const verifiedUser2 = await prisma.user.create({
     data: {
-      discordId: '622492102042976271',
-      username: 'VerifiedUser2',
+      name: 'VerifiedUser2',
       email: 'verified2@example.com',
       phone: '+1234567891',
       walletAddress: '0xVerifiedUser2Wallet',
@@ -94,6 +88,48 @@ async function main() {
       kycVerified: true,
       walletRisk: 'LOW',
     },
+  });
+
+  // Create Discord account records for users
+  await prisma.account.createMany({
+    data: [
+      {
+        id: 'discord_alice_discord_123',
+        accountId: 'alice_discord_123',
+        providerId: 'discord',
+        userId: alice.id,
+      },
+      {
+        id: 'discord_bob_discord_456',
+        accountId: 'bob_discord_456',
+        providerId: 'discord',
+        userId: bob.id,
+      },
+      {
+        id: 'discord_charlie_discord_789',
+        accountId: 'charlie_discord_789',
+        providerId: 'discord',
+        userId: charlie.id,
+      },
+      {
+        id: 'discord_diane_discord_101',
+        accountId: 'diane_discord_101',
+        providerId: 'discord',
+        userId: diane.id,
+      },
+      {
+        id: 'discord_426540459599593472',
+        accountId: '426540459599593472',
+        providerId: 'discord',
+        userId: verifiedUser.id,
+      },
+      {
+        id: 'discord_622492102042976271',
+        accountId: '622492102042976271',
+        providerId: 'discord',
+        userId: verifiedUser2.id,
+      },
+    ],
   });
 
   // --- GUILDS ---
@@ -427,12 +463,12 @@ async function main() {
     data: [
       {
         action: 'USER_CREATED',
-        details: { username: alice.username },
+        details: { username: alice.name },
         userId: alice.id,
       },
       {
         action: 'ESCROW_FUNDS_RELEASED',
-        details: { amount: 5000, currency: 'USD', recipient: bob.username },
+        details: { amount: 5000, currency: 'USD', recipient: bob.name },
         escrowId: escrowForSword.id,
         userId: alice.id, // Action performed by Alice
       },

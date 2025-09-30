@@ -1,15 +1,104 @@
 import fetch from 'node-fetch';
 
+import type { ApiError } from './apiClient.ts';
+
 export interface UserVerificationResult {
   isVerified: boolean;
   user?: {
     id: string;
-    discordId: string;
-    username: string;
+    name: string | null;
+    email: string;
+    kycVerified: boolean;
+    kycTier: 'TIER_1' | 'TIER_2';
+    accounts: Array<{ accountId: string }>;
+  };
+  error?: string;
+}
+
+export interface Account {
+  accountId: string;
+  providerId: string;
+}
+
+export interface VerifyResponse {
+  user: {
+    id: string;
+    name: string;
+    email: string;
     kycVerified: boolean;
     kycTier: 'TIER_1' | 'TIER_2';
   };
-  error?: string;
+  accounts: Account[];
+  discordUserInfo: {
+    id: string;
+    username: string;
+    discriminator: string;
+    avatar: string | null;
+    display_name: string | null;
+  } | null;
+  robloxUserInfo: {
+    id: number;
+    name: string;
+    displayName: string;
+    description: string;
+    created: string;
+    isBanned: boolean;
+  } | null;
+}
+
+export async function verify(
+  discord_id: string
+): Promise<
+  | { success: true; data: VerifyResponse | Account[] }
+  | { success: false; error: ApiError }
+> {
+  const apiBaseUrl: string = getApiBaseUrl();
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/users/accounts/${discord_id}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error ${response.status}`);
+    }
+
+    const responseData = (await response.json()) as VerifyResponse | Account[];
+
+    // Handle empty array response (no user found) - legacy format
+    if (Array.isArray(responseData) && responseData.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    // Handle legacy array format
+    if (Array.isArray(responseData)) {
+      return {
+        success: true,
+        data: responseData,
+      };
+    }
+
+    // Handle new detailed response format
+    return {
+      success: true,
+      data: responseData as VerifyResponse,
+    };
+  } catch (error) {
+    console.error('Error verify user:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while verifying user',
+      },
+    };
+  }
 }
 
 /**
@@ -28,6 +117,8 @@ export async function verifyUserForListing(
         headers: {
           'Content-Type': 'application/json',
         },
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(5000), // 5 second timeout
       }
     );
 
@@ -46,10 +137,11 @@ export async function verifyUserForListing(
 
     const userData = (await response.json()) as {
       id: string;
-      discordId: string;
-      username: string;
+      name: string | null;
+      email: string;
       kycVerified: boolean;
       kycTier: 'TIER_1' | 'TIER_2';
+      accounts: Array<{ accountId: string }>;
     };
 
     if (!userData.kycVerified) {
@@ -75,6 +167,72 @@ export async function verifyUserForListing(
 }
 
 /**
+ * Checks if a user exists in the database without creating them
+ * This is used for commands that require an existing user
+ */
+export async function checkUserExists(
+  discordId: string
+): Promise<UserVerificationResult> {
+  try {
+    const apiBaseUrl = getApiBaseUrl();
+    const response = await fetch(
+      `${apiBaseUrl}/api/users/verify/${discordId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return {
+          isVerified: false,
+          user: undefined,
+          error: 'User not found. Please sign up first.',
+        };
+      }
+      return {
+        isVerified: false,
+        user: undefined,
+        error: 'Failed to check user account. Please try again later.',
+      };
+    }
+
+    const userData = (await response.json()) as {
+      id: string;
+      name: string;
+      email: string;
+      kycVerified: boolean;
+      kycTier: 'TIER_1' | 'TIER_2';
+      accounts: { accountId: string }[];
+    };
+
+    return {
+      isVerified: true,
+      user: {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        kycVerified: userData.kycVerified,
+        kycTier: userData.kycTier,
+        accounts: userData.accounts || [],
+      },
+    };
+  } catch (error) {
+    console.error('Error checking user existence:', error);
+    return {
+      isVerified: false,
+      user: undefined,
+      error: 'Network error occurred while checking user account.',
+    };
+  }
+}
+
+/**
  * Ensures a user exists in the database via API, creating them if necessary
  * This is called when a Discord user first interacts with the bot
  */
@@ -93,6 +251,8 @@ export async function ensureUserExists(
         discordId,
         username,
       }),
+      // Add timeout to prevent hanging requests
+      signal: AbortSignal.timeout(5000), // 5 second timeout
     });
 
     if (!response.ok) {
@@ -105,10 +265,11 @@ export async function ensureUserExists(
 
     const userData = (await response.json()) as {
       id: string;
-      discordId: string;
-      username: string;
+      name: string | null;
+      email: string;
       kycVerified: boolean;
       kycTier: 'TIER_1' | 'TIER_2';
+      accounts: Array<{ accountId: string }>;
     };
 
     return {
@@ -125,8 +286,41 @@ export async function ensureUserExists(
 }
 
 /**
+ * Checks if a user has a specific provider account linked
+ */
+export async function checkProviderAccount(
+  discordId: string,
+  providerId: 'roblox' | 'discord'
+): Promise<boolean> {
+  try {
+    const apiBaseUrl = getApiBaseUrl();
+    const response = await fetch(
+      `${apiBaseUrl}/api/users/accounts/${discordId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+      }
+    );
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const accounts = (await response.json()) as Account[];
+    return accounts.some(account => account.providerId === providerId);
+  } catch (error) {
+    console.error('Error checking provider account:', error);
+    return false;
+  }
+}
+
+/**
  * Gets the base URL for API calls
  */
 function getApiBaseUrl(): string {
-  return process.env.API_BASE_URL || 'http://api:3000';
+  return process.env.API_BASE_URL || 'http://localhost:3000';
 }

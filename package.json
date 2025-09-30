@@ -18,6 +18,7 @@
     "db:push": "dotenvx run -- pnpm --filter=@bloxtr8/database push",
     "db:migrate": "dotenvx run -- pnpm --filter=@bloxtr8/database migrate",
     "db:reset": "dotenvx run -- pnpm --filter=@bloxtr8/database reset",
+    "db:reset:hard": "dotenvx run -- pnpm --filter=@bloxtr8/database reset --force",
     "db:studio": "dotenvx run -- pnpm --filter=@bloxtr8/database studio",
     "db:seed": "dotenvx run -- pnpm --filter=@bloxtr8/database seed",
     "env:encrypt": "dotenvx encrypt",
@@ -46,7 +47,11 @@
     "docker:stats": "./scripts/docker-optimize.sh stats",
     "docker:clean": "./scripts/docker-optimize.sh clean",
     "docker:prune": "./scripts/docker-optimize.sh prune",
-    "docker:rebuild": "./scripts/docker-optimize.sh rebuild"
+    "docker:rebuild": "./scripts/docker-optimize.sh rebuild",
+    "dev:hoang": "./scripts/dev-setup.sh",
+    "dev:hoang:stop": "./scripts/dev-stop.sh",
+    "dev:hoang:logs": "./scripts/dev-logs.sh",
+    "dev:hoang:dashboard": "./scripts/dev-dashboard.sh"
   },
   "keywords": [
     "roblox",

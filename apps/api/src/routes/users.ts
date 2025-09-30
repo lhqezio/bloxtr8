@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 import { PrismaClient } from '@bloxtr8/database';
 import { Router, type Router as ExpressRouter } from 'express';
 
@@ -6,30 +8,59 @@ import { AppError } from '../middleware/errorHandler.js';
 const router: ExpressRouter = Router();
 const prisma = new PrismaClient();
 
-// User verification endpoints
-router.get('/users/verify/:discordId', async (req, res, next) => {
+// Get user account by ID
+router.get('/users/account/:id', async (req, res, next) => {
   try {
-    const { discordId } = req.params;
+    const { id } = req.params;
 
-    if (
-      !discordId ||
-      typeof discordId !== 'string' ||
-      discordId.trim() === ''
-    ) {
+    const info = await prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!info) {
+      throw new AppError('User not found', 404);
+    }
+
+    res.status(200).json(info);
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+// User verification endpoints
+router.get('/users/verify/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || typeof id !== 'string' || id.trim() === '') {
       throw new AppError(
-        'Discord ID is required and must be a non-empty string',
+        'Account ID is required and must be a non-empty string',
         400
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { discordId },
+    const user = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: id,
+            providerId: 'discord',
+          },
+        },
+      },
       select: {
         id: true,
-        discordId: true,
-        username: true,
+        name: true,
+        email: true,
         kycVerified: true,
         kycTier: true,
+        accounts: {
+          select: {
+            accountId: true,
+            providerId: true,
+          },
+        },
       },
     });
 
@@ -39,10 +70,336 @@ router.get('/users/verify/:discordId', async (req, res, next) => {
 
     res.status(200).json(user);
   } catch (error) {
+    console.error(error);
     next(error);
   }
 });
 
+// Account listing endpoint for Discord bot verify command
+router.get('/users/accounts/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || typeof id !== 'string' || id.trim() === '') {
+      throw new AppError(
+        'Account ID is required and must be a non-empty string',
+        400
+      );
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: id,
+            providerId: 'discord',
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        kycVerified: true,
+        kycTier: true,
+      },
+    });
+
+    if (!user) {
+      // Return empty array if user not found
+      return res.status(200).json([]);
+    }
+
+    const accounts = await prisma.account.findMany({
+      where: {
+        userId: user.id,
+      },
+      select: {
+        accountId: true,
+        providerId: true,
+      },
+    });
+
+    // Try to get Discord user info from Discord API
+    let discordUserInfo = null;
+    try {
+      const discordResponse = await fetch(
+        `https://discord.com/api/v10/users/${id}`,
+        {
+          headers: {
+            Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+          },
+        }
+      );
+
+      if (discordResponse.ok) {
+        discordUserInfo = await discordResponse.json();
+      }
+    } catch (discordError) {
+      console.warn('Failed to fetch Discord user info:', discordError);
+    }
+
+    // Try to get Roblox user info if Roblox account is linked
+    let robloxUserInfo = null;
+    const robloxAccount = accounts.find(acc => acc.providerId === 'roblox');
+    if (robloxAccount) {
+      try {
+        const robloxResponse = await fetch(
+          `https://users.roblox.com/v1/users/${robloxAccount.accountId}`
+        );
+        if (robloxResponse.ok) {
+          robloxUserInfo = await robloxResponse.json();
+        }
+      } catch (robloxError) {
+        console.warn('Failed to fetch Roblox user info:', robloxError);
+      }
+    }
+
+    const response = {
+      user,
+      accounts,
+      discordUserInfo,
+      robloxUserInfo,
+    };
+
+    res.status(200).json(response);
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+// Generate link token for Discord user
+router.post('/users/link-token', async (req, res, next) => {
+  try {
+    const { discordId, purpose = 'roblox_link' } = req.body;
+
+    if (!discordId) {
+      throw new AppError('Discord ID is required', 400);
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: String(discordId),
+            providerId: 'discord',
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found. Please sign up first.', 404);
+    }
+
+    // Clean up any existing tokens for this user and purpose
+    await prisma.linkToken.deleteMany({
+      where: {
+        discordId: String(discordId),
+        purpose,
+      },
+    });
+
+    // Generate secure token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Create token
+    const linkToken = await prisma.linkToken.create({
+      data: {
+        token,
+        discordId: String(discordId),
+        purpose,
+        expiresAt,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      token: linkToken.token,
+      expiresAt: linkToken.expiresAt,
+      expiresIn: 15 * 60, // 15 minutes in seconds
+    });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+// Validate and consume link token
+router.get('/users/link-token/:token', async (req, res, next) => {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      throw new AppError('Token is required', 400);
+    }
+
+    // Find token
+    const linkToken = await prisma.linkToken.findUnique({
+      where: { token },
+    });
+
+    if (!linkToken) {
+      throw new AppError('Invalid or expired token', 404);
+    }
+
+    // Check if token is expired
+    if (linkToken.expiresAt < new Date()) {
+      // Clean up expired token
+      await prisma.linkToken.delete({
+        where: { id: linkToken.id },
+      });
+      throw new AppError('Token has expired', 410);
+    }
+
+    // Check if token is already used
+    if (linkToken.used) {
+      throw new AppError('Token has already been used', 410);
+    }
+
+    // Get user data
+    const user = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: linkToken.discordId,
+            providerId: 'discord',
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        accounts: {
+          select: {
+            accountId: true,
+            providerId: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      token: linkToken.token,
+      discordId: linkToken.discordId,
+      purpose: linkToken.purpose,
+      expiresAt: linkToken.expiresAt,
+      user,
+    });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+// Mark token as used
+router.post('/users/link-token/:token/use', async (req, res, next) => {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      throw new AppError('Token is required', 400);
+    }
+
+    // Find and update token
+    const linkToken = await prisma.linkToken.update({
+      where: { token },
+      data: { used: true },
+    });
+
+    if (!linkToken) {
+      throw new AppError('Token not found', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Token marked as used',
+    });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+// Transfer Roblox account between users (admin function)
+router.post('/users/transfer-roblox', async (req, res, next) => {
+  try {
+    const { fromDiscordId, toDiscordId, robloxId } = req.body;
+
+    if (!fromDiscordId || !toDiscordId || !robloxId) {
+      throw new AppError(
+        'From Discord ID, To Discord ID, and Roblox ID are required',
+        400
+      );
+    }
+
+    // Find target user by Discord ID
+    const targetUser = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: String(toDiscordId),
+            providerId: 'discord',
+          },
+        },
+      },
+    });
+
+    if (!targetUser) {
+      throw new AppError('Target user not found', 404);
+    }
+
+    // Find the Roblox account
+    const robloxAccount = await prisma.account.findFirst({
+      where: {
+        accountId: String(robloxId),
+        providerId: 'roblox',
+      },
+    });
+
+    if (!robloxAccount) {
+      throw new AppError('Roblox account not found', 404);
+    }
+
+    // Check if target user already has this Roblox account
+    if (robloxAccount.userId === targetUser.id) {
+      return res.status(200).json({
+        success: true,
+        message: 'Roblox account already linked to target user',
+        userId: targetUser.id,
+        robloxId: String(robloxId),
+      });
+    }
+
+    // Transfer the Roblox account
+    await prisma.account.update({
+      where: { id: robloxAccount.id },
+      data: { userId: targetUser.id },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Roblox account transferred successfully',
+      fromUserId: robloxAccount.userId,
+      toUserId: targetUser.id,
+      robloxId: String(robloxId),
+    });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+// Ensure user exists (create if not)
 router.post('/users/ensure', async (req, res, next) => {
   try {
     const { discordId, username } = req.body;
@@ -51,40 +408,171 @@ router.post('/users/ensure', async (req, res, next) => {
       throw new AppError('Discord ID and username are required', 400);
     }
 
-    // Try to find existing user
-    let user = await prisma.user.findUnique({
-      where: { discordId },
+    // Try to find existing user by Discord account relation
+    let user = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: discordId,
+            providerId: 'discord',
+          },
+        },
+      },
       select: {
         id: true,
-        discordId: true,
-        username: true,
+        name: true,
+        email: true,
         kycVerified: true,
         kycTier: true,
+        accounts: {
+          where: {
+            providerId: 'discord',
+          },
+          select: {
+            accountId: true,
+          },
+        },
       },
     });
 
-    // Create user if they don't exist
+    // Create user if they don't exist at all
     if (!user) {
-      user = await prisma.user.create({
-        data: {
-          discordId,
-          username,
-          email: `${discordId}@discord.example`, // Placeholder email for Discord users
-          kycVerified: false, // Default to unverified
-          kycTier: 'TIER_1', // Default tier
-        },
-        select: {
-          id: true,
-          discordId: true,
-          username: true,
-          kycVerified: true,
-          kycTier: true,
-        },
+      // Use transaction to ensure both user and account are created atomically
+      const result = await prisma.$transaction(async tx => {
+        // Create user with placeholder email
+        const newUser = await tx.user.create({
+          data: {
+            name: username,
+            email: `${discordId}@discord.example`, // Placeholder email for Discord users
+            kycVerified: false, // Default to unverified
+            kycTier: 'TIER_1', // Default tier
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            kycVerified: true,
+            kycTier: true,
+          },
+        });
+
+        // Create linked Discord account record
+        await tx.account.create({
+          data: {
+            id: `discord_${discordId}`,
+            accountId: discordId,
+            providerId: 'discord',
+            userId: newUser.id,
+          },
+        });
+
+        return {
+          ...newUser,
+          accounts: [{ accountId: discordId }],
+        };
       });
+
+      user = result;
     }
 
     res.status(200).json(user);
   } catch (error) {
+    next(error);
+  }
+});
+
+// Account linking endpoint
+router.post('/users/link-account', async (req, res, next) => {
+  try {
+    const { userId, providerId, accountId } = req.body;
+
+    if (!userId || !providerId || !accountId) {
+      throw new AppError(
+        'User ID, provider ID, and account ID are required',
+        400
+      );
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    // Check if account is already linked
+    const existingAccount = await prisma.account.findFirst({
+      where: {
+        userId,
+        providerId,
+        accountId,
+      },
+    });
+
+    if (existingAccount) {
+      return res.status(200).json({
+        success: true,
+        message: 'Account already linked',
+        account: existingAccount,
+      });
+    }
+
+    // Create new account link
+    const newAccount = await prisma.account.create({
+      data: {
+        id: `${providerId}_${accountId}`,
+        accountId,
+        providerId,
+        userId,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Account linked successfully',
+      account: newAccount,
+    });
+  } catch (error) {
+    console.error('Error linking account:', error);
+    next(error);
+  }
+});
+
+// Get user's linked accounts
+router.get('/users/:userId/accounts', async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      throw new AppError('User ID is required', 400);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        accounts: {
+          select: {
+            id: true,
+            accountId: true,
+            providerId: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      accounts: user.accounts,
+    });
+  } catch (error) {
+    console.error('Error fetching user accounts:', error);
     next(error);
   }
 });
