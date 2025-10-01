@@ -29,25 +29,51 @@ print_warning() {
 stop_service() {
     local service_name=$1
     local pid_file=".${service_name}.pid"
+    local killed=false
     
     if [ -f "$pid_file" ]; then
         local pid=$(cat "$pid_file")
         if kill -0 $pid 2>/dev/null; then
             print_status "Stopping $service_name (PID: $pid)..."
-            kill $pid
+            kill $pid 2>/dev/null || true
             # Wait for graceful shutdown
             sleep 2
             if kill -0 $pid 2>/dev/null; then
                 print_warning "Force killing $service_name..."
-                kill -9 $pid
+                kill -9 $pid 2>/dev/null || true
             fi
             print_success "$service_name stopped"
+            killed=true
         else
-            print_warning "$service_name was not running"
+            print_warning "$service_name was not running (stale PID file)"
         fi
         rm -f "$pid_file"
     else
         print_warning "No PID file found for $service_name"
+    fi
+    
+    # If PID file method didn't work, try killing by port
+    if [ "$killed" = false ]; then
+        local port=""
+        case $service_name in
+            "api") port=3000 ;;
+            "web-app") port=5173 ;;
+        esac
+        
+        if [ -n "$port" ]; then
+            local pids=$(lsof -t -i :$port 2>/dev/null || true)
+            if [ -n "$pids" ]; then
+                print_status "Found $service_name running on port $port (PIDs: $pids)"
+                for pid in $pids; do
+                    kill $pid 2>/dev/null || true
+                    sleep 1
+                    if kill -0 $pid 2>/dev/null; then
+                        kill -9 $pid 2>/dev/null || true
+                    fi
+                done
+                print_success "$service_name stopped (by port)"
+            fi
+        fi
     fi
 }
 

@@ -89,7 +89,9 @@ function RobloxLinkPage() {
           return
         }
 
-        // For web app users, check if Roblox is linked
+        // For web app users, get Discord account info and check if Roblox is linked
+        // Note: We'll need to fetch user accounts separately since they're not in the session
+        // For now, we'll handle this in the handleLinkRoblox function
         setStatus('linking')
         setMessage('Ready to link your Roblox account')
       } catch (error) {
@@ -150,7 +152,38 @@ function RobloxLinkPage() {
       // For authenticated users, get OAuth URL from server
       const redirectUri = `${getApiBaseUrl()}/api/oauth/roblox/callback`
 
+      // Get Discord account from session
+      const session = await authClient.getSession()
+      if (!session.data?.user) {
+        setStatus('error')
+        setMessage('Session expired. Please sign in again.')
+        return
+      }
+
+      // Fetch user accounts to get Discord ID
       try {
+        const userResponse = await fetch(
+          `${getApiBaseUrl()}/api/users/${session.data.user.id}`,
+        )
+        if (!userResponse.ok) {
+          setStatus('error')
+          setMessage('Failed to fetch user information.')
+          return
+        }
+
+        const userData = await userResponse.json()
+        const discordAcc = userData.accounts?.find(
+          (account: any) => account.providerId === 'discord',
+        )
+
+        if (!discordAcc) {
+          setStatus('error')
+          setMessage(
+            'No Discord account found. Please sign in with Discord first.',
+          )
+          return
+        }
+
         const response = await fetch(
           `${getApiBaseUrl()}/api/oauth/roblox/url`,
           {
@@ -160,6 +193,7 @@ function RobloxLinkPage() {
             },
             body: JSON.stringify({
               redirectUri,
+              discordId: discordAcc.accountId,
             }),
           },
         )
