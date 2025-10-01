@@ -244,7 +244,7 @@ show_help() {
     echo "  Right: Discord Bot"
     echo ""
     echo "Press any key to return to dashboard..."
-    read -n 1
+    read -n 1 2>/dev/null || sleep 3
 }
 
 # Show all logs
@@ -263,33 +263,50 @@ show_all_logs() {
     done
     
     echo "Press any key to return to dashboard..."
-    read -n 1
+    read -n 1 2>/dev/null || sleep 3
 }
 
 # Main dashboard loop
 main_loop() {
+    # Check if we have a proper TTY for interactive mode
+    if [ -t 0 ]; then
+        # Save terminal settings
+        old_tty_settings=$(stty -g 2>/dev/null)
+    fi
+    
     while true; do
         update_all_statuses
         draw_dashboard
         
         # Read user input with timeout
-        if read -t 5 -n 1 key; then
-            case $key in
-                'q'|'Q')
-                    break
-                    ;;
-                'r'|'R')
-                    # Refresh - already handled by loop
-                    ;;
-                's'|'S')
-                    show_all_logs
-                    ;;
-                'h'|'H')
-                    show_help
-                    ;;
-            esac
+        if [ -t 0 ]; then
+            # Interactive mode: read with timeout
+            if read -t 5 -n 1 key 2>/dev/null; then
+                case $key in
+                    'q'|'Q')
+                        break
+                        ;;
+                    'r'|'R')
+                        # Refresh - already handled by loop
+                        ;;
+                    's'|'S')
+                        show_all_logs
+                        ;;
+                    'h'|'H')
+                        show_help
+                        ;;
+                esac
+            fi
+        else
+            # Non-interactive mode: just sleep and refresh
+            sleep 5
         fi
     done
+    
+    # Restore terminal settings if saved
+    if [ -n "$old_tty_settings" ]; then
+        stty "$old_tty_settings" 2>/dev/null
+    fi
 }
 
 # Signal handlers
