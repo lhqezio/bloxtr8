@@ -201,57 +201,51 @@ router.get('/roblox/callback', async (req, res, _next) => {
         return res.redirect(webAppErrorUrl);
       }
 
-      // Check if Roblox account is already linked to this user
-      const existingRobloxAccount = await prisma.account.findFirst({
-        where: {
-          userId: user.id,
-          providerId: 'roblox',
-        },
-      });
-
-      if (existingRobloxAccount) {
-        console.info('Roblox account already linked', {
-          discordId,
-          userId: user.id,
+      // Link Roblox account to Discord user and upgrade tier atomically
+      // All checks now happen inside transaction to prevent race conditions
+      await prisma.$transaction(async tx => {
+        // Check if Roblox account is already linked to this user (inside transaction)
+        const existingRobloxAccount = await tx.account.findFirst({
+          where: {
+            userId: user.id,
+            providerId: 'roblox',
+          },
         });
-        const webAppSuccessUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/success?${new URLSearchParams(
-          {
-            message: 'Roblox account is already linked',
-            discordId,
-          }
-        ).toString()}`;
-        return res.redirect(webAppSuccessUrl);
-      }
 
-      // Check if Roblox account is linked to a different user
-      const existingRobloxUser = await prisma.user.findFirst({
-        where: {
-          accounts: {
-            some: {
-              accountId: robloxUserId,
-              providerId: 'roblox',
+        if (existingRobloxAccount) {
+          console.info('Roblox account already linked', {
+            discordId,
+            userId: user.id,
+          });
+          // Return null to signal "already linked" case
+          return null;
+        }
+
+        // Check if Roblox account is linked to a different user (inside transaction)
+        const existingRobloxUser = await tx.user.findFirst({
+          where: {
+            accounts: {
+              some: {
+                accountId: robloxUserId,
+                providerId: 'roblox',
+              },
             },
           },
-        },
-      });
-
-      if (existingRobloxUser && existingRobloxUser.id !== user.id) {
-        console.warn('Roblox account linked to different user', {
-          discordId,
-          robloxUserId,
+          select: { id: true },
         });
-        const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
-          {
-            error: 'account_conflict',
-            message: 'Roblox account is already linked to another user',
-            discordId,
-          }
-        ).toString()}`;
-        return res.redirect(webAppErrorUrl);
-      }
 
-      // Link Roblox account to Discord user and upgrade tier atomically
-      await prisma.$transaction(async tx => {
+        if (existingRobloxUser && existingRobloxUser.id !== user.id) {
+          console.warn('Roblox account linked to different user', {
+            discordId,
+            robloxUserId,
+          });
+          // Throw error to signal conflict
+          throw new AppError(
+            'Roblox account is already linked to another user',
+            409
+          );
+        }
+
         // Create the Roblox account link
         await tx.account.create({
           data: {
@@ -279,7 +273,41 @@ router.get('/roblox/callback', async (req, res, _next) => {
             discordId,
           });
         }
+
+        return 'linked';
+      }).then(result => {
+        if (result === null) {
+          // Account already linked
+          const webAppSuccessUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/success?${new URLSearchParams(
+            {
+              message: 'Roblox account is already linked',
+              discordId,
+            }
+          ).toString()}`;
+          return res.redirect(webAppSuccessUrl);
+        }
+        // Continue with success flow
+        return null;
+      })
+      .catch(error => {
+        if (error instanceof AppError && error.statusCode === 409) {
+          // Account conflict
+          const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
+            {
+              error: 'account_conflict',
+              message: 'Roblox account is already linked to another user',
+              discordId,
+            }
+          ).toString()}`;
+          return res.redirect(webAppErrorUrl);
+        }
+        throw error;
       });
+
+      // Early return if transaction handled the response
+      if (res.headersSent) {
+        return;
+      }
 
       console.info('Successfully linked Roblox account', {
         discordId,

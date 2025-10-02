@@ -432,21 +432,22 @@ router.post('/users/link-account', async (req, res, next) => {
       throw new AppError('User not found', 404);
     }
 
-    // Check if account is already linked
-    const existingAccount = await prisma.account.findFirst({
-      where: {
-        userId,
-        providerId,
-        accountId,
-      },
-    });
+    // Create new account link and upgrade tier atomically
+    // All checks now happen inside transaction to prevent race conditions
+    const result = await prisma.$transaction(async tx => {
+      // Check if account is already linked to this user (inside transaction)
+      const existingAccount = await tx.account.findFirst({
+        where: {
+          userId,
+          providerId,
+          accountId,
+        },
+      });
 
-    if (existingAccount) {
-      // Even if account is already linked, check if user needs tier upgrade
-      // This fixes cases where users were stuck at TIER_0
-      // Check inside transaction to avoid race condition
-      if (providerId === 'roblox') {
-        await prisma.$transaction(async tx => {
+      if (existingAccount) {
+        // Even if account is already linked, check if user needs tier upgrade
+        // This fixes cases where users were stuck at TIER_0
+        if (providerId === 'roblox') {
           const currentUser = await tx.user.findUnique({
             where: { id: userId },
             select: { kycTier: true },
@@ -465,31 +466,50 @@ router.post('/users/link-account', async (req, res, next) => {
               }
             );
           }
+        }
+
+        // Fetch updated user information to include in response
+        const updatedUser = await tx.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            kycVerified: true,
+            kycTier: true,
+          },
         });
+
+        return { account: existingAccount, user: updatedUser, alreadyLinked: true };
       }
 
-      // Fetch updated user information to include in response
-      const updatedUser = await prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          kycVerified: true,
-          kycTier: true,
-        },
-      });
+      // Check if account is linked to a different user (inside transaction)
+      if (providerId === 'roblox') {
+        const existingRobloxUser = await tx.user.findFirst({
+          where: {
+            accounts: {
+              some: {
+                accountId,
+                providerId: 'roblox',
+              },
+            },
+          },
+          select: { id: true },
+        });
 
-      return res.status(200).json({
-        success: true,
-        message: 'Account already linked',
-        account: existingAccount,
-        user: updatedUser,
-      });
-    }
+        if (existingRobloxUser && existingRobloxUser.id !== userId) {
+          console.warn('Roblox account linked to different user', {
+            userId,
+            accountId,
+          });
+          // Throw error to signal conflict
+          throw new AppError(
+            'Roblox account is already linked to another user',
+            409
+          );
+        }
+      }
 
-    // Create new account link and upgrade tier atomically
-    const result = await prisma.$transaction(async tx => {
       // Create the account link
       const account = await tx.account.create({
         data: {
@@ -532,12 +552,13 @@ router.post('/users/link-account', async (req, res, next) => {
         },
       });
 
-      return { account, user: updatedUser };
+      return { account, user: updatedUser, alreadyLinked: false };
     });
 
-    res.status(201).json({
+    // Return appropriate status and message based on whether account was already linked
+    res.status(result.alreadyLinked ? 200 : 201).json({
       success: true,
-      message: 'Account linked successfully',
+      message: result.alreadyLinked ? 'Account already linked' : 'Account linked successfully',
       account: result.account,
       user: result.user,
     });
