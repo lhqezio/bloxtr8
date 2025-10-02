@@ -14,8 +14,10 @@ export const prisma =
         : ['error'],
   });
 
-// Store globally in all environments to maintain singleton
-globalForPrisma.prisma = prisma;
+// Only store globally in non-production to support hot reloading
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
 
 // Export PrismaClient type for type safety
 export type { PrismaClient } from './generated/prisma/client.js';
