@@ -254,8 +254,11 @@ router.get('/roblox/callback', async (req, res, _next) => {
         return res.redirect(webAppErrorUrl);
       }
 
+      // Check if user needs tier upgrade before transaction
+      const shouldUpgradeTier = user.kycTier === 'TIER_0';
+
       // Link Roblox account to Discord user and upgrade tier atomically
-      await prisma.$transaction(async tx => {
+      const updatedUser = await prisma.$transaction(async tx => {
         // Create the Roblox account link
         await tx.account.create({
           data: {
@@ -267,17 +270,26 @@ router.get('/roblox/callback', async (req, res, _next) => {
         });
 
         // Automatically upgrade user from TIER_0 to TIER_1 when they link Roblox account
-        if (user.kycTier === 'TIER_0') {
-          await tx.user.update({
+        if (shouldUpgradeTier) {
+          const upgraded = await tx.user.update({
             where: { id: user.id },
             data: { kycTier: 'TIER_1' },
+            select: { kycTier: true },
           });
           console.info('Upgraded user KYC tier from TIER_0 to TIER_1', {
             userId: user.id,
             discordId,
           });
+          return upgraded;
         }
+        
+        return null;
       });
+
+      // Update local user object with fresh data if tier was upgraded
+      if (updatedUser) {
+        user.kycTier = updatedUser.kycTier;
+      }
 
       console.info('Successfully linked Roblox account', {
         discordId,
