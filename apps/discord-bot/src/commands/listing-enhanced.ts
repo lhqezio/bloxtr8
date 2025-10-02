@@ -97,7 +97,7 @@ function setCacheEntry(
   value: { verificationId: string; gameDetails: GameDetails }
 ): void {
   const isUpdate = verificationCache.has(key);
-  
+
   // Check if we need to evict before adding or updating
   // For new entries: evict if at max size
   // For updates at max size: also evict to maintain LRU policy
@@ -154,9 +154,11 @@ if ('unref' in cleanupTimer && typeof cleanupTimer.unref === 'function') {
 
 // Cleanup function to clear timer and cache on module unload/bot shutdown
 export function cleanupVerificationCache(): void {
-  clearInterval(cleanupTimer);
+  globalThis.clearInterval(cleanupTimer);
   verificationCache.clear();
-  console.log('[Cache Cleanup] Cleared verification cache and stopped cleanup timer');
+  console.log(
+    '[Cache Cleanup] Cleared verification cache and stopped cleanup timer'
+  );
 }
 
 export async function handleListingCreateWithVerification(
@@ -234,7 +236,7 @@ export async function handleListingCreateWithVerification(
 
     // Check if user has linked Roblox account
     const robloxAccount = userResult.user?.accounts?.find(
-      (acc: any) => acc.providerId === 'roblox'
+      acc => (acc as { providerId?: string }).providerId === 'roblox'
     );
 
     if (!robloxAccount) {
@@ -315,7 +317,7 @@ export async function handleGameVerificationModalSubmit(
       interaction.user.username
     );
     const robloxAccount = userResult.user?.accounts?.find(
-      (acc: any) => acc.providerId === 'roblox'
+      acc => (acc as { providerId?: string }).providerId === 'roblox'
     );
 
     if (!robloxAccount) {
@@ -544,12 +546,14 @@ export async function handleListingWithGameModalSubmit(
 
         if (response.ok) {
           const result = await response.json();
-          
+
           // Get the most recent verification
           if (result.games && result.games.length > 0) {
             const verification = result.games[0];
-            const metadata = verification.metadata as any;
-            
+            const metadata = verification.metadata as {
+              gameDetails?: GameDetails;
+            } | null;
+
             cachedData = {
               verificationId: verification.id,
               gameDetails: metadata?.gameDetails || {
@@ -557,11 +561,13 @@ export async function handleListingWithGameModalSubmit(
                 name: 'Game',
               },
             };
-            
+
             // Repopulate cache for future use
             setCacheEntry(discordId, cachedData);
-            
-            console.log(`[Cache Recovery] Restored verification from API for user: ${discordId}`);
+
+            console.log(
+              `[Cache Recovery] Restored verification from API for user: ${discordId}`
+            );
           }
         }
       } catch (error) {

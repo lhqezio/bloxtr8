@@ -449,10 +449,13 @@ router.post('/users/link-account', async (req, res, next) => {
           where: { id: userId },
           data: { kycTier: 'TIER_1' },
         });
-        console.info('Upgraded user KYC tier from TIER_0 to TIER_1 (existing account)', {
-          userId,
-          providerId,
-        });
+        console.info(
+          'Upgraded user KYC tier from TIER_0 to TIER_1 (existing account)',
+          {
+            userId,
+            providerId,
+          }
+        );
       }
 
       return res.status(200).json({

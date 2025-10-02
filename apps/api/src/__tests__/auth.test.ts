@@ -394,7 +394,10 @@ describe('Auth API Routes', () => {
       mockPrismaClient.user.findFirst.mockResolvedValue(mockUser);
       mockPrismaClient.account.findFirst.mockResolvedValue(null);
       mockPrismaClient.account.create.mockResolvedValue(mockCreatedAccount);
-      mockPrismaClient.user.update.mockResolvedValue({ ...mockUser, kycTier: 'TIER_1' });
+      mockPrismaClient.user.update.mockResolvedValue({
+        ...mockUser,
+        kycTier: 'TIER_1',
+      });
 
       const response = await request(app)
         .get(

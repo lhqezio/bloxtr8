@@ -161,13 +161,13 @@ client.on('interactionCreate', async interaction => {
 // Graceful shutdown handlers
 async function gracefulShutdown(signal: string) {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
-  
+
   // Cleanup verification cache
   cleanupVerificationCache();
-  
+
   // Destroy Discord client
   client.destroy();
-  
+
   console.log('Shutdown complete.');
   process.exit(0);
 }
@@ -177,11 +177,11 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 // Handle uncaught errors
-process.on('unhandledRejection', (error) => {
+process.on('unhandledRejection', error => {
   console.error('Unhandled promise rejection:', error);
 });
 
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', error => {
   console.error('Uncaught exception:', error);
   gracefulShutdown('UNCAUGHT_EXCEPTION');
 });

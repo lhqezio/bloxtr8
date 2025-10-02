@@ -15,7 +15,7 @@ const mockLinkTokenUpdate = jest.fn();
 const mockLinkTokenDelete = jest.fn();
 const mockLinkTokenDeleteMany = jest.fn();
 
-const mockTransaction = jest.fn((callback) => {
+const mockTransaction = jest.fn(callback => {
   // Execute the callback with a mock transaction client that has the same methods
   return callback({
     user: {

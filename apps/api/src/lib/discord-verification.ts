@@ -150,7 +150,7 @@ export async function validateOAuthState(
   // Mark state as used atomically to prevent replay attacks
   // Use updateMany with a where clause to ensure the state hasn't been used
   const updateResult = await prisma.linkToken.updateMany({
-    where: { 
+    where: {
       id: linkToken.id,
       used: false, // Only update if still unused
     },
@@ -159,7 +159,9 @@ export async function validateOAuthState(
 
   // If no rows were updated, the state was already used by a concurrent request
   if (updateResult.count === 0) {
-    console.warn('OAuth state already used (race condition detected)', { state });
+    console.warn('OAuth state already used (race condition detected)', {
+      state,
+    });
     return null;
   }
 

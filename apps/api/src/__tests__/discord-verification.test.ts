@@ -17,6 +17,7 @@ jest.mock('@bloxtr8/database', () => ({
       deleteMany: jest.fn(),
       delete: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
   },
 }));
@@ -169,14 +170,11 @@ describe('Discord Verification Functions', () => {
       expect(typeof state).toBe('string');
       expect(state.length).toBe(64); // 32 bytes hex = 64 characters
 
-      // Should clean up expired states
+      // Should clean up ALL oauth states for the user
       expect(mockPrisma.linkToken.deleteMany).toHaveBeenCalledWith({
         where: {
           discordId,
           purpose: 'oauth_state',
-          expiresAt: {
-            lt: expect.any(Date),
-          },
         },
       });
 
@@ -251,14 +249,7 @@ describe('Discord Verification Functions', () => {
         used: false,
       });
 
-      mockPrisma.linkToken.update.mockResolvedValueOnce({
-        id: 'link-token-id',
-        token: state,
-        discordId,
-        purpose: 'oauth_state',
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-        used: true,
-      });
+      mockPrisma.linkToken.updateMany.mockResolvedValueOnce({ count: 1 });
 
       const result = await validateOAuthState(state);
 
@@ -266,8 +257,11 @@ describe('Discord Verification Functions', () => {
       expect(mockPrisma.linkToken.findUnique).toHaveBeenCalledWith({
         where: { token: state },
       });
-      expect(mockPrisma.linkToken.update).toHaveBeenCalledWith({
-        where: { id: 'link-token-id' },
+      expect(mockPrisma.linkToken.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'link-token-id',
+          used: false,
+        },
         data: { used: true },
       });
     });
@@ -280,7 +274,7 @@ describe('Discord Verification Functions', () => {
       const result = await validateOAuthState(state);
 
       expect(result).toBeNull();
-      expect(mockPrisma.linkToken.update).not.toHaveBeenCalled();
+      expect(mockPrisma.linkToken.updateMany).not.toHaveBeenCalled();
     });
 
     it('should return null when state has wrong purpose', async () => {
@@ -298,7 +292,7 @@ describe('Discord Verification Functions', () => {
       const result = await validateOAuthState(state);
 
       expect(result).toBeNull();
-      expect(mockPrisma.linkToken.update).not.toHaveBeenCalled();
+      expect(mockPrisma.linkToken.updateMany).not.toHaveBeenCalled();
     });
 
     it('should return null and delete expired state', async () => {
@@ -329,7 +323,7 @@ describe('Discord Verification Functions', () => {
       expect(mockPrisma.linkToken.delete).toHaveBeenCalledWith({
         where: { id: 'link-token-id' },
       });
-      expect(mockPrisma.linkToken.update).not.toHaveBeenCalled();
+      expect(mockPrisma.linkToken.updateMany).not.toHaveBeenCalled();
     });
 
     it('should return null when state has already been used', async () => {
@@ -347,7 +341,7 @@ describe('Discord Verification Functions', () => {
       const result = await validateOAuthState(state);
 
       expect(result).toBeNull();
-      expect(mockPrisma.linkToken.update).not.toHaveBeenCalled();
+      expect(mockPrisma.linkToken.updateMany).not.toHaveBeenCalled();
     });
 
     it('should return null when state is undefined', async () => {
@@ -370,20 +364,16 @@ describe('Discord Verification Functions', () => {
         used: false,
       });
 
-      mockPrisma.linkToken.update.mockResolvedValueOnce({
-        id: 'link-token-id-2',
-        token: state,
-        discordId,
-        purpose: 'oauth_state',
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-        used: true,
-      });
+      mockPrisma.linkToken.updateMany.mockResolvedValueOnce({ count: 1 });
 
       const result = await validateOAuthState(state);
 
       expect(result).toBe(discordId);
-      expect(mockPrisma.linkToken.update).toHaveBeenCalledWith({
-        where: { id: 'link-token-id-2' },
+      expect(mockPrisma.linkToken.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'link-token-id-2',
+          used: false,
+        },
         data: { used: true },
       });
     });
