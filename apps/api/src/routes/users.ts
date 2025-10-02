@@ -444,7 +444,7 @@ router.post('/users/ensure', async (req, res, next) => {
             name: username,
             email: `${discordId}@discord.example`, // Placeholder email for Discord users
             kycVerified: false, // Default to unverified
-            kycTier: 'TIER_1', // Default tier
+            kycTier: 'TIER_0', // Default tier - no Roblox account linked yet
           },
           select: {
             id: true,

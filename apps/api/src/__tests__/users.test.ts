@@ -332,7 +332,7 @@ describe('Users API Routes', () => {
         name: 'New User',
         email: 'discord-123@discord.example',
         kycVerified: false,
-        kycTier: 'TIER_1',
+        kycTier: 'TIER_0',
       };
 
       const mockTransactionResult = {
@@ -539,7 +539,7 @@ describe('Users API Routes', () => {
         name: unicodeUsername,
         email: 'discord-123@discord.example',
         kycVerified: false,
-        kycTier: 'TIER_1',
+        kycTier: 'TIER_0',
         accounts: [{ accountId: 'discord-123' }],
       });
 
