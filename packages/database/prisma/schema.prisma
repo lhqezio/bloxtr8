@@ -43,6 +43,7 @@ model User {
   deliveries       Delivery[]
   disputes         Dispute[]     @relation("DisputeUser")
   guildMemberships GuildMember[]
+  assetVerifications AssetVerification[]
 
   @@unique([email])
   @@index([email])
@@ -361,20 +362,52 @@ model Dispute {
 }
 
 model RobloxSnapshot {
-  id          String   @id @default(cuid())
-  groupId     String
-  owner       String
-  memberCount Int
-  metadata    Json?
-  createdAt   DateTime @default(now())
+  id                String   @id @default(cuid())
+  assetId           String   // Roblox asset ID
+  assetType         String   // "Limited", "LimitedU", "Collectible", etc.
+  assetName         String
+  assetDescription  String?
+  thumbnailUrl      String?
+  currentPrice      Int?     // Price in Robux
+  originalPrice     Int?     // Original price in Robux
+  copiesAvailable   Int?
+  totalCopies       Int?
+  verifiedOwnership Boolean  @default(false)
+  verificationDate  DateTime?
+  metadata          Json?    // Additional asset metadata
+  createdAt         DateTime @default(now())
 
   // Relations
   listingId String?
   listing   Listing? @relation(fields: [listingId], references: [id])
 
+  @@index([assetId])
   @@index([listingId])
-  @@index([groupId])
+  @@index([verifiedOwnership])
+  @@index([verificationDate])
   @@map("roblox_snapshots")
+}
+
+model AssetVerification {
+  id              String                @id @default(cuid())
+  userId          String
+  assetId         String
+  verificationStatus VerificationStatus @default(PENDING)
+  verificationMethod VerificationMethod
+  verifiedAt      DateTime?
+  expiresAt       DateTime?
+  metadata        Json?                 // API response data
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  // Relations
+  user  User   @relation(fields: [userId], references: [id])
+  
+  @@unique([userId, assetId])
+  @@index([userId])
+  @@index([assetId])
+  @@index([verificationStatus])
+  @@map("asset_verifications")
 }
 
 model AuditLog {
@@ -446,6 +479,19 @@ enum ContractStatus {
 enum EscrowRail {
   STRIPE
   USDC_BASE
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  EXPIRED
+}
+
+enum VerificationMethod {
+  INVENTORY_API
+  ASSET_API
+  MANUAL
 }
 
 enum EscrowStatus {

@@ -14,6 +14,13 @@ import {
   handleListingCreate,
   handleListingModalSubmit,
 } from './commands/listing.js';
+import { 
+  handleListingCreateWithVerification, 
+  handleAssetVerificationModalSubmit,
+  handleCreateListingWithAssetButton,
+  handleListingWithAssetModalSubmit,
+  handleCancelListingCreation
+} from './commands/listing-enhanced.js';
 import { handlePing } from './commands/ping.js';
 import {
   handleSignup,
@@ -54,6 +61,11 @@ client.once('clientReady', async () => {
         subcommand
           .setName('create')
           .setDescription('Create a new listing for sale')
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('create-verified')
+          .setDescription('Create a new verified asset listing')
       )
       .toJSON(),
     new SlashCommandBuilder()
@@ -122,6 +134,12 @@ client.on('interactionCreate', async interaction => {
     ) {
       await handleListingCreate(interaction);
     }
+    if (
+      interaction.commandName === 'listing' &&
+      interaction.options.getSubcommand() === 'create-verified'
+    ) {
+      await handleListingCreateWithVerification(interaction);
+    }
     if (interaction.commandName === 'signup') {
       await handleSignup(interaction);
     }
@@ -135,6 +153,12 @@ client.on('interactionCreate', async interaction => {
     if (interaction.customId === 'listing_create_modal') {
       await handleListingModalSubmit(interaction);
     }
+    if (interaction.customId === 'asset_verification_modal') {
+      await handleAssetVerificationModalSubmit(interaction);
+    }
+    if (interaction.customId === 'listing_create_with_asset_modal') {
+      await handleListingWithAssetModalSubmit(interaction);
+    }
   }
 
   // Handle button interactions
@@ -144,6 +168,12 @@ client.on('interactionCreate', async interaction => {
     }
     if (interaction.customId === 'consent_decline') {
       await handleConsentDecline(interaction);
+    }
+    if (interaction.customId === 'create_listing_with_asset') {
+      await handleCreateListingWithAssetButton(interaction);
+    }
+    if (interaction.customId === 'cancel_listing_creation') {
+      await handleCancelListingCreation(interaction);
     }
   }
 });
