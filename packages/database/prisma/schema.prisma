@@ -27,7 +27,7 @@ model User {
 
 
   // KYC tiers
-  kycTier     KycTier @default(TIER_1)
+  kycTier     KycTier @default(TIER_0)
   kycVerified Boolean @default(false)
 
   // Wallet screening
@@ -444,8 +444,9 @@ model WebhookEvent {
 
 // Enums
 enum KycTier {
-  TIER_1
-  TIER_2
+  TIER_0  // Signed up - no Roblox account
+  TIER_1  // Signed up - Roblox linked - can post listings
+  TIER_2  // Signed up - Roblox linked - verified by Bloxtr8 team
 }
 
 enum WalletRisk {

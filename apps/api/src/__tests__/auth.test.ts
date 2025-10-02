@@ -20,7 +20,7 @@ const mockPrismaClient = {
 
 // Mock the database import
 jest.mock('@bloxtr8/database', () => ({
-  PrismaClient: jest.fn(() => mockPrismaClient),
+  prisma: mockPrismaClient,
 }));
 
 import app from '../index.js';

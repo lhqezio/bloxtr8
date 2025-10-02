@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import pkg from 'pg';
 
 import { auth } from './lib/auth.js';
+import { validateEnvironment } from './lib/env-validation.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
 import healthRoutes, { setPool } from './routes/health.js';
@@ -15,6 +16,16 @@ import healthRoutes, { setPool } from './routes/health.js';
 const { Pool } = pkg;
 // Load environment variables
 config();
+
+// Validate environment variables at startup
+try {
+  validateEnvironment();
+} catch (error) {
+  console.error('❌ Environment validation failed:', error);
+  if (process.env.NODE_ENV !== 'test') {
+    process.exit(1);
+  }
+}
 
 const app: express.Application = express();
 app.use(compress());
@@ -44,8 +55,8 @@ app.options('*', cors());
 
 // Mount Better Auth after CORS so preflight works
 app.all('/api/auth/*', toNodeHandler(auth)); // For ExpressJS v4
-// Mount express.json after Better Auth per docs
-app.use(express.json());
+// Mount express.json after Better Auth per docs with size limit
+app.use(express.json({ limit: '10mb' })); // Prevent huge payload attacks
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,

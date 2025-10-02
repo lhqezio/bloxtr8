@@ -1,11 +1,10 @@
-import { PrismaClient } from '@bloxtr8/database';
+import { prisma } from '@bloxtr8/database';
 import { Router, type Router as ExpressRouter } from 'express';
 
 import { AppError } from '../middleware/errorHandler.js';
 import { createListingSchema } from '../schemas/index.js';
 
 const router: ExpressRouter = Router();
-const prisma = new PrismaClient();
 
 // Create listing endpoint
 router.post('/listings', async (req, res, next) => {

@@ -30,6 +30,10 @@ describe('GameVerificationService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
+    // Set required environment variables for tests
+    process.env.ROBLOX_CLIENT_ID = 'test-client-id';
+    process.env.ROBLOX_CLIENT_SECRET = 'test-client-secret';
+
     mockRobloxApi = {
       getGameDetails: jest.fn(),
       verifyGameOwnership: jest.fn(),
@@ -46,10 +50,15 @@ describe('GameVerificationService', () => {
       },
     };
 
-    service = new GameVerificationService();
-    // Inject mock prisma
-    (service as any).prisma = mockPrisma;
+    service = new GameVerificationService(mockPrisma);
+    // Inject mock roblox API
     (service as any).robloxApi = mockRobloxApi;
+  });
+
+  afterEach(() => {
+    // Clean up environment variables
+    delete process.env.ROBLOX_CLIENT_ID;
+    delete process.env.ROBLOX_CLIENT_SECRET;
   });
 
   describe('verifyGameOwnership', () => {

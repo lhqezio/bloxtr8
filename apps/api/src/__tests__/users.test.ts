@@ -15,7 +15,7 @@ const mockLinkTokenDelete = jest.fn();
 const mockLinkTokenDeleteMany = jest.fn();
 
 jest.mock('@bloxtr8/database', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => ({
+  prisma: {
     user: {
       findUnique: mockUserFindUnique,
       findFirst: mockUserFindFirst,
@@ -34,7 +34,7 @@ jest.mock('@bloxtr8/database', () => ({
       deleteMany: mockLinkTokenDeleteMany,
     },
     $transaction: mockTransaction,
-  })),
+  },
 }));
 
 import app from '../index.js';

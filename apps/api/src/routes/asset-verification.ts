@@ -1,9 +1,10 @@
-import { Router } from 'express';
+import { prisma } from '@bloxtr8/database';
+import { Router, type Router as ExpressRouter } from 'express';
 
 import { GameVerificationService } from '../lib/asset-verification.js';
 
-const router = Router();
-const gameVerificationService = new GameVerificationService();
+const router: ExpressRouter = Router();
+const gameVerificationService = new GameVerificationService(prisma);
 
 /**
  * POST /api/asset-verification/verify
@@ -12,7 +13,8 @@ const gameVerificationService = new GameVerificationService();
 router.post('/verify', async (req, res) => {
   try {
     const { gameId, robloxUserId, userId: bodyUserId } = req.body;
-    const userId = req.user?.id || bodyUserId;
+    // Note: req.user would be set by authentication middleware if present
+    const userId = (req as any).user?.id || bodyUserId;
 
     if (!userId || !gameId || !robloxUserId) {
       return res.status(400).json({

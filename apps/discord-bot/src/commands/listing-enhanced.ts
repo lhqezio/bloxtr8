@@ -16,7 +16,18 @@ import { getApiBaseUrl } from '../utils/apiClient.js';
 import { verifyUserForListing } from '../utils/userVerification.js';
 import { ensureUserExists } from '../utils/userVerification.js';
 
-// Temporary storage for verification data (in production, use Redis or database)
+// ⚠️ WARNING: In-memory cache for verification data
+// LIMITATIONS:
+// - No TTL: Data never expires, leading to memory leaks
+// - No size limits: Cache can grow indefinitely
+// - Not persistent: Data lost on bot restart
+// - Not shared: Each bot instance has its own cache
+//
+// TODO for Production:
+// - Replace with Redis for persistence and TTL support
+// - Implement LRU eviction policy
+// - Add size limits
+// - Share cache across bot instances
 interface GameDetails {
   id: string;
   name: string;
@@ -107,8 +118,8 @@ export async function handleListingCreateWithVerification(
     }
 
     // Check if user has linked Roblox account
-    const robloxAccount = userResult.user.accounts?.find(
-      acc => acc.providerId === 'roblox'
+    const robloxAccount = userResult.user?.accounts?.find(
+      (acc: any) => acc.providerId === 'roblox'
     );
 
     if (!robloxAccount) {
@@ -189,7 +200,7 @@ export async function handleGameVerificationModalSubmit(
       interaction.user.username
     );
     const robloxAccount = userResult.user?.accounts?.find(
-      acc => acc.providerId === 'roblox'
+      (acc: any) => acc.providerId === 'roblox'
     );
 
     if (!robloxAccount) {
@@ -213,7 +224,7 @@ export async function handleGameVerificationModalSubmit(
         body: JSON.stringify({
           gameId,
           robloxUserId: robloxAccount.accountId,
-          userId: userResult.user.id,
+          userId: userResult.user!.id,
         }),
       }
     );
@@ -447,7 +458,7 @@ export async function handleListingWithGameModalSubmit(
         },
         body: JSON.stringify({
           listingId: apiResult.data.id,
-          assetId: cachedData.assetDetails.id,
+          assetId: cachedData.gameDetails.id,
           verificationId: cachedData.verificationId,
         }),
       });

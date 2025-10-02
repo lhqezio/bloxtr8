@@ -20,8 +20,7 @@ export async function handleHelp(interaction: ChatInputCommandInteraction) {
       },
       {
         name: '💼 Trading',
-        value:
-          '`/listing create` - Create a verified game ownership listing',
+        value: '`/listing create` - Create a verified game ownership listing',
         inline: false,
       },
       {

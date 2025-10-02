@@ -101,11 +101,8 @@ client.once('clientReady', async () => {
   }
 });
 
-client.on('messageCreate', async message => {
-  if (!message.author.bot) {
-    message.author.send(`You said: ${message.content}`);
-  }
-});
+// Note: messageCreate handler removed to prevent spam
+// If you need to handle DMs, implement a more specific handler here
 
 client.on('interactionCreate', async interaction => {
   // Handle slash commands

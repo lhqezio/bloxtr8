@@ -165,8 +165,10 @@ describe('RobloxApiClient', () => {
       };
 
       // Mock getUserGames and getGameDetails
-      jest.spyOn(client, 'getUserGames').mockResolvedValue(mockGames);
-      jest.spyOn(client, 'getGameDetails').mockResolvedValue(mockGameDetails);
+      jest.spyOn(client, 'getUserGames').mockResolvedValue(mockGames as any);
+      jest
+        .spyOn(client, 'getGameDetails')
+        .mockResolvedValue(mockGameDetails as any);
 
       const result = await client.verifyGameOwnership('1', '123456789');
 
@@ -196,11 +198,13 @@ describe('RobloxApiClient', () => {
       };
 
       // Mock getUserGames, getGameDetails, and getGamePermissions
-      jest.spyOn(client, 'getUserGames').mockResolvedValue(mockGames);
-      jest.spyOn(client, 'getGameDetails').mockResolvedValue(mockGameDetails);
+      jest.spyOn(client, 'getUserGames').mockResolvedValue(mockGames as any);
+      jest
+        .spyOn(client, 'getGameDetails')
+        .mockResolvedValue(mockGameDetails as any);
       jest
         .spyOn(client, 'getGamePermissions')
-        .mockResolvedValue(mockPermissions);
+        .mockResolvedValue(mockPermissions as any);
 
       const result = await client.verifyGameOwnership('1', '123456789');
 
@@ -217,7 +221,7 @@ describe('RobloxApiClient', () => {
       ];
 
       // Mock getUserGames
-      jest.spyOn(client, 'getUserGames').mockResolvedValue(mockGames);
+      jest.spyOn(client, 'getUserGames').mockResolvedValue(mockGames as any);
 
       const result = await client.verifyGameOwnership('1', '123456789');
 

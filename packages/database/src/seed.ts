@@ -1,8 +1,6 @@
 // src/prisma/seed.ts
 
-import { PrismaClient, GuildRole, KycTier } from './index.js';
-
-const prisma = new PrismaClient();
+import { prisma, GuildRole, KycTier } from './index.js';
 const randomId = () => Math.random().toString(36).substring(2);
 
 async function main() {

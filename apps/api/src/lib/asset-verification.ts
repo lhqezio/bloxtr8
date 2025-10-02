@@ -1,4 +1,4 @@
-import { PrismaClient } from '@bloxtr8/database';
+import type { PrismaClient } from '@bloxtr8/database';
 
 import { RobloxApiClient } from './roblox-api.js';
 
@@ -15,11 +15,18 @@ export class GameVerificationService {
   private prisma: PrismaClient;
   private robloxApi: RobloxApiClient;
 
-  constructor() {
-    this.prisma = new PrismaClient();
+  constructor(prismaClient: PrismaClient) {
+    // Validate required environment variables
+    if (!process.env.ROBLOX_CLIENT_ID || !process.env.ROBLOX_CLIENT_SECRET) {
+      throw new Error(
+        'Missing required Roblox API credentials (ROBLOX_CLIENT_ID, ROBLOX_CLIENT_SECRET)'
+      );
+    }
+
+    this.prisma = prismaClient;
     this.robloxApi = new RobloxApiClient({
-      clientId: process.env.ROBLOX_CLIENT_ID!,
-      clientSecret: process.env.ROBLOX_CLIENT_SECRET!,
+      clientId: process.env.ROBLOX_CLIENT_ID,
+      clientSecret: process.env.ROBLOX_CLIENT_SECRET,
       baseUrl: 'https://apis.roblox.com',
       rateLimitDelay: 1000,
     });
@@ -111,7 +118,7 @@ export class GameVerificationService {
             ownershipResult,
             verifiedAt: new Date().toISOString(),
             robloxUserId,
-          },
+          } as any,
         },
         create: {
           userId,
@@ -126,7 +133,7 @@ export class GameVerificationService {
             ownershipResult,
             verifiedAt: new Date().toISOString(),
             robloxUserId,
-          },
+          } as any,
         },
       });
 
@@ -163,7 +170,7 @@ export class GameVerificationService {
       throw new Error('Game not verified');
     }
 
-    const gameDetails = verification.metadata?.gameDetails;
+    const gameDetails = (verification.metadata as any)?.gameDetails;
     if (!gameDetails) {
       throw new Error('Game details not found');
     }
