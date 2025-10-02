@@ -480,7 +480,11 @@ router.post('/users/link-account', async (req, res, next) => {
           },
         });
 
-        return { account: existingAccount, user: updatedUser, alreadyLinked: true };
+        return {
+          account: existingAccount,
+          user: updatedUser,
+          alreadyLinked: true,
+        };
       }
 
       // Check if account is linked to a different user (inside transaction)
@@ -558,7 +562,9 @@ router.post('/users/link-account', async (req, res, next) => {
     // Return appropriate status and message based on whether account was already linked
     res.status(result.alreadyLinked ? 200 : 201).json({
       success: true,
-      message: result.alreadyLinked ? 'Account already linked' : 'Account linked successfully',
+      message: result.alreadyLinked
+        ? 'Account already linked'
+        : 'Account linked successfully',
       account: result.account,
       user: result.user,
     });
