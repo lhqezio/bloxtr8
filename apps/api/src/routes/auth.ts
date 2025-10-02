@@ -264,6 +264,18 @@ router.get('/roblox/callback', async (req, res, _next) => {
         },
       });
 
+      // Automatically upgrade user from TIER_0 to TIER_1 when they link Roblox account
+      if (user.kycTier === 'TIER_0') {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { kycTier: 'TIER_1' },
+        });
+        console.info('Upgraded user KYC tier from TIER_0 to TIER_1', {
+          userId: user.id,
+          discordId,
+        });
+      }
+
       console.info('Successfully linked Roblox account', {
         discordId,
         robloxUserId,
