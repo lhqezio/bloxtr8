@@ -73,14 +73,12 @@ export async function generateOAuthState(discordId: string): Promise<string> {
   // Store state in database with 10-minute expiration
   const { prisma } = await import('@bloxtr8/database');
 
-  // Clean up any expired OAuth states for this user
+  // Clean up ALL OAuth states for this user (not just expired ones)
+  // This prevents multiple valid states from existing and potential replay attacks
   await prisma.linkToken.deleteMany({
     where: {
       discordId,
       purpose: 'oauth_state',
-      expiresAt: {
-        lt: new Date(),
-      },
     },
   });
 
@@ -149,11 +147,21 @@ export async function validateOAuthState(
     return null;
   }
 
-  // Mark state as used to prevent replay attacks
-  await prisma.linkToken.update({
-    where: { id: linkToken.id },
+  // Mark state as used atomically to prevent replay attacks
+  // Use updateMany with a where clause to ensure the state hasn't been used
+  const updateResult = await prisma.linkToken.updateMany({
+    where: { 
+      id: linkToken.id,
+      used: false, // Only update if still unused
+    },
     data: { used: true },
   });
+
+  // If no rows were updated, the state was already used by a concurrent request
+  if (updateResult.count === 0) {
+    console.warn('OAuth state already used (race condition detected)', { state });
+    return null;
+  }
 
   return linkToken.discordId;
 }
