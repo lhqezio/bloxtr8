@@ -16,7 +16,7 @@ router.post('/verify', async (req, res) => {
 
     if (!userId || !gameId || !robloxUserId) {
       return res.status(400).json({
-        error: 'Missing required fields: userId, gameId, robloxUserId'
+        error: 'Missing required fields: userId, gameId, robloxUserId',
       });
     }
 
@@ -28,7 +28,7 @@ router.post('/verify', async (req, res) => {
 
     if (!result.success) {
       return res.status(400).json({
-        error: result.error || 'Verification failed'
+        error: result.error || 'Verification failed',
       });
     }
 
@@ -36,13 +36,12 @@ router.post('/verify', async (req, res) => {
       verified: result.verified,
       gameDetails: result.gameDetails,
       ownershipType: result.ownershipType,
-      verificationId: result.verificationId
+      verificationId: result.verificationId,
     });
-
   } catch (error) {
     console.error('Game verification endpoint error:', error);
     res.status(500).json({
-      error: 'Internal server error'
+      error: 'Internal server error',
     });
   }
 });
@@ -55,16 +54,15 @@ router.get('/user/:userId/games', async (req, res) => {
   try {
     const { userId } = req.params;
     const games = await gameVerificationService.getUserVerifiedGames(userId);
-    
+
     res.json({
       games,
-      count: games.length
+      count: games.length,
     });
-
   } catch (error) {
     console.error('Get verified games error:', error);
     res.status(500).json({
-      error: 'Internal server error'
+      error: 'Internal server error',
     });
   }
 });
@@ -79,7 +77,7 @@ router.post('/snapshot', async (req, res) => {
 
     if (!listingId || !gameId || !verificationId) {
       return res.status(400).json({
-        error: 'Missing required fields: listingId, gameId, verificationId'
+        error: 'Missing required fields: listingId, gameId, verificationId',
       });
     }
 
@@ -90,13 +88,12 @@ router.post('/snapshot', async (req, res) => {
     );
 
     res.json({
-      snapshot
+      snapshot,
     });
-
   } catch (error) {
     console.error('Create game snapshot error:', error);
     res.status(500).json({
-      error: 'Internal server error'
+      error: 'Internal server error',
     });
   }
 });

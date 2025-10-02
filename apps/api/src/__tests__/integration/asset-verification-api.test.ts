@@ -96,9 +96,7 @@ describe('Game Verification API', () => {
     });
 
     it('should return 500 on internal server error', async () => {
-      mockVerifyGameOwnership.mockRejectedValue(
-        new Error('Internal error')
-      );
+      mockVerifyGameOwnership.mockRejectedValue(new Error('Internal error'));
 
       await request(app)
         .post('/api/asset-verification/verify')
@@ -157,9 +155,7 @@ describe('Game Verification API', () => {
     });
 
     it('should return 500 on internal server error', async () => {
-      mockGetUserVerifiedGames.mockRejectedValue(
-        new Error('Database error')
-      );
+      mockGetUserVerifiedGames.mockRejectedValue(new Error('Database error'));
 
       await request(app)
         .get('/api/asset-verification/user/user123/games')
@@ -201,9 +197,7 @@ describe('Game Verification API', () => {
     });
 
     it('should return 500 when snapshot creation fails', async () => {
-      mockCreateGameSnapshot.mockRejectedValue(
-        new Error('Game not verified')
-      );
+      mockCreateGameSnapshot.mockRejectedValue(new Error('Game not verified'));
 
       await request(app)
         .post('/api/asset-verification/snapshot')

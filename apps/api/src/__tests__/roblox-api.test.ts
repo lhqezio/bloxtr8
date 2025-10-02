@@ -37,7 +37,7 @@ describe('RobloxApiClient', () => {
           method: 'POST',
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
-            'Authorization': expect.stringContaining('Basic'),
+            Authorization: expect.stringContaining('Basic'),
           }),
           body: JSON.stringify({
             grant_type: 'client_credentials',
@@ -99,8 +99,8 @@ describe('RobloxApiClient', () => {
         'https://apis.roblox.com/v1/games?gameIds=123456789',
         expect.objectContaining({
           headers: expect.objectContaining({
-            'Authorization': 'Bearer test-token',
-            'Accept': 'application/json',
+            Authorization: 'Bearer test-token',
+            Accept: 'application/json',
           }),
         })
       );
@@ -198,7 +198,9 @@ describe('RobloxApiClient', () => {
       // Mock getUserGames, getGameDetails, and getGamePermissions
       jest.spyOn(client, 'getUserGames').mockResolvedValue(mockGames);
       jest.spyOn(client, 'getGameDetails').mockResolvedValue(mockGameDetails);
-      jest.spyOn(client, 'getGamePermissions').mockResolvedValue(mockPermissions);
+      jest
+        .spyOn(client, 'getGamePermissions')
+        .mockResolvedValue(mockPermissions);
 
       const result = await client.verifyGameOwnership('1', '123456789');
 
@@ -224,7 +226,9 @@ describe('RobloxApiClient', () => {
 
     it('should return false on error', async () => {
       // Mock getUserGames to throw error
-      jest.spyOn(client, 'getUserGames').mockRejectedValue(new Error('API Error'));
+      jest
+        .spyOn(client, 'getUserGames')
+        .mockRejectedValue(new Error('API Error'));
 
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
@@ -275,8 +279,8 @@ describe('RobloxApiClient', () => {
         'https://apis.roblox.com/v1/users/user123/games?limit=100&sortOrder=Desc',
         expect.objectContaining({
           headers: expect.objectContaining({
-            'Authorization': 'Bearer test-token',
-            'Accept': 'application/json',
+            Authorization: 'Bearer test-token',
+            Accept: 'application/json',
           }),
         })
       );
@@ -333,8 +337,8 @@ describe('RobloxApiClient', () => {
         'https://apis.roblox.com/v1/games/123456789/permissions?userId=user123',
         expect.objectContaining({
           headers: expect.objectContaining({
-            'Authorization': 'Bearer test-token',
-            'Accept': 'application/json',
+            Authorization: 'Bearer test-token',
+            Accept: 'application/json',
           }),
         })
       );
@@ -376,7 +380,9 @@ describe('RobloxApiClient', () => {
           statusText: 'Internal Server Error',
         });
 
-      await expect(client.getGamePermissions('123456789', 'user123')).rejects.toThrow(
+      await expect(
+        client.getGamePermissions('123456789', 'user123')
+      ).rejects.toThrow(
         'Failed to fetch game permissions: Internal Server Error'
       );
     });

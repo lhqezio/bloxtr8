@@ -47,21 +47,23 @@ export class RobloxApiClient {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Basic ${Buffer.from(`${this.config.clientId}:${this.config.clientSecret}`).toString('base64')}`
+        Authorization: `Basic ${Buffer.from(`${this.config.clientId}:${this.config.clientSecret}`).toString('base64')}`,
       },
       body: JSON.stringify({
         grant_type: 'client_credentials',
-        scope: 'read'
-      })
+        scope: 'read',
+      }),
     });
 
     if (!response.ok) {
-      throw new Error(`Roblox API authentication failed: ${response.statusText}`);
+      throw new Error(
+        `Roblox API authentication failed: ${response.statusText}`
+      );
     }
 
     const tokenData = await response.json();
     this.accessToken = tokenData.access_token;
-    this.tokenExpiresAt = new Date(Date.now() + (tokenData.expires_in * 1000));
+    this.tokenExpiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
   }
 
   /**
@@ -69,19 +71,19 @@ export class RobloxApiClient {
    */
   async getUserGames(userId: string): Promise<RobloxGame[]> {
     await this.ensureAuthenticated();
-    
+
     const params = new URLSearchParams({
       limit: '100',
-      sortOrder: 'Desc'
+      sortOrder: 'Desc',
     });
 
     const response = await fetch(
       `${this.config.baseUrl}/v1/users/${userId}/games?${params}`,
       {
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
-          'Accept': 'application/json'
-        }
+          Authorization: `Bearer ${this.accessToken}`,
+          Accept: 'application/json',
+        },
       }
     );
 
@@ -96,11 +98,14 @@ export class RobloxApiClient {
   /**
    * Verify if user owns or has admin access to specific game
    */
-  async verifyGameOwnership(userId: string, gameId: string): Promise<{ owns: boolean; role: string }> {
+  async verifyGameOwnership(
+    userId: string,
+    gameId: string
+  ): Promise<{ owns: boolean; role: string }> {
     try {
       const games = await this.getUserGames(userId);
       const game = games.find(g => g.id === gameId);
-      
+
       if (!game) {
         return { owns: false, role: 'None' };
       }
@@ -130,12 +135,15 @@ export class RobloxApiClient {
   async getGameDetails(gameId: string): Promise<RobloxGame | null> {
     await this.ensureAuthenticated();
 
-    const response = await fetch(`${this.config.baseUrl}/v1/games?gameIds=${gameId}`, {
-      headers: {
-        'Authorization': `Bearer ${this.accessToken}`,
-        'Accept': 'application/json'
+    const response = await fetch(
+      `${this.config.baseUrl}/v1/games?gameIds=${gameId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          Accept: 'application/json',
+        },
       }
-    });
+    );
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -151,16 +159,19 @@ export class RobloxApiClient {
   /**
    * Get game permissions for a user
    */
-  async getGamePermissions(gameId: string, userId: string): Promise<GamePermissions | null> {
+  async getGamePermissions(
+    gameId: string,
+    userId: string
+  ): Promise<GamePermissions | null> {
     await this.ensureAuthenticated();
 
     const response = await fetch(
       `${this.config.baseUrl}/v1/games/${gameId}/permissions?userId=${userId}`,
       {
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
-          'Accept': 'application/json'
-        }
+          Authorization: `Bearer ${this.accessToken}`,
+          Accept: 'application/json',
+        },
       }
     );
 
@@ -168,14 +179,20 @@ export class RobloxApiClient {
       if (response.status === 404) {
         return null;
       }
-      throw new Error(`Failed to fetch game permissions: ${response.statusText}`);
+      throw new Error(
+        `Failed to fetch game permissions: ${response.statusText}`
+      );
     }
 
     return await response.json();
   }
 
   private async ensureAuthenticated(): Promise<void> {
-    if (!this.accessToken || !this.tokenExpiresAt || this.tokenExpiresAt <= new Date()) {
+    if (
+      !this.accessToken ||
+      !this.tokenExpiresAt ||
+      this.tokenExpiresAt <= new Date()
+    ) {
       await this.authenticate();
     }
   }

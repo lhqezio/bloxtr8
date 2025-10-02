@@ -29,7 +29,7 @@ describe('GameVerificationService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     mockRobloxApi = {
       getGameDetails: jest.fn(),
       verifyGameOwnership: jest.fn(),
@@ -72,7 +72,7 @@ describe('GameVerificationService', () => {
 
       const mockOwnershipResult = {
         owns: true,
-        role: 'Owner'
+        role: 'Owner',
       };
 
       const mockVerification = {
@@ -91,7 +91,11 @@ describe('GameVerificationService', () => {
       mockRobloxApi.verifyGameOwnership.mockResolvedValue(mockOwnershipResult);
       mockPrisma.assetVerification.upsert.mockResolvedValue(mockVerification);
 
-      const result = await service.verifyGameOwnership(userId, gameId, robloxUserId);
+      const result = await service.verifyGameOwnership(
+        userId,
+        gameId,
+        robloxUserId
+      );
 
       expect(result.success).toBe(true);
       expect(result.verified).toBe(true);
@@ -112,15 +116,21 @@ describe('GameVerificationService', () => {
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // Still valid
       };
 
-      mockPrisma.assetVerification.findUnique.mockResolvedValue(existingVerification);
+      mockPrisma.assetVerification.findUnique.mockResolvedValue(
+        existingVerification
+      );
 
-      const result = await service.verifyGameOwnership(userId, gameId, robloxUserId);
+      const result = await service.verifyGameOwnership(
+        userId,
+        gameId,
+        robloxUserId
+      );
 
       expect(result.success).toBe(true);
       expect(result.verified).toBe(true);
       expect(result.ownershipType).toBe('OWNER');
       expect(result.verificationId).toBe('verification123');
-      
+
       // Should not call Roblox API for cached results
       expect(mockRobloxApi.getGameDetails).not.toHaveBeenCalled();
       expect(mockRobloxApi.verifyGameOwnership).not.toHaveBeenCalled();
@@ -134,7 +144,11 @@ describe('GameVerificationService', () => {
       mockPrisma.assetVerification.findUnique.mockResolvedValue(null);
       mockRobloxApi.getGameDetails.mockRejectedValue(new Error('API Error'));
 
-      const result = await service.verifyGameOwnership(userId, gameId, robloxUserId);
+      const result = await service.verifyGameOwnership(
+        userId,
+        gameId,
+        robloxUserId
+      );
 
       expect(result.success).toBe(false);
       expect(result.verified).toBe(false);
@@ -149,7 +163,11 @@ describe('GameVerificationService', () => {
       mockPrisma.assetVerification.findUnique.mockResolvedValue(null);
       mockRobloxApi.getGameDetails.mockResolvedValue(null);
 
-      const result = await service.verifyGameOwnership(userId, gameId, robloxUserId);
+      const result = await service.verifyGameOwnership(
+        userId,
+        gameId,
+        robloxUserId
+      );
 
       expect(result.success).toBe(false);
       expect(result.verified).toBe(false);
@@ -170,19 +188,25 @@ describe('GameVerificationService', () => {
 
       const mockOwnershipResult = {
         owns: false,
-        role: 'None'
+        role: 'None',
       };
 
       mockPrisma.assetVerification.findUnique.mockResolvedValue(null);
       mockRobloxApi.getGameDetails.mockResolvedValue(mockGameDetails);
       mockRobloxApi.verifyGameOwnership.mockResolvedValue(mockOwnershipResult);
 
-      const result = await service.verifyGameOwnership(userId, gameId, robloxUserId);
+      const result = await service.verifyGameOwnership(
+        userId,
+        gameId,
+        robloxUserId
+      );
 
       expect(result.success).toBe(true);
       expect(result.verified).toBe(false);
       expect(result.gameDetails).toEqual(mockGameDetails);
-      expect(result.error).toBe('You do not own or have admin access to this game');
+      expect(result.error).toBe(
+        'You do not own or have admin access to this game'
+      );
     });
   });
 
@@ -258,10 +282,16 @@ describe('GameVerificationService', () => {
         verifiedOwnership: true,
       };
 
-      mockPrisma.assetVerification.findUnique.mockResolvedValue(mockVerification);
+      mockPrisma.assetVerification.findUnique.mockResolvedValue(
+        mockVerification
+      );
       mockPrisma.robloxSnapshot.create.mockResolvedValue(mockSnapshot);
 
-      const result = await service.createGameSnapshot(listingId, gameId, verificationId);
+      const result = await service.createGameSnapshot(
+        listingId,
+        gameId,
+        verificationId
+      );
 
       expect(result).toEqual(mockSnapshot);
       expect(mockPrisma.robloxSnapshot.create).toHaveBeenCalledWith({
@@ -296,7 +326,9 @@ describe('GameVerificationService', () => {
         verificationStatus: 'FAILED',
       };
 
-      mockPrisma.assetVerification.findUnique.mockResolvedValue(mockVerification);
+      mockPrisma.assetVerification.findUnique.mockResolvedValue(
+        mockVerification
+      );
 
       await expect(
         service.createGameSnapshot(listingId, gameId, verificationId)

@@ -11,7 +11,10 @@ export class RobloxRiskAssessmentService {
   /**
    * Assess risk for Roblox assets
    */
-  async assessAssetRisk(assetId: string, verificationData: any): Promise<{
+  async assessAssetRisk(
+    assetId: string,
+    verificationData: any
+  ): Promise<{
     riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
     factors: RobloxAssetRiskFactors;
     recommendations: string[];
@@ -22,7 +25,7 @@ export class RobloxRiskAssessmentService {
       priceVolatility: await this.calculatePriceVolatility(assetId),
       rarity: verificationData.assetDetails.assetType?.name || 'Unknown',
       suspiciousActivity: await this.checkSuspiciousActivity(assetId),
-      verificationSource: verificationData.verificationMethod
+      verificationSource: verificationData.verificationMethod,
     };
 
     const riskScore = this.calculateRiskScore(factors);
@@ -32,13 +35,15 @@ export class RobloxRiskAssessmentService {
     return {
       riskLevel,
       factors,
-      recommendations
+      recommendations,
     };
   }
 
   private calculateAssetAge(assetDetails: any): number {
     const createdDate = new Date(assetDetails.created);
-    return Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.floor(
+      (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
   }
 
   private calculateRiskScore(factors: RobloxAssetRiskFactors): number {
@@ -82,7 +87,9 @@ export class RobloxRiskAssessmentService {
     }
 
     if (factors.suspiciousActivity) {
-      recommendations.push('Asset has suspicious activity - investigate further');
+      recommendations.push(
+        'Asset has suspicious activity - investigate further'
+      );
     }
 
     return recommendations;

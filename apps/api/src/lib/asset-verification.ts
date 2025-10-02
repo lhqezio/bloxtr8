@@ -21,7 +21,7 @@ export class GameVerificationService {
       clientId: process.env.ROBLOX_CLIENT_ID!,
       clientSecret: process.env.ROBLOX_CLIENT_SECRET!,
       baseUrl: 'https://apis.roblox.com',
-      rateLimitDelay: 1000
+      rateLimitDelay: 1000,
     });
   }
 
@@ -35,25 +35,28 @@ export class GameVerificationService {
   ): Promise<GameVerificationResult> {
     try {
       // Check if we have a recent verification
-      const existingVerification = await this.prisma.assetVerification.findUnique({
-        where: {
-          userId_gameId: {
-            userId,
-            gameId
-          }
-        }
-      });
+      const existingVerification =
+        await this.prisma.assetVerification.findUnique({
+          where: {
+            userId_gameId: {
+              userId,
+              gameId,
+            },
+          },
+        });
 
       // If recent verification exists and is still valid, return cached result
-      if (existingVerification && 
-          existingVerification.verificationStatus === 'VERIFIED' &&
-          existingVerification.expiresAt && 
-          existingVerification.expiresAt > new Date()) {
+      if (
+        existingVerification &&
+        existingVerification.verificationStatus === 'VERIFIED' &&
+        existingVerification.expiresAt &&
+        existingVerification.expiresAt > new Date()
+      ) {
         return {
           success: true,
           verified: true,
           ownershipType: existingVerification.ownershipType,
-          verificationId: existingVerification.id
+          verificationId: existingVerification.id,
         };
       }
 
@@ -63,19 +66,22 @@ export class GameVerificationService {
         return {
           success: false,
           verified: false,
-          error: 'Game not found'
+          error: 'Game not found',
         };
       }
 
       // Verify ownership/admin access
-      const ownershipResult = await this.robloxApi.verifyGameOwnership(robloxUserId, gameId);
+      const ownershipResult = await this.robloxApi.verifyGameOwnership(
+        robloxUserId,
+        gameId
+      );
 
       if (!ownershipResult.owns) {
         return {
           success: true,
           verified: false,
           gameDetails,
-          error: 'You do not own or have admin access to this game'
+          error: 'You do not own or have admin access to this game',
         };
       }
 
@@ -92,8 +98,8 @@ export class GameVerificationService {
         where: {
           userId_gameId: {
             userId,
-            gameId
-          }
+            gameId,
+          },
         },
         update: {
           verificationStatus: 'VERIFIED',
@@ -104,8 +110,8 @@ export class GameVerificationService {
             gameDetails,
             ownershipResult,
             verifiedAt: new Date().toISOString(),
-            robloxUserId
-          }
+            robloxUserId,
+          },
         },
         create: {
           userId,
@@ -119,9 +125,9 @@ export class GameVerificationService {
             gameDetails,
             ownershipResult,
             verifiedAt: new Date().toISOString(),
-            robloxUserId
-          }
-        }
+            robloxUserId,
+          },
+        },
       });
 
       return {
@@ -129,15 +135,14 @@ export class GameVerificationService {
         verified: true,
         gameDetails,
         ownershipType: ownershipResult.role,
-        verificationId: verification.id
+        verificationId: verification.id,
       };
-
     } catch (error) {
       console.error('Game verification error:', error);
       return {
         success: false,
         verified: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -151,7 +156,7 @@ export class GameVerificationService {
     verificationId: string
   ): Promise<any> {
     const verification = await this.prisma.assetVerification.findUnique({
-      where: { id: verificationId }
+      where: { id: verificationId },
     });
 
     if (!verification || verification.verificationStatus !== 'VERIFIED') {
@@ -168,7 +173,9 @@ export class GameVerificationService {
         gameId,
         gameName: gameDetails.name,
         gameDescription: gameDetails.description,
-        thumbnailUrl: gameDetails.thumbnailUrl || `https://thumbnails.roblox.com/v1/games/icons?gameIds=${gameId}&size=420x420&format=Png`,
+        thumbnailUrl:
+          gameDetails.thumbnailUrl ||
+          `https://thumbnails.roblox.com/v1/games/icons?gameIds=${gameId}&size=420x420&format=Png`,
         playerCount: gameDetails.playing,
         visits: gameDetails.visits,
         createdDate: gameDetails.created ? new Date(gameDetails.created) : null,
@@ -178,10 +185,10 @@ export class GameVerificationService {
         metadata: {
           verificationId,
           gameDetails,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
         },
-        listingId
-      }
+        listingId,
+      },
     });
 
     return snapshot;
@@ -196,12 +203,12 @@ export class GameVerificationService {
         userId,
         verificationStatus: 'VERIFIED',
         expiresAt: {
-          gt: new Date()
-        }
+          gt: new Date(),
+        },
       },
       orderBy: {
-        verifiedAt: 'desc'
-      }
+        verifiedAt: 'desc',
+      },
     });
   }
 }
