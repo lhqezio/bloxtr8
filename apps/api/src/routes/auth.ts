@@ -282,7 +282,7 @@ router.get('/roblox/callback', async (req, res, _next) => {
           });
           return upgraded;
         }
-        
+
         return null;
       });
 

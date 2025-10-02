@@ -419,6 +419,7 @@ describe('Auth API Routes', () => {
       expect(mockPrismaClient.user.update).toHaveBeenCalledWith({
         where: { id: 'user-123' },
         data: { kycTier: 'TIER_1' },
+        select: { kycTier: true },
       });
     });
 

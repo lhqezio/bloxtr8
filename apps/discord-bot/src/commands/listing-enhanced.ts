@@ -551,7 +551,8 @@ export async function handleListingWithGameModalSubmit(
         .addFields(
           {
             name: '🔒 Why?',
-            value: 'We need to ensure the listing matches the game you verified',
+            value:
+              'We need to ensure the listing matches the game you verified',
             inline: true,
           },
           {

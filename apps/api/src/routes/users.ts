@@ -466,7 +466,8 @@ router.post('/users/link-account', async (req, res, next) => {
     }
 
     // Check if user needs tier upgrade before transaction
-    const shouldUpgradeTier = providerId === 'roblox' && user.kycTier === 'TIER_0';
+    const shouldUpgradeTier =
+      providerId === 'roblox' && user.kycTier === 'TIER_0';
 
     // Create new account link and upgrade tier atomically
     const result = await prisma.$transaction(async tx => {

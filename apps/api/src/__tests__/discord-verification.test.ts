@@ -170,13 +170,8 @@ describe('Discord Verification Functions', () => {
       expect(typeof state).toBe('string');
       expect(state.length).toBe(64); // 32 bytes hex = 64 characters
 
-      // Should clean up ALL oauth states for the user
-      expect(mockPrisma.linkToken.deleteMany).toHaveBeenCalledWith({
-        where: {
-          discordId,
-          purpose: 'oauth_state',
-        },
-      });
+      // Should NOT delete existing states to avoid race conditions
+      expect(mockPrisma.linkToken.deleteMany).not.toHaveBeenCalled();
 
       // Should create new state
       expect(mockPrisma.linkToken.create).toHaveBeenCalledWith({
