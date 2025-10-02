@@ -17,10 +17,6 @@ import {
   handleListingWithGameModalSubmit,
   handleCancelListingCreation,
 } from './commands/listing-enhanced.js';
-import {
-  handleListingCreate,
-  handleListingModalSubmit,
-} from './commands/listing.js';
 import { handlePing } from './commands/ping.js';
 import {
   handleSignup,
@@ -56,15 +52,10 @@ client.once('clientReady', async () => {
       .toJSON(),
     new SlashCommandBuilder()
       .setName('listing')
-      .setDescription('Create a new listing')
+      .setDescription('Manage your listings')
       .addSubcommand(subcommand =>
         subcommand
           .setName('create')
-          .setDescription('Create a new listing for sale')
-      )
-      .addSubcommand(subcommand =>
-        subcommand
-          .setName('create-verified')
           .setDescription('Create a new verified game ownership listing')
       )
       .toJSON(),
@@ -132,12 +123,6 @@ client.on('interactionCreate', async interaction => {
       interaction.commandName === 'listing' &&
       interaction.options.getSubcommand() === 'create'
     ) {
-      await handleListingCreate(interaction);
-    }
-    if (
-      interaction.commandName === 'listing' &&
-      interaction.options.getSubcommand() === 'create-verified'
-    ) {
       await handleListingCreateWithVerification(interaction);
     }
     if (interaction.commandName === 'signup') {
@@ -150,9 +135,6 @@ client.on('interactionCreate', async interaction => {
 
   // Handle modal submissions
   if (interaction.isModalSubmit()) {
-    if (interaction.customId === 'listing_create_modal') {
-      await handleListingModalSubmit(interaction);
-    }
     if (interaction.customId === 'game_verification_modal') {
       await handleGameVerificationModalSubmit(interaction);
     }
