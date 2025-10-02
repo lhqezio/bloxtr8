@@ -562,7 +562,7 @@ export async function handleListingWithGameModalSubmit(
         },
         body: JSON.stringify({
           listingId: apiResult.data.id,
-          assetId: cachedData.gameDetails.id,
+          gameId: cachedData.gameDetails.id,
           verificationId: cachedData.verificationId,
         }),
       });
