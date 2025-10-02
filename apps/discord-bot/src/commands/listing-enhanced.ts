@@ -16,18 +16,15 @@ import { getApiBaseUrl } from '../utils/apiClient.js';
 import { verifyUserForListing } from '../utils/userVerification.js';
 import { ensureUserExists } from '../utils/userVerification.js';
 
-// ⚠️ WARNING: In-memory cache for verification data
-// LIMITATIONS:
-// - No TTL: Data never expires, leading to memory leaks
-// - No size limits: Cache can grow indefinitely
-// - Not persistent: Data lost on bot restart
-// - Not shared: Each bot instance has its own cache
+// ✅ In-memory cache with TTL, size limits, and cleanup
+// FEATURES:
+// - TTL: Entries expire after 15 minutes
+// - Size limits: Maximum 1000 entries with LRU eviction
+// - Cleanup: Automatic cleanup every 5 minutes
+// - Not persistent: Data lost on bot restart (use Redis for production)
 //
-// TODO for Production:
-// - Replace with Redis for persistence and TTL support
-// - Implement LRU eviction policy
-// - Add size limits
-// - Share cache across bot instances
+// NOTE for Production:
+// - Consider Redis for persistence and multi-instance support
 interface GameDetails {
   id: string;
   name: string;
@@ -39,10 +36,115 @@ interface GameDetails {
   thumbnailUrl?: string;
 }
 
-const verificationCache = new Map<
-  string,
-  { verificationId: string; gameDetails: GameDetails }
->();
+interface CacheEntry {
+  verificationId: string;
+  gameDetails: GameDetails;
+  timestamp: number;
+  lastAccessed: number;
+}
+
+// Cache configuration
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_CACHE_SIZE = 1000;
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+const verificationCache = new Map<string, CacheEntry>();
+
+// Cleanup function to remove expired entries
+function cleanupExpiredEntries(): void {
+  const now = Date.now();
+  let removedCount = 0;
+
+  for (const [key, entry] of verificationCache.entries()) {
+    if (now - entry.timestamp > CACHE_TTL_MS) {
+      verificationCache.delete(key);
+      removedCount++;
+    }
+  }
+
+  if (removedCount > 0) {
+    console.log(
+      `[Cache Cleanup] Removed ${removedCount} expired entries. Cache size: ${verificationCache.size}`
+    );
+  }
+}
+
+// LRU eviction - remove oldest accessed entry when cache is full
+function evictLRUEntry(): void {
+  let oldestKey: string | null = null;
+  let oldestTime = Infinity;
+
+  for (const [key, entry] of verificationCache.entries()) {
+    if (entry.lastAccessed < oldestTime) {
+      oldestTime = entry.lastAccessed;
+      oldestKey = key;
+    }
+  }
+
+  if (oldestKey) {
+    verificationCache.delete(oldestKey);
+    console.log(
+      `[Cache LRU] Evicted entry for key: ${oldestKey}. Cache size: ${verificationCache.size}`
+    );
+  }
+}
+
+// Helper to set cache entry with size check
+function setCacheEntry(
+  key: string,
+  value: { verificationId: string; gameDetails: GameDetails }
+): void {
+  // Check if we need to evict before adding
+  if (verificationCache.size >= MAX_CACHE_SIZE && !verificationCache.has(key)) {
+    evictLRUEntry();
+  }
+
+  const now = Date.now();
+  verificationCache.set(key, {
+    ...value,
+    timestamp: now,
+    lastAccessed: now,
+  });
+}
+
+// Helper to get cache entry with TTL check and access time update
+function getCacheEntry(
+  key: string
+): { verificationId: string; gameDetails: GameDetails } | null {
+  const entry = verificationCache.get(key);
+
+  if (!entry) {
+    return null;
+  }
+
+  const now = Date.now();
+
+  // Check if entry has expired
+  if (now - entry.timestamp > CACHE_TTL_MS) {
+    verificationCache.delete(key);
+    console.log(`[Cache TTL] Expired entry for key: ${key}`);
+    return null;
+  }
+
+  // Update last accessed time for LRU
+  entry.lastAccessed = now;
+
+  return {
+    verificationId: entry.verificationId,
+    gameDetails: entry.gameDetails,
+  };
+}
+
+// Start periodic cleanup
+const cleanupTimer = globalThis.setInterval(
+  cleanupExpiredEntries,
+  CLEANUP_INTERVAL_MS
+);
+
+// Ensure cleanup timer doesn't prevent process from exiting
+if ('unref' in cleanupTimer && typeof cleanupTimer.unref === 'function') {
+  cleanupTimer.unref();
+}
 
 export async function handleListingCreateWithVerification(
   interaction: ChatInputCommandInteraction
@@ -287,7 +389,7 @@ export async function handleGameVerificationModalSubmit(
     });
 
     // Store verification ID for later use in listing creation
-    verificationCache.set(discordId, {
+    setCacheEntry(discordId, {
       verificationId: verificationResult.verificationId,
       gameDetails,
     });
@@ -305,11 +407,12 @@ export async function handleCreateListingWithGameButton(
 ) {
   try {
     const discordId = interaction.user.id;
-    const cachedData = verificationCache.get(discordId);
+    const cachedData = getCacheEntry(discordId);
 
     if (!cachedData) {
       return interaction.reply({
-        content: '❌ Game verification data not found. Please start over.',
+        content:
+          '❌ Game verification data not found or expired. Please start over.',
         ephemeral: true,
       });
     }
@@ -416,11 +519,12 @@ export async function handleListingWithGameModalSubmit(
 
     // Get cached verification data
     const discordId = interaction.user.id;
-    const cachedData = verificationCache.get(discordId);
+    const cachedData = getCacheEntry(discordId);
 
     if (!cachedData) {
       await interaction.reply({
-        content: '❌ Asset verification data not found. Please start over.',
+        content:
+          '❌ Asset verification data not found or expired. Please start over.',
         ephemeral: true,
       });
       return;
