@@ -94,8 +94,12 @@ function setCacheEntry(
   key: string,
   value: { verificationId: string; gameDetails: GameDetails }
 ): void {
-  // Check if we need to evict before adding
-  if (verificationCache.size >= MAX_CACHE_SIZE && !verificationCache.has(key)) {
+  const isUpdate = verificationCache.has(key);
+  
+  // Check if we need to evict before adding or updating
+  // For new entries: evict if at max size
+  // For updates at max size: also evict to maintain LRU policy
+  if (verificationCache.size >= MAX_CACHE_SIZE && !isUpdate) {
     evictLRUEntry();
   }
 
@@ -144,6 +148,13 @@ const cleanupTimer = globalThis.setInterval(
 // Ensure cleanup timer doesn't prevent process from exiting
 if ('unref' in cleanupTimer && typeof cleanupTimer.unref === 'function') {
   cleanupTimer.unref();
+}
+
+// Cleanup function to clear timer and cache on module unload/bot shutdown
+export function cleanupVerificationCache(): void {
+  clearInterval(cleanupTimer);
+  verificationCache.clear();
+  console.log('[Cache Cleanup] Cleared verification cache and stopped cleanup timer');
 }
 
 export async function handleListingCreateWithVerification(
