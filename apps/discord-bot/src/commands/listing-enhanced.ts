@@ -16,13 +16,16 @@ import { getApiBaseUrl } from '../utils/apiClient.js';
 import { verifyUserForListing } from '../utils/userVerification.js';
 import { ensureUserExists } from '../utils/userVerification.js';
 
-// ✅ In-memory cache with TTL, size limits, cleanup, and API fallback
+// ✅ In-memory cache with TTL, size limits, and cleanup
 // FEATURES:
-// - TTL: Entries expire after 15 minutes (cache only)
-// - API fallback: Valid for 24 hours (persisted via API/database layer)
+// - TTL: Entries expire after 15 minutes - users must re-verify after expiration
 // - Size limits: Maximum 1000 entries with LRU eviction
 // - Cleanup: Automatic cleanup every 5 minutes
-// - Not persistent: Cache data lost on bot restart, but API layer retains for 24h
+// - Not persistent: Cache data lost on bot restart (users must re-verify)
+//
+// SECURITY:
+// - No automatic cache recovery to prevent wrong game data in listings
+// - Users must explicitly verify the game they want to list
 //
 // NOTE for Production:
 // - Consider Redis for persistence and multi-instance cache coordination
@@ -534,51 +537,42 @@ export async function handleListingWithGameModalSubmit(
 
     // Get cached verification data
     const discordId = interaction.user.id;
-    let cachedData = getCacheEntry(discordId);
+    const cachedData = getCacheEntry(discordId);
 
-    // If cache expired, try to recover from API (24hr expiration vs 15min cache)
+    // If cache expired, require user to re-verify to ensure correct game data
     if (!cachedData) {
-      try {
-        // Call API to get user's most recent verified game
-        const response = await fetch(
-          `${getApiBaseUrl()}/api/asset-verification/user/${userResult.user.id}/games`
-        );
-
-        if (response.ok) {
-          const result = await response.json();
-
-          // Get the most recent verification
-          if (result.games && result.games.length > 0) {
-            const verification = result.games[0];
-            const metadata = verification.metadata as {
-              gameDetails?: GameDetails;
-            } | null;
-
-            cachedData = {
-              verificationId: verification.id,
-              gameDetails: metadata?.gameDetails || {
-                id: verification.gameId,
-                name: 'Game',
-              },
-            };
-
-            // Repopulate cache for future use
-            setCacheEntry(discordId, cachedData);
-
-            console.log(
-              `[Cache Recovery] Restored verification from API for user: ${discordId}`
-            );
+      const embed = new EmbedBuilder()
+        .setColor(0xf59e0b)
+        .setTitle('⏰ Verification Expired')
+        .setDescription(
+          '**Your game verification has expired. Please verify your game again.**'
+        )
+        .setThumbnail(interaction.user.displayAvatarURL())
+        .addFields(
+          {
+            name: '🔒 Why?',
+            value: 'We need to ensure the listing matches the game you verified',
+            inline: true,
+          },
+          {
+            name: '⏱️ Time Limit',
+            value: '15 minutes after verification',
+            inline: true,
+          },
+          {
+            name: '🔄 Next Step',
+            value: 'Use `/listing` to start over',
+            inline: true,
           }
-        }
-      } catch (error) {
-        console.error('Failed to recover verification from API:', error);
-      }
-    }
+        )
+        .setFooter({
+          text: 'Security measure to prevent incorrect listings',
+          iconURL: interaction.user.displayAvatarURL(),
+        })
+        .setTimestamp();
 
-    if (!cachedData) {
       await interaction.reply({
-        content:
-          '❌ Asset verification data not found or expired. Please start over.',
+        embeds: [embed],
         ephemeral: true,
       });
       return;
