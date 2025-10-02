@@ -1,11 +1,10 @@
-import { PrismaClient } from '@bloxtr8/database';
+import { prisma } from '@bloxtr8/database';
 import { Router, type Router as ExpressRouter } from 'express';
 
 import { AppError } from '../middleware/errorHandler.js';
 import { createOfferSchema } from '../schemas/index.js';
 
 const router: ExpressRouter = Router();
-const prisma = new PrismaClient();
 
 // Create offer endpoint
 router.post('/offers', async (req, res, next) => {
@@ -48,13 +47,14 @@ router.post('/offers', async (req, res, next) => {
       throw new AppError('Cannot offer on closed listing', 400);
     }
 
-    // Optional: Validate that buyer is not the seller
+    // Validate that buyer is not the seller
     if (buyerId === listing.userId) {
       throw new AppError('Cannot offer on your own listing', 400);
     }
 
-    // Optional: Validate offer amount <= listing price (as per requirements)
-    // This is optional according to the requirements, but we'll implement it
+    // Validate offer amount <= listing price
+    // Note: This prevents offers above asking price. Remove this check if you want to allow
+    // buyers to offer more than the listing price (e.g., in competitive bidding scenarios)
     if (amount > listing.price) {
       throw new AppError('Offer amount cannot exceed listing price', 400);
     }

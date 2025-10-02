@@ -1,10 +1,8 @@
-import { PrismaClient } from '@bloxtr8/database';
+import { prisma } from '@bloxtr8/database';
 import { config } from '@dotenvx/dotenvx';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 config();
-
-const prisma = new PrismaClient();
 export const auth: ReturnType<typeof betterAuth> = betterAuth({
   trustedOrigins: ['http://localhost:5173', 'http://localhost:3000'],
 

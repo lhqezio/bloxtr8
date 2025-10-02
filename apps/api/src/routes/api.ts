@@ -1,5 +1,6 @@
 import { Router, type Router as ExpressRouter } from 'express';
 
+import assetVerificationRouter from './asset-verification.js';
 import authRouter from './auth.js';
 import contractsRouter from './contracts.js';
 import listingsRouter from './listings.js';
@@ -11,6 +12,7 @@ const router: ExpressRouter = Router();
 
 // Mount route modules
 router.use('/oauth', authRouter); // Changed from /auth to /oauth to avoid Better Auth conflict
+router.use('/asset-verification', assetVerificationRouter);
 router.use('/', usersRouter);
 router.use('/', listingsRouter);
 router.use('/', offersRouter);

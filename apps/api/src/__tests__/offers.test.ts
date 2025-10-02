@@ -16,14 +16,14 @@ const mockOfferCreate = jest.fn().mockResolvedValue({
 });
 
 jest.mock('@bloxtr8/database', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => ({
+  prisma: {
     listing: {
       findUnique: mockListingFindUnique,
     },
     offer: {
       create: mockOfferCreate,
     },
-  })),
+  },
 }));
 
 import app from '../index.js';

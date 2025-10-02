@@ -1,11 +1,10 @@
-import {
-  Router,
-  type Router as ExpressRouter,
-  type Request,
-  type Response,
-  type NextFunction,
-} from 'express';
+import { Router, type Router as ExpressRouter } from 'express';
 
+import {
+  generateOAuthState,
+  validateOAuthState,
+} from '../lib/discord-verification.js';
+import { validateRobloxOAuth } from '../lib/roblox-oauth.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const router: ExpressRouter = Router();
@@ -29,8 +28,7 @@ router.post('/roblox/url', async (req, res, _next) => {
 
     // If token is provided, validate it instead of requiring discordId
     if (token) {
-      const { PrismaClient } = await import('@bloxtr8/database');
-      const prisma = new PrismaClient();
+      const { prisma } = await import('@bloxtr8/database');
 
       const linkToken = await prisma.linkToken.findUnique({
         where: { token },
@@ -64,12 +62,9 @@ router.post('/roblox/url', async (req, res, _next) => {
       throw new AppError('Roblox OAuth not configured', 500);
     }
 
-    // Generate secure state parameter server-side
-    const { generateOAuthState } = await import(
-      '../lib/discord-verification.js'
-    );
+    // Generate secure state parameter server-side (stored in database)
     const stateDiscordId = token ? validatedDiscordId : discordId;
-    const state = generateOAuthState(stateDiscordId);
+    const state = await generateOAuthState(stateDiscordId);
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -78,9 +73,7 @@ router.post('/roblox/url', async (req, res, _next) => {
       scope: 'openid',
     });
 
-    if (state) {
-      params.append('state', state);
-    }
+    params.append('state', state);
 
     const authUrl = `https://apis.roblox.com/oauth/v1/authorize?${params.toString()}`;
 
@@ -97,224 +90,234 @@ router.post('/roblox/url', async (req, res, _next) => {
 });
 
 // Roblox OAuth callback endpoint
-router.get(
-  '/roblox/callback',
-  async (req: Request, res: Response, _next: NextFunction) => {
+router.get('/roblox/callback', async (req, res, _next) => {
+  try {
+    const { code, state, error } = req.query;
+
+    if (error) {
+      console.error('Roblox OAuth error:', error);
+      return res.redirect(
+        `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?error=${encodeURIComponent(error as string)}`
+      );
+    }
+
+    if (!code || !state) {
+      console.error('Missing code or state in Roblox callback');
+      return res.redirect(
+        `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?error=missing_parameters`
+      );
+    }
+
+    // Validate the state parameter and retrieve the associated Discord ID
+    // This prevents CSRF attacks and eliminates circular dependency
+    const discordId = await validateOAuthState(state as string);
+
+    if (!discordId) {
+      console.error('Invalid or expired state parameter:', {
+        state,
+      });
+      return res.redirect(
+        `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?error=invalid_state`
+      );
+    }
+
+    // Process the OAuth code immediately in the callback to avoid duplicate processing
     try {
-      const { code, state, error } = req.query;
+      // Use the same redirectUri pattern that the frontend sends
+      // This must match exactly what was used in the initial OAuth request
+      // The frontend uses getApiBaseUrl() which returns process.env.VITE_API_BASE_URL or defaults to localhost:3000
+      const apiBaseUrl =
+        process.env.API_BASE_URL ||
+        process.env.VITE_API_BASE_URL ||
+        'http://localhost:3000';
+      const redirectUri = `${apiBaseUrl}/api/oauth/roblox/callback`;
 
-      if (error) {
-        console.error('Roblox OAuth error:', error);
-        return res.redirect(
-          `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?error=${encodeURIComponent(error as string)}`
-        );
-      }
+      console.info('Processing OAuth code in callback', {
+        discordId,
+        hasCode: !!code,
+        redirectUri,
+      });
 
-      if (!code || !state) {
-        console.error('Missing code or state in Roblox callback');
-        return res.redirect(
-          `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?error=missing_parameters`
-        );
-      }
-
-      // Extract Discord ID from state
-      let discordId: string | undefined;
-      if (typeof state === 'string' && state.startsWith('discord_')) {
-        const stateParts = state.split('_');
-        if (stateParts.length >= 2) {
-          discordId = stateParts[1];
-        }
-      }
-
-      if (!discordId) {
-        console.error('Could not extract Discord ID from state:', state);
-        return res.redirect(
-          `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?error=invalid_state`
-        );
-      }
-
-      // Process the OAuth code immediately in the callback to avoid duplicate processing
+      let robloxUserId: string;
       try {
-        const { validateRobloxOAuth } = await import('../lib/roblox-oauth.js');
-        const redirectUri = `${process.env.API_BASE_URL || 'http://localhost:3000'}/api/oauth/roblox/callback`;
-
-        console.info('Processing OAuth code in callback', {
+        robloxUserId = await validateRobloxOAuth(code as string, redirectUri);
+        console.info('Successfully validated OAuth code', {
           discordId,
-          hasCode: !!code,
+          robloxUserId,
         });
+      } catch (oauthError) {
+        console.error('OAuth validation failed in callback:', oauthError);
 
-        let robloxUserId: string;
-        try {
-          robloxUserId = await validateRobloxOAuth(code as string, redirectUri);
-          console.info('Successfully validated OAuth code', {
-            discordId,
-            robloxUserId,
-          });
-        } catch (oauthError) {
-          console.error('OAuth validation failed in callback:', oauthError);
-
-          // Check if it's a code reuse error
-          if (
-            oauthError instanceof Error &&
-            oauthError.message.includes('Authorization code has been used')
-          ) {
-            const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
-              {
-                error: 'oauth_code_used',
-                message:
-                  'OAuth code has already been used. Please try linking your account again.',
-                discordId,
-              }
-            ).toString()}`;
-            return res.redirect(webAppErrorUrl);
-          }
-
+        // Check if it's a code reuse error
+        if (
+          oauthError instanceof Error &&
+          oauthError.message.includes('Authorization code has been used')
+        ) {
           const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
             {
-              error: 'oauth_validation_failed',
-              message: 'Failed to validate OAuth code',
+              error: 'oauth_code_used',
+              message:
+                'OAuth code has already been used. Please try linking your account again.',
               discordId,
             }
           ).toString()}`;
           return res.redirect(webAppErrorUrl);
         }
 
-        // Import PrismaClient and link accounts
-        const { PrismaClient } = await import('@bloxtr8/database');
-        const prisma = new PrismaClient();
-
-        try {
-          // Find user by Discord ID
-          const user = await prisma.user.findFirst({
-            where: {
-              accounts: {
-                some: {
-                  accountId: String(discordId),
-                  providerId: 'discord',
-                },
-              },
-            },
-          });
-
-          if (!user) {
-            console.warn('Discord user not found - user must sign up first', {
-              discordId,
-            });
-
-            const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
-              {
-                error: 'user_not_signed_up',
-                message:
-                  'Discord user not found. Please sign up first using the Discord bot `/signup` command or Discord OAuth on this site.',
-                discordId,
-              }
-            ).toString()}`;
-            return res.redirect(webAppErrorUrl);
-          }
-
-          // Check if Roblox account is already linked to this user
-          const existingRobloxAccount = await prisma.account.findFirst({
-            where: {
-              userId: user.id,
-              providerId: 'roblox',
-            },
-          });
-
-          if (existingRobloxAccount) {
-            console.info('Roblox account already linked', {
-              discordId,
-              userId: user.id,
-            });
-            const webAppSuccessUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/success?${new URLSearchParams(
-              {
-                message: 'Roblox account is already linked',
-                discordId,
-              }
-            ).toString()}`;
-            return res.redirect(webAppSuccessUrl);
-          }
-
-          // Check if Roblox account is linked to a different user
-          const existingRobloxUser = await prisma.user.findFirst({
-            where: {
-              accounts: {
-                some: {
-                  accountId: robloxUserId,
-                  providerId: 'roblox',
-                },
-              },
-            },
-          });
-
-          if (existingRobloxUser && existingRobloxUser.id !== user.id) {
-            console.warn('Roblox account linked to different user', {
-              discordId,
-              robloxUserId,
-            });
-            const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
-              {
-                error: 'account_conflict',
-                message: 'Roblox account is already linked to another user',
-                discordId,
-              }
-            ).toString()}`;
-            return res.redirect(webAppErrorUrl);
-          }
-
-          // Link Roblox account to Discord user
-          await prisma.account.create({
-            data: {
-              id: `roblox_${robloxUserId}`,
-              userId: user.id,
-              accountId: robloxUserId,
-              providerId: 'roblox',
-            },
-          });
-
-          console.info('Successfully linked Roblox account', {
-            discordId,
-            robloxUserId,
-            userId: user.id,
-          });
-
-          // Clean up any active link tokens for this user
-          await prisma.linkToken.deleteMany({
-            where: {
-              discordId,
-              purpose: 'roblox_link',
-            },
-          });
-
-          // Redirect to dedicated success page
-          const webAppSuccessUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/success?${new URLSearchParams(
-            {
-              message: 'Roblox account linked successfully!',
-              discordId,
-            }
-          ).toString()}`;
-          res.redirect(webAppSuccessUrl);
-        } finally {
-          await prisma.$disconnect();
-        }
-      } catch (error) {
-        console.error('Error processing OAuth in callback:', error);
         const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
           {
-            error: 'callback_error',
-            message: 'An error occurred while processing the authentication',
+            error: 'oauth_validation_failed',
+            message: 'Failed to validate OAuth code',
             discordId,
           }
         ).toString()}`;
-        res.redirect(webAppErrorUrl);
+        return res.redirect(webAppErrorUrl);
       }
+
+      // Import prisma singleton and link accounts
+      const { prisma } = await import('@bloxtr8/database');
+
+      // Find user by Discord ID
+      const user = await prisma.user.findFirst({
+        where: {
+          accounts: {
+            some: {
+              accountId: String(discordId),
+              providerId: 'discord',
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        console.warn('Discord user not found - user must sign up first', {
+          discordId,
+        });
+
+        const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
+          {
+            error: 'user_not_signed_up',
+            message:
+              'Discord user not found. Please sign up first using the Discord bot `/signup` command or Discord OAuth on this site.',
+            discordId,
+          }
+        ).toString()}`;
+        return res.redirect(webAppErrorUrl);
+      }
+
+      // Check if Roblox account is already linked to this user
+      const existingRobloxAccount = await prisma.account.findFirst({
+        where: {
+          userId: user.id,
+          providerId: 'roblox',
+        },
+      });
+
+      if (existingRobloxAccount) {
+        console.info('Roblox account already linked', {
+          discordId,
+          userId: user.id,
+        });
+        const webAppSuccessUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/success?${new URLSearchParams(
+          {
+            message: 'Roblox account is already linked',
+            discordId,
+          }
+        ).toString()}`;
+        return res.redirect(webAppSuccessUrl);
+      }
+
+      // Check if Roblox account is linked to a different user
+      const existingRobloxUser = await prisma.user.findFirst({
+        where: {
+          accounts: {
+            some: {
+              accountId: robloxUserId,
+              providerId: 'roblox',
+            },
+          },
+        },
+      });
+
+      if (existingRobloxUser && existingRobloxUser.id !== user.id) {
+        console.warn('Roblox account linked to different user', {
+          discordId,
+          robloxUserId,
+        });
+        const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
+          {
+            error: 'account_conflict',
+            message: 'Roblox account is already linked to another user',
+            discordId,
+          }
+        ).toString()}`;
+        return res.redirect(webAppErrorUrl);
+      }
+
+      // Link Roblox account to Discord user
+      await prisma.account.create({
+        data: {
+          id: `roblox_${robloxUserId}`,
+          userId: user.id,
+          accountId: robloxUserId,
+          providerId: 'roblox',
+        },
+      });
+
+      // Automatically upgrade user from TIER_0 to TIER_1 when they link Roblox account
+      if (user.kycTier === 'TIER_0') {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { kycTier: 'TIER_1' },
+        });
+        console.info('Upgraded user KYC tier from TIER_0 to TIER_1', {
+          userId: user.id,
+          discordId,
+        });
+      }
+
+      console.info('Successfully linked Roblox account', {
+        discordId,
+        robloxUserId,
+        userId: user.id,
+      });
+
+      // Clean up any active link tokens and OAuth states for this user
+      await prisma.linkToken.deleteMany({
+        where: {
+          discordId,
+          purpose: {
+            in: ['roblox_link', 'oauth_state'],
+          },
+        },
+      });
+
+      // Redirect to dedicated success page
+      const webAppSuccessUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/success?${new URLSearchParams(
+        {
+          message: 'Roblox account linked successfully!',
+          discordId,
+        }
+      ).toString()}`;
+      res.redirect(webAppSuccessUrl);
     } catch (error) {
-      console.error('Error in Roblox callback:', error);
-      res.redirect(
-        `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?error=callback_error`
-      );
+      console.error('Error processing OAuth in callback:', error);
+      const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
+        {
+          error: 'callback_error',
+          message: 'An error occurred while processing the authentication',
+          discordId,
+        }
+      ).toString()}`;
+      res.redirect(webAppErrorUrl);
     }
+  } catch (error) {
+    console.error('Error in Roblox callback:', error);
+    res.redirect(
+      `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?error=callback_error`
+    );
   }
-);
+});
 
 // Roblox account linking endpoint (simplified - most processing now happens in callback)
 router.post('/roblox/link', async (req, res, _next) => {

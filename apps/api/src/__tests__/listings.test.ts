@@ -17,7 +17,7 @@ const mockCreate = jest.fn().mockResolvedValue({
 const mockGuildFindUnique = jest.fn();
 
 jest.mock('@bloxtr8/database', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => ({
+  prisma: {
     listing: {
       create: mockCreate,
       findUnique: mockFindUnique,
@@ -25,7 +25,7 @@ jest.mock('@bloxtr8/database', () => ({
     guild: {
       findUnique: mockGuildFindUnique,
     },
-  })),
+  },
 }));
 
 import app from '../index.js';

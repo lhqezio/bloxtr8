@@ -1,12 +1,11 @@
 import crypto from 'crypto';
 
-import { PrismaClient } from '@bloxtr8/database';
+import { prisma } from '@bloxtr8/database';
 import { Router, type Router as ExpressRouter } from 'express';
 
 import { AppError } from '../middleware/errorHandler.js';
 
 const router: ExpressRouter = Router();
-const prisma = new PrismaClient();
 
 // Get user account by ID
 router.get('/users/account/:id', async (req, res, next) => {
@@ -330,75 +329,6 @@ router.post('/users/link-token/:token/use', async (req, res, next) => {
   }
 });
 
-// Transfer Roblox account between users (admin function)
-router.post('/users/transfer-roblox', async (req, res, next) => {
-  try {
-    const { fromDiscordId, toDiscordId, robloxId } = req.body;
-
-    if (!fromDiscordId || !toDiscordId || !robloxId) {
-      throw new AppError(
-        'From Discord ID, To Discord ID, and Roblox ID are required',
-        400
-      );
-    }
-
-    // Find target user by Discord ID
-    const targetUser = await prisma.user.findFirst({
-      where: {
-        accounts: {
-          some: {
-            accountId: String(toDiscordId),
-            providerId: 'discord',
-          },
-        },
-      },
-    });
-
-    if (!targetUser) {
-      throw new AppError('Target user not found', 404);
-    }
-
-    // Find the Roblox account
-    const robloxAccount = await prisma.account.findFirst({
-      where: {
-        accountId: String(robloxId),
-        providerId: 'roblox',
-      },
-    });
-
-    if (!robloxAccount) {
-      throw new AppError('Roblox account not found', 404);
-    }
-
-    // Check if target user already has this Roblox account
-    if (robloxAccount.userId === targetUser.id) {
-      return res.status(200).json({
-        success: true,
-        message: 'Roblox account already linked to target user',
-        userId: targetUser.id,
-        robloxId: String(robloxId),
-      });
-    }
-
-    // Transfer the Roblox account
-    await prisma.account.update({
-      where: { id: robloxAccount.id },
-      data: { userId: targetUser.id },
-    });
-
-    res.status(200).json({
-      success: true,
-      message: 'Roblox account transferred successfully',
-      fromUserId: robloxAccount.userId,
-      toUserId: targetUser.id,
-      robloxId: String(robloxId),
-    });
-  } catch (error) {
-    console.error(error);
-    next(error);
-  }
-});
-
 // Ensure user exists (create if not)
 router.post('/users/ensure', async (req, res, next) => {
   try {
@@ -445,7 +375,7 @@ router.post('/users/ensure', async (req, res, next) => {
             name: username,
             email: `${discordId}@discord.example`, // Placeholder email for Discord users
             kycVerified: false, // Default to unverified
-            kycTier: 'TIER_1', // Default tier
+            kycTier: 'TIER_0', // Default tier - no Roblox account linked yet
           },
           select: {
             id: true,
@@ -528,6 +458,18 @@ router.post('/users/link-account', async (req, res, next) => {
         userId,
       },
     });
+
+    // Automatically upgrade user from TIER_0 to TIER_1 when they link Roblox account
+    if (providerId === 'roblox' && user.kycTier === 'TIER_0') {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { kycTier: 'TIER_1' },
+      });
+      console.info('Upgraded user KYC tier from TIER_0 to TIER_1', {
+        userId,
+        providerId,
+      });
+    }
 
     res.status(201).json({
       success: true,

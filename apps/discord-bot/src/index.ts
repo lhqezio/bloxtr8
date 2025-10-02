@@ -11,9 +11,12 @@ import {
 import { handleHelp } from './commands/help.js';
 import { handleLinkRoblox } from './commands/linkRoblox.js';
 import {
-  handleListingCreate,
-  handleListingModalSubmit,
-} from './commands/listing.js';
+  handleListingCreateWithVerification,
+  handleGameVerificationModalSubmit,
+  handleCreateListingWithGameButton,
+  handleListingWithGameModalSubmit,
+  handleCancelListingCreation,
+} from './commands/listing-enhanced.js';
 import { handlePing } from './commands/ping.js';
 import {
   handleSignup,
@@ -49,11 +52,11 @@ client.once('clientReady', async () => {
       .toJSON(),
     new SlashCommandBuilder()
       .setName('listing')
-      .setDescription('Create a new listing')
+      .setDescription('Manage your listings')
       .addSubcommand(subcommand =>
         subcommand
           .setName('create')
-          .setDescription('Create a new listing for sale')
+          .setDescription('Create a new verified game ownership listing')
       )
       .toJSON(),
     new SlashCommandBuilder()
@@ -98,11 +101,8 @@ client.once('clientReady', async () => {
   }
 });
 
-client.on('messageCreate', async message => {
-  if (!message.author.bot) {
-    message.author.send(`You said: ${message.content}`);
-  }
-});
+// Note: messageCreate handler removed to prevent spam
+// If you need to handle DMs, implement a more specific handler here
 
 client.on('interactionCreate', async interaction => {
   // Handle slash commands
@@ -120,7 +120,7 @@ client.on('interactionCreate', async interaction => {
       interaction.commandName === 'listing' &&
       interaction.options.getSubcommand() === 'create'
     ) {
-      await handleListingCreate(interaction);
+      await handleListingCreateWithVerification(interaction);
     }
     if (interaction.commandName === 'signup') {
       await handleSignup(interaction);
@@ -132,8 +132,11 @@ client.on('interactionCreate', async interaction => {
 
   // Handle modal submissions
   if (interaction.isModalSubmit()) {
-    if (interaction.customId === 'listing_create_modal') {
-      await handleListingModalSubmit(interaction);
+    if (interaction.customId === 'game_verification_modal') {
+      await handleGameVerificationModalSubmit(interaction);
+    }
+    if (interaction.customId === 'listing_create_with_game_modal') {
+      await handleListingWithGameModalSubmit(interaction);
     }
   }
 
@@ -144,6 +147,12 @@ client.on('interactionCreate', async interaction => {
     }
     if (interaction.customId === 'consent_decline') {
       await handleConsentDecline(interaction);
+    }
+    if (interaction.customId === 'create_listing_with_game') {
+      await handleCreateListingWithGameButton(interaction);
+    }
+    if (interaction.customId === 'cancel_listing_creation') {
+      await handleCancelListingCreation(interaction);
     }
   }
 });

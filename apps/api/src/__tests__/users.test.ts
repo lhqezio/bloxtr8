@@ -15,7 +15,7 @@ const mockLinkTokenDelete = jest.fn();
 const mockLinkTokenDeleteMany = jest.fn();
 
 jest.mock('@bloxtr8/database', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => ({
+  prisma: {
     user: {
       findUnique: mockUserFindUnique,
       findFirst: mockUserFindFirst,
@@ -34,7 +34,7 @@ jest.mock('@bloxtr8/database', () => ({
       deleteMany: mockLinkTokenDeleteMany,
     },
     $transaction: mockTransaction,
-  })),
+  },
 }));
 
 import app from '../index.js';
@@ -332,7 +332,7 @@ describe('Users API Routes', () => {
         name: 'New User',
         email: 'discord-123@discord.example',
         kycVerified: false,
-        kycTier: 'TIER_1',
+        kycTier: 'TIER_0',
       };
 
       const mockTransactionResult = {
@@ -539,7 +539,7 @@ describe('Users API Routes', () => {
         name: unicodeUsername,
         email: 'discord-123@discord.example',
         kycVerified: false,
-        kycTier: 'TIER_1',
+        kycTier: 'TIER_0',
         accounts: [{ accountId: 'discord-123' }],
       });
 
