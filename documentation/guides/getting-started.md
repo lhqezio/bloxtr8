@@ -315,13 +315,7 @@ pnpm docker:logs      # View logs
 
 ## Support
 
-If you encounter any issues:
-
-1. Check [FAQ](faq.md)
-2. Search [existing issues](https://github.com/bloxtr8/bloxtr8/issues)
-3. Ask in [Discord](https://discord.gg/bloxtr8)
-4. Create a [new issue](https://github.com/bloxtr8/bloxtr8/issues/new)
-
----
-
-**Next**: [Development Guide](development.md)
+- Check existing documentation
+- Search GitHub issues
+- Ask in Discord
+- Create new issue if needed

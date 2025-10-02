@@ -541,14 +541,6 @@ git push origin hotfix/critical-fix
 
 For deployment issues:
 
-- Check [Troubleshooting Guide](../guides/troubleshooting.md)
-- Review [Monitoring Guide](monitoring.md)
+- Check documentation
+- Review logs
 - Contact: devops@bloxtr8.com
-
----
-
-**See Also**:
-
-- [Monitoring Guide](monitoring.md)
-- [Runbooks](runbooks.md)
-- [Security Policy](../../SECURITY.md)

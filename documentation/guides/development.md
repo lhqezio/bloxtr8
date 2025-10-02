@@ -641,12 +641,7 @@ const user = await response.json();
 
 ## Resources
 
-- [Prisma Documentation](https://www.prisma.io/docs)
+- [Prisma Docs](https://www.prisma.io/docs)
 - [Discord.js Guide](https://discordjs.guide/)
-- [Express Documentation](https://expressjs.com/)
-- [React Documentation](https://react.dev/)
+- [Express Docs](https://expressjs.com/)
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-
----
-
-**Next**: [API Reference](../api/README.md)

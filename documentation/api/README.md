@@ -480,8 +480,6 @@ listing = requests.post(
 
 ## Testing
 
-Use the provided Postman collection or test with curl:
-
 ```bash
 # Health check
 curl http://localhost:3000/health
@@ -491,10 +489,3 @@ curl -X POST http://localhost:3000/api/users/ensure \
   -H "Content-Type: application/json" \
   -d '{"discordId":"123","username":"TestUser"}'
 ```
-
----
-
-**See Also**:
-
-- [Development Guide](../guides/development.md)
-- [System Architecture](../architecture/system-overview.md)
