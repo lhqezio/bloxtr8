@@ -11,6 +11,7 @@ const mockPrismaClient: any = {
   },
   user: {
     findFirst: jest.fn(),
+    findUnique: jest.fn(),
     update: jest.fn(),
   },
   account: {
@@ -391,13 +392,22 @@ describe('Auth API Routes', () => {
       const mockUser = { id: 'user-123', kycTier: 'TIER_0' };
       const mockCreatedAccount = { id: 'account-123' };
 
-      mockPrismaClient.user.findFirst.mockResolvedValue(mockUser);
-      mockPrismaClient.account.findFirst.mockResolvedValue(null);
+      mockPrismaClient.user.findFirst
+        .mockResolvedValueOnce(mockUser) // First call: find user by Discord ID
+        .mockResolvedValueOnce(null); // Second call: check if Roblox account exists for different user
+      mockPrismaClient.account.findFirst
+        .mockResolvedValueOnce(null) // First call: check if Roblox account already linked to this user
+        .mockResolvedValueOnce(null); // Second call: for potential additional checks
+      mockPrismaClient.user.findUnique.mockResolvedValue({
+        id: 'user-123',
+        kycTier: 'TIER_0',
+      });
       mockPrismaClient.account.create.mockResolvedValue(mockCreatedAccount);
       mockPrismaClient.user.update.mockResolvedValue({
         ...mockUser,
         kycTier: 'TIER_1',
       });
+      mockPrismaClient.linkToken.deleteMany.mockResolvedValue({ count: 0 });
 
       const response = await request(app)
         .get(
@@ -419,7 +429,6 @@ describe('Auth API Routes', () => {
       expect(mockPrismaClient.user.update).toHaveBeenCalledWith({
         where: { id: 'user-123' },
         data: { kycTier: 'TIER_1' },
-        select: { kycTier: true },
       });
     });
 

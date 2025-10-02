@@ -125,9 +125,7 @@ router.get('/roblox/callback', async (req, res, _next) => {
     try {
       // Use the same redirectUri pattern that the frontend sends
       // This must match exactly what was used in the initial OAuth request
-      const apiBaseUrl =
-        process.env.API_BASE_URL ||
-        'http://localhost:3000';
+      const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
       const redirectUri = `${apiBaseUrl}/api/oauth/roblox/callback`;
 
       console.info('Processing OAuth code in callback', {
