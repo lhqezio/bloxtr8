@@ -369,7 +369,7 @@ export async function handleCreateListingWithGameButton(
   }
 }
 
-export async function handleListingWithAssetModalSubmit(
+export async function handleListingWithGameModalSubmit(
   interaction: ModalSubmitInteraction
 ) {
   try {
