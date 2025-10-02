@@ -73,16 +73,9 @@ export async function generateOAuthState(discordId: string): Promise<string> {
   // Store state in database with 10-minute expiration
   const { prisma } = await import('@bloxtr8/database');
 
-  // Clean up ALL OAuth states for this user (not just expired ones)
-  // This prevents multiple valid states from existing and potential replay attacks
-  await prisma.linkToken.deleteMany({
-    where: {
-      discordId,
-      purpose: 'oauth_state',
-    },
-  });
-
   // Store the new state
+  // Note: We don't delete existing states here to avoid race conditions in concurrent OAuth flows.
+  // Security is maintained through expiration checks and the 'used' flag in validateOAuthState.
   await prisma.linkToken.create({
     data: {
       token: state,
