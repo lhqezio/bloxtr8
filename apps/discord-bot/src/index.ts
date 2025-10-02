@@ -16,9 +16,9 @@ import {
 } from './commands/listing.js';
 import { 
   handleListingCreateWithVerification, 
-  handleAssetVerificationModalSubmit,
-  handleCreateListingWithAssetButton,
-  handleListingWithAssetModalSubmit,
+  handleGameVerificationModalSubmit,
+  handleCreateListingWithGameButton,
+  handleListingWithGameModalSubmit,
   handleCancelListingCreation
 } from './commands/listing-enhanced.js';
 import { handlePing } from './commands/ping.js';
@@ -65,7 +65,7 @@ client.once('clientReady', async () => {
       .addSubcommand(subcommand =>
         subcommand
           .setName('create-verified')
-          .setDescription('Create a new verified asset listing')
+          .setDescription('Create a new verified game ownership listing')
       )
       .toJSON(),
     new SlashCommandBuilder()
@@ -153,11 +153,11 @@ client.on('interactionCreate', async interaction => {
     if (interaction.customId === 'listing_create_modal') {
       await handleListingModalSubmit(interaction);
     }
-    if (interaction.customId === 'asset_verification_modal') {
-      await handleAssetVerificationModalSubmit(interaction);
+    if (interaction.customId === 'game_verification_modal') {
+      await handleGameVerificationModalSubmit(interaction);
     }
-    if (interaction.customId === 'listing_create_with_asset_modal') {
-      await handleListingWithAssetModalSubmit(interaction);
+    if (interaction.customId === 'listing_create_with_game_modal') {
+      await handleListingWithGameModalSubmit(interaction);
     }
   }
 
@@ -169,8 +169,8 @@ client.on('interactionCreate', async interaction => {
     if (interaction.customId === 'consent_decline') {
       await handleConsentDecline(interaction);
     }
-    if (interaction.customId === 'create_listing_with_asset') {
-      await handleCreateListingWithAssetButton(interaction);
+    if (interaction.customId === 'create_listing_with_game') {
+      await handleCreateListingWithGameButton(interaction);
     }
     if (interaction.customId === 'cancel_listing_creation') {
       await handleCancelListingCreation(interaction);

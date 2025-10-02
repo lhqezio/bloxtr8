@@ -117,23 +117,23 @@ export async function handleListingCreateWithVerification(
       return;
     }
 
-    // Show asset verification modal
-    const assetVerificationModal = new ModalBuilder()
-      .setCustomId('asset_verification_modal')
-      .setTitle('Asset Verification');
+    // Show game verification modal
+    const gameVerificationModal = new ModalBuilder()
+      .setCustomId('game_verification_modal')
+      .setTitle('Game Ownership Verification');
 
-    const assetIdInput = new TextInputBuilder()
-      .setCustomId('asset_id')
-      .setLabel('Roblox Asset ID')
+    const gameIdInput = new TextInputBuilder()
+      .setCustomId('game_id')
+      .setLabel('Roblox Game ID')
       .setStyle(TextInputStyle.Short)
-      .setPlaceholder('Enter the Roblox asset ID you want to list')
+      .setPlaceholder('Enter the Roblox game ID you want to list')
       .setRequired(true);
 
-    assetVerificationModal.addComponents(
-      new ActionRowBuilder<TextInputBuilder>().addComponents(assetIdInput)
+    gameVerificationModal.addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(gameIdInput)
     );
 
-    await interaction.showModal(assetVerificationModal);
+    await interaction.showModal(gameVerificationModal);
   } catch (error) {
     console.error('Error handling listing create with verification:', error);
 
@@ -158,11 +158,11 @@ export async function handleListingCreateWithVerification(
   }
 }
 
-export async function handleAssetVerificationModalSubmit(
+export async function handleGameVerificationModalSubmit(
   interaction: ModalSubmitInteraction
 ) {
   try {
-    const assetId = interaction.fields.getTextInputValue('asset_id');
+    const gameId = interaction.fields.getTextInputValue('game_id');
     const discordId = interaction.user.id;
 
     // Get user's Roblox account
@@ -171,21 +171,21 @@ export async function handleAssetVerificationModalSubmit(
     
     if (!robloxAccount) {
       return interaction.reply({
-        content: '❌ You must link your Roblox account first to verify asset ownership.',
+        content: '❌ You must link your Roblox account first to verify game ownership.',
         ephemeral: true
       });
     }
 
     await interaction.deferReply({ ephemeral: true });
 
-    // Verify asset ownership via API
+    // Verify game ownership via API
     const verificationResponse = await fetch(`${getApiBaseUrl()}/api/asset-verification/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        assetId,
+        gameId,
         robloxUserId: robloxAccount.accountId,
         userId: userResult.user.id
       })
@@ -195,29 +195,32 @@ export async function handleAssetVerificationModalSubmit(
 
     if (!verificationResult.verified) {
       return interaction.editReply({
-        content: `❌ Asset verification failed: ${verificationResult.error || 'You do not own this asset.'}`
+        content: `❌ Game verification failed: ${verificationResult.error || 'You do not own or have admin access to this game.'}`
       });
     }
 
-    // Show asset details and proceed to listing creation
-    const assetDetails = verificationResult.assetDetails;
+    // Show game details and proceed to listing creation
+    const gameDetails = verificationResult.gameDetails;
+    const ownershipType = verificationResult.ownershipType;
     const embed = new EmbedBuilder()
-      .setTitle('✅ Asset Verified')
-      .setDescription(`**${assetDetails.name}**`)
+      .setTitle('✅ Game Ownership Verified')
+      .setDescription(`**${gameDetails.name}**`)
       .addFields(
-        { name: 'Asset Type', value: assetDetails.assetType?.name || 'Unknown', inline: true },
-        { name: 'Current Price', value: `${assetDetails.recentAveragePrice || 'N/A'} Robux`, inline: true },
-        { name: 'Creator', value: assetDetails.creator?.name || 'Unknown', inline: true }
+        { name: 'Ownership Type', value: ownershipType, inline: true },
+        { name: 'Player Count', value: `${gameDetails.playing || 0} playing`, inline: true },
+        { name: 'Total Visits', value: `${gameDetails.visits || 0}`, inline: true },
+        { name: 'Creator', value: gameDetails.creator?.name || 'Unknown', inline: true },
+        { name: 'Genre', value: gameDetails.genre || 'Unknown', inline: true }
       )
-      .setThumbnail(`https://thumbnails.roblox.com/v1/assets?assetIds=${assetId}&size=420x420&format=Png`)
+      .setThumbnail(gameDetails.thumbnailUrl || `https://thumbnails.roblox.com/v1/games/icons?gameIds=${gameId}&size=420x420&format=Png`)
       .setColor('Green');
 
     // Create buttons for next steps
     const row = new ActionRowBuilder<ButtonBuilder>()
       .addComponents(
         new ButtonBuilder()
-          .setCustomId('create_listing_with_asset')
-          .setLabel('Create Listing')
+          .setCustomId('create_listing_with_game')
+          .setLabel('Create Game Listing')
           .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId('cancel_listing_creation')
@@ -226,7 +229,7 @@ export async function handleAssetVerificationModalSubmit(
       );
 
     await interaction.editReply({
-      content: 'Asset ownership verified! You can now create your listing.',
+      content: 'Game ownership verified! You can now create your listing.',
       embeds: [embed],
       components: [row]
     });
@@ -234,18 +237,18 @@ export async function handleAssetVerificationModalSubmit(
     // Store verification ID for later use in listing creation
     verificationCache.set(discordId, {
       verificationId: verificationResult.verificationId,
-      assetDetails
+      gameDetails
     });
 
   } catch (error) {
-    console.error('Error handling asset verification modal:', error);
+    console.error('Error handling game verification modal:', error);
     await interaction.editReply({
-      content: '❌ An error occurred during asset verification. Please try again later.'
+      content: '❌ An error occurred during game verification. Please try again later.'
     });
   }
 }
 
-export async function handleCreateListingWithAssetButton(
+export async function handleCreateListingWithGameButton(
   interaction: ButtonInteraction
 ) {
   try {
@@ -254,15 +257,15 @@ export async function handleCreateListingWithAssetButton(
 
     if (!cachedData) {
       return interaction.reply({
-        content: '❌ Asset verification data not found. Please start over.',
+        content: '❌ Game verification data not found. Please start over.',
         ephemeral: true
       });
     }
 
     // Show the listing creation modal
     const modal = new ModalBuilder()
-      .setCustomId('listing_create_with_asset_modal')
-      .setTitle('Create Asset Listing');
+      .setCustomId('listing_create_with_game_modal')
+      .setTitle('Create Game Listing');
 
     // Title input
     const titleInput = new TextInputBuilder()
@@ -295,7 +298,7 @@ export async function handleCreateListingWithAssetButton(
       .setCustomId('listing_category')
       .setLabel('Category')
       .setStyle(TextInputStyle.Short)
-      .setPlaceholder('e.g., Roblox Assets, Limited Items, etc.')
+      .setPlaceholder('e.g., Game Ownership, Game Admin, etc.')
       .setRequired(true)
       .setMaxLength(100);
 

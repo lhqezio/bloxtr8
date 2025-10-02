@@ -272,7 +272,7 @@ describe('RobloxApiClient', () => {
 
       expect(result).toEqual(mockGamesData.data);
       expect(fetch).toHaveBeenCalledWith(
-        'https://apis.roblox.com/v1/users/user123/games?limit=100',
+        'https://apis.roblox.com/v1/users/user123/games?limit=100&sortOrder=Desc',
         expect.objectContaining({
           headers: expect.objectContaining({
             'Authorization': 'Bearer test-token',
