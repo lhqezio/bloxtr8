@@ -1,27 +1,27 @@
 import { Router } from 'express';
-import { AssetVerificationService } from '../lib/asset-verification.js';
+import { GameVerificationService } from '../lib/asset-verification.js';
 
 const router = Router();
-const assetVerificationService = new AssetVerificationService();
+const gameVerificationService = new GameVerificationService();
 
 /**
  * POST /api/asset-verification/verify
- * Verify asset ownership for a user
+ * Verify game ownership/admin access for a user
  */
 router.post('/verify', async (req, res) => {
   try {
-    const { assetId, robloxUserId } = req.body;
-    const userId = req.user?.id;
+    const { gameId, robloxUserId, userId: bodyUserId } = req.body;
+    const userId = req.user?.id || bodyUserId;
 
-    if (!userId || !assetId || !robloxUserId) {
+    if (!userId || !gameId || !robloxUserId) {
       return res.status(400).json({
-        error: 'Missing required fields: userId, assetId, robloxUserId'
+        error: 'Missing required fields: userId, gameId, robloxUserId'
       });
     }
 
-    const result = await assetVerificationService.verifyAssetOwnership(
+    const result = await gameVerificationService.verifyGameOwnership(
       userId,
-      assetId,
+      gameId,
       robloxUserId
     );
 
@@ -33,12 +33,13 @@ router.post('/verify', async (req, res) => {
 
     res.json({
       verified: result.verified,
-      assetDetails: result.assetDetails,
+      gameDetails: result.gameDetails,
+      ownershipType: result.ownershipType,
       verificationId: result.verificationId
     });
 
   } catch (error) {
-    console.error('Asset verification endpoint error:', error);
+    console.error('Game verification endpoint error:', error);
     res.status(500).json({
       error: 'Internal server error'
     });
@@ -46,21 +47,21 @@ router.post('/verify', async (req, res) => {
 });
 
 /**
- * GET /api/asset-verification/user/:userId/assets
- * Get user's verified assets
+ * GET /api/asset-verification/user/:userId/games
+ * Get user's verified games
  */
-router.get('/user/:userId/assets', async (req, res) => {
+router.get('/user/:userId/games', async (req, res) => {
   try {
     const { userId } = req.params;
-    const assets = await assetVerificationService.getUserVerifiedAssets(userId);
+    const games = await gameVerificationService.getUserVerifiedGames(userId);
     
     res.json({
-      assets,
-      count: assets.length
+      games,
+      count: games.length
     });
 
   } catch (error) {
-    console.error('Get verified assets error:', error);
+    console.error('Get verified games error:', error);
     res.status(500).json({
       error: 'Internal server error'
     });
@@ -69,21 +70,21 @@ router.get('/user/:userId/assets', async (req, res) => {
 
 /**
  * POST /api/asset-verification/snapshot
- * Create asset snapshot for listing
+ * Create game snapshot for listing
  */
 router.post('/snapshot', async (req, res) => {
   try {
-    const { listingId, assetId, verificationId } = req.body;
+    const { listingId, gameId, verificationId } = req.body;
 
-    if (!listingId || !assetId || !verificationId) {
+    if (!listingId || !gameId || !verificationId) {
       return res.status(400).json({
-        error: 'Missing required fields: listingId, assetId, verificationId'
+        error: 'Missing required fields: listingId, gameId, verificationId'
       });
     }
 
-    const snapshot = await assetVerificationService.createAssetSnapshot(
+    const snapshot = await gameVerificationService.createGameSnapshot(
       listingId,
-      assetId,
+      gameId,
       verificationId
     );
 
@@ -92,7 +93,7 @@ router.post('/snapshot', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Create asset snapshot error:', error);
+    console.error('Create game snapshot error:', error);
     res.status(500).json({
       error: 'Internal server error'
     });

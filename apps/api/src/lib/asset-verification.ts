@@ -1,15 +1,16 @@
 import { PrismaClient } from '@bloxtr8/database';
 import { RobloxApiClient } from './roblox-api.js';
 
-export interface AssetVerificationResult {
+export interface GameVerificationResult {
   success: boolean;
   verified: boolean;
-  assetDetails?: any;
+  gameDetails?: any;
+  ownershipType?: string;
   error?: string;
   verificationId?: string;
 }
 
-export class AssetVerificationService {
+export class GameVerificationService {
   private prisma: PrismaClient;
   private robloxApi: RobloxApiClient;
 
@@ -24,20 +25,20 @@ export class AssetVerificationService {
   }
 
   /**
-   * Verify asset ownership for a user
+   * Verify game ownership/admin access for a user
    */
-  async verifyAssetOwnership(
+  async verifyGameOwnership(
     userId: string,
-    assetId: string,
+    gameId: string,
     robloxUserId: string
-  ): Promise<AssetVerificationResult> {
+  ): Promise<GameVerificationResult> {
     try {
       // Check if we have a recent verification
       const existingVerification = await this.prisma.assetVerification.findUnique({
         where: {
-          userId_assetId: {
+          userId_gameId: {
             userId,
-            assetId
+            gameId
           }
         }
       });
@@ -50,50 +51,72 @@ export class AssetVerificationService {
         return {
           success: true,
           verified: true,
+          ownershipType: existingVerification.ownershipType,
           verificationId: existingVerification.id
         };
       }
 
-      // Get asset details from Roblox
-      const assetDetails = await this.robloxApi.getAssetDetails(assetId);
-      if (!assetDetails) {
+      // Get game details from Roblox
+      const gameDetails = await this.robloxApi.getGameDetails(gameId);
+      if (!gameDetails) {
         return {
           success: false,
           verified: false,
-          error: 'Asset not found'
+          error: 'Game not found'
         };
       }
 
-      // Verify ownership
-      const ownsAsset = await this.robloxApi.verifyAssetOwnership(robloxUserId, assetId);
+      // Verify ownership/admin access
+      const ownershipResult = await this.robloxApi.verifyGameOwnership(robloxUserId, gameId);
+
+      if (!ownershipResult.owns) {
+        return {
+          success: true,
+          verified: false,
+          gameDetails,
+          error: 'You do not own or have admin access to this game'
+        };
+      }
+
+      // Determine ownership type for database
+      let ownershipType = 'OWNER';
+      if (ownershipResult.role === 'Admin') {
+        ownershipType = 'ADMIN';
+      } else if (ownershipResult.role === 'Developer') {
+        ownershipType = 'DEVELOPER';
+      }
 
       // Create or update verification record
       const verification = await this.prisma.assetVerification.upsert({
         where: {
-          userId_assetId: {
+          userId_gameId: {
             userId,
-            assetId
+            gameId
           }
         },
         update: {
-          verificationStatus: ownsAsset ? 'VERIFIED' : 'FAILED',
-          verifiedAt: ownsAsset ? new Date() : null,
-          expiresAt: ownsAsset ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null, // 24 hours
+          verificationStatus: 'VERIFIED',
+          ownershipType: ownershipType as any,
+          verifiedAt: new Date(),
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
           metadata: {
-            assetDetails,
+            gameDetails,
+            ownershipResult,
             verifiedAt: new Date().toISOString(),
             robloxUserId
           }
         },
         create: {
           userId,
-          assetId,
-          verificationStatus: ownsAsset ? 'VERIFIED' : 'FAILED',
-          verificationMethod: 'INVENTORY_API',
-          verifiedAt: ownsAsset ? new Date() : null,
-          expiresAt: ownsAsset ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null,
+          gameId,
+          verificationStatus: 'VERIFIED',
+          verificationMethod: 'GAME_OWNERSHIP_API',
+          ownershipType: ownershipType as any,
+          verifiedAt: new Date(),
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
           metadata: {
-            assetDetails,
+            gameDetails,
+            ownershipResult,
             verifiedAt: new Date().toISOString(),
             robloxUserId
           }
@@ -102,13 +125,14 @@ export class AssetVerificationService {
 
       return {
         success: true,
-        verified: ownsAsset,
-        assetDetails,
+        verified: true,
+        gameDetails,
+        ownershipType: ownershipResult.role,
         verificationId: verification.id
       };
 
     } catch (error) {
-      console.error('Asset verification error:', error);
+      console.error('Game verification error:', error);
       return {
         success: false,
         verified: false,
@@ -118,11 +142,11 @@ export class AssetVerificationService {
   }
 
   /**
-   * Create asset snapshot for listing
+   * Create game snapshot for listing
    */
-  async createAssetSnapshot(
+  async createGameSnapshot(
     listingId: string,
-    assetId: string,
+    gameId: string,
     verificationId: string
   ): Promise<any> {
     const verification = await this.prisma.assetVerification.findUnique({
@@ -130,28 +154,29 @@ export class AssetVerificationService {
     });
 
     if (!verification || verification.verificationStatus !== 'VERIFIED') {
-      throw new Error('Asset not verified');
+      throw new Error('Game not verified');
     }
 
-    const assetDetails = verification.metadata?.assetDetails;
-    if (!assetDetails) {
-      throw new Error('Asset details not found');
+    const gameDetails = verification.metadata?.gameDetails;
+    if (!gameDetails) {
+      throw new Error('Game details not found');
     }
 
     const snapshot = await this.prisma.robloxSnapshot.create({
       data: {
-        assetId,
-        assetType: assetDetails.assetType?.name || 'Unknown',
-        assetName: assetDetails.name,
-        assetDescription: assetDetails.description,
-        thumbnailUrl: `https://thumbnails.roblox.com/v1/assets?assetIds=${assetId}&size=420x420&format=Png`,
-        currentPrice: assetDetails.recentAveragePrice,
-        originalPrice: assetDetails.originalPrice,
+        gameId,
+        gameName: gameDetails.name,
+        gameDescription: gameDetails.description,
+        thumbnailUrl: gameDetails.thumbnailUrl || `https://thumbnails.roblox.com/v1/games/icons?gameIds=${gameId}&size=420x420&format=Png`,
+        playerCount: gameDetails.playing,
+        visits: gameDetails.visits,
+        createdDate: gameDetails.created ? new Date(gameDetails.created) : null,
         verifiedOwnership: true,
+        ownershipType: verification.ownershipType,
         verificationDate: verification.verifiedAt,
         metadata: {
           verificationId,
-          assetDetails,
+          gameDetails,
           createdAt: new Date().toISOString()
         },
         listingId
@@ -162,9 +187,9 @@ export class AssetVerificationService {
   }
 
   /**
-   * Get user's verified assets
+   * Get user's verified games
    */
-  async getUserVerifiedAssets(userId: string): Promise<any[]> {
+  async getUserVerifiedGames(userId: string): Promise<any[]> {
     return await this.prisma.assetVerification.findMany({
       where: {
         userId,

@@ -63,15 +63,19 @@ describe('RobloxApiClient', () => {
     });
   });
 
-  describe('getAssetDetails', () => {
-    it('should return asset details successfully', async () => {
-      const mockAssetDetails = {
+  describe('getGameDetails', () => {
+    it('should return game details successfully', async () => {
+      const mockGameDetails = {
         id: '123456789',
-        name: 'Test Asset',
-        assetType: { id: 1, name: 'Limited' },
+        name: 'Test Game',
+        description: 'A test game',
         creator: { id: 1, name: 'Test Creator', type: 'User' },
         created: '2023-01-01T00:00:00Z',
         updated: '2023-01-01T00:00:00Z',
+        visits: 1000,
+        playing: 50,
+        maxPlayers: 100,
+        genre: 'Adventure',
       };
 
       // Mock authentication
@@ -85,14 +89,14 @@ describe('RobloxApiClient', () => {
         })
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => mockAssetDetails,
+          json: async () => ({ data: [mockGameDetails] }),
         });
 
-      const result = await client.getAssetDetails('123456789');
+      const result = await client.getGameDetails('123456789');
 
-      expect(result).toEqual(mockAssetDetails);
+      expect(result).toEqual(mockGameDetails);
       expect(fetch).toHaveBeenCalledWith(
-        'https://apis.roblox.com/catalog/v1/assets/123456789/details',
+        'https://apis.roblox.com/v1/games?gameIds=123456789',
         expect.objectContaining({
           headers: expect.objectContaining({
             'Authorization': 'Bearer test-token',
@@ -117,7 +121,7 @@ describe('RobloxApiClient', () => {
           status: 404,
         });
 
-      const result = await client.getAssetDetails('123456789');
+      const result = await client.getGameDetails('123456789');
 
       expect(result).toBeNull();
     });
@@ -138,66 +142,97 @@ describe('RobloxApiClient', () => {
           statusText: 'Internal Server Error',
         });
 
-      await expect(client.getAssetDetails('123456789')).rejects.toThrow(
-        'Failed to fetch asset details: Internal Server Error'
+      await expect(client.getGameDetails('123456789')).rejects.toThrow(
+        'Failed to fetch game details: Internal Server Error'
       );
     });
   });
 
-  describe('verifyAssetOwnership', () => {
-    it('should return true when user owns asset', async () => {
-      const mockInventory = [
+  describe('verifyGameOwnership', () => {
+    it('should return true when user owns game', async () => {
+      const mockGames = [
         {
-          id: '1',
-          name: 'Asset 1',
-          assetId: '123456789',
-          assetTypeId: 1,
-        },
-        {
-          id: '2',
-          name: 'Asset 2',
-          assetId: '987654321',
-          assetTypeId: 1,
+          id: '123456789',
+          name: 'Test Game',
+          creator: { id: 1, name: 'Test Creator', type: 'User' },
         },
       ];
 
-      // Mock getUserInventory
-      jest.spyOn(client, 'getUserInventory').mockResolvedValue(mockInventory);
+      const mockGameDetails = {
+        id: '123456789',
+        name: 'Test Game',
+        creator: { id: 1, name: 'Test Creator', type: 'User' },
+      };
 
-      const result = await client.verifyAssetOwnership('user123', '123456789');
+      // Mock getUserGames and getGameDetails
+      jest.spyOn(client, 'getUserGames').mockResolvedValue(mockGames);
+      jest.spyOn(client, 'getGameDetails').mockResolvedValue(mockGameDetails);
 
-      expect(result).toBe(true);
+      const result = await client.verifyGameOwnership('1', '123456789');
+
+      expect(result).toEqual({ owns: true, role: 'Owner' });
     });
 
-    it('should return false when user does not own asset', async () => {
-      const mockInventory = [
+    it('should return true when user has admin access', async () => {
+      const mockGames = [
         {
-          id: '1',
-          name: 'Asset 1',
-          assetId: '987654321',
-          assetTypeId: 1,
+          id: '123456789',
+          name: 'Test Game',
+          creator: { id: 999, name: 'Other Creator', type: 'User' },
         },
       ];
 
-      // Mock getUserInventory
-      jest.spyOn(client, 'getUserInventory').mockResolvedValue(mockInventory);
+      const mockGameDetails = {
+        id: '123456789',
+        name: 'Test Game',
+        creator: { id: 999, name: 'Other Creator', type: 'User' },
+      };
 
-      const result = await client.verifyAssetOwnership('user123', '123456789');
+      const mockPermissions = {
+        gameId: '123456789',
+        userId: '1',
+        permissions: ['admin'],
+        role: 'Admin',
+      };
 
-      expect(result).toBe(false);
+      // Mock getUserGames, getGameDetails, and getGamePermissions
+      jest.spyOn(client, 'getUserGames').mockResolvedValue(mockGames);
+      jest.spyOn(client, 'getGameDetails').mockResolvedValue(mockGameDetails);
+      jest.spyOn(client, 'getGamePermissions').mockResolvedValue(mockPermissions);
+
+      const result = await client.verifyGameOwnership('1', '123456789');
+
+      expect(result).toEqual({ owns: true, role: 'Admin' });
+    });
+
+    it('should return false when user does not own or have access to game', async () => {
+      const mockGames = [
+        {
+          id: '987654321',
+          name: 'Other Game',
+          creator: { id: 1, name: 'Test Creator', type: 'User' },
+        },
+      ];
+
+      // Mock getUserGames
+      jest.spyOn(client, 'getUserGames').mockResolvedValue(mockGames);
+
+      const result = await client.verifyGameOwnership('1', '123456789');
+
+      expect(result).toEqual({ owns: false, role: 'None' });
     });
 
     it('should return false on error', async () => {
-      // Mock getUserInventory to throw error
-      jest.spyOn(client, 'getUserInventory').mockRejectedValue(new Error('API Error'));
+      // Mock getUserGames to throw error
+      jest.spyOn(client, 'getUserGames').mockRejectedValue(new Error('API Error'));
 
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
-      const result = await client.verifyAssetOwnership('user123', '123456789');
+      const result = await client.verifyGameOwnership('1', '123456789');
 
-      expect(result).toBe(false);
+      expect(result).toEqual({ owns: false, role: 'None' });
       expect(consoleSpy).toHaveBeenCalledWith(
-        'Asset ownership verification failed:',
+        'Game ownership verification failed:',
         expect.any(Error)
       );
 
@@ -205,15 +240,16 @@ describe('RobloxApiClient', () => {
     });
   });
 
-  describe('getUserInventory', () => {
-    it('should return user inventory successfully', async () => {
-      const mockInventoryData = {
+  describe('getUserGames', () => {
+    it('should return user games successfully', async () => {
+      const mockGamesData = {
         data: [
           {
-            id: '1',
-            name: 'Asset 1',
-            assetId: '123456789',
-            assetTypeId: 1,
+            id: '123456789',
+            name: 'Test Game',
+            creator: { id: 1, name: 'Test Creator', type: 'User' },
+            visits: 1000,
+            playing: 50,
           },
         ],
       };
@@ -229,14 +265,14 @@ describe('RobloxApiClient', () => {
         })
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => mockInventoryData,
+          json: async () => mockGamesData,
         });
 
-      const result = await client.getUserInventory('user123');
+      const result = await client.getUserGames('user123');
 
-      expect(result).toEqual(mockInventoryData.data);
+      expect(result).toEqual(mockGamesData.data);
       expect(fetch).toHaveBeenCalledWith(
-        'https://apis.roblox.com/inventory/v1/users/user123/assets/collectibles?assetTypes=&limit=100&sortOrder=Desc',
+        'https://apis.roblox.com/v1/users/user123/games?limit=100',
         expect.objectContaining({
           headers: expect.objectContaining({
             'Authorization': 'Bearer test-token',
@@ -261,8 +297,87 @@ describe('RobloxApiClient', () => {
           statusText: 'Forbidden',
         });
 
-      await expect(client.getUserInventory('user123')).rejects.toThrow(
-        'Failed to fetch user inventory: Forbidden'
+      await expect(client.getUserGames('user123')).rejects.toThrow(
+        'Failed to fetch user games: Forbidden'
+      );
+    });
+  });
+
+  describe('getGamePermissions', () => {
+    it('should return game permissions successfully', async () => {
+      const mockPermissions = {
+        gameId: '123456789',
+        userId: 'user123',
+        permissions: ['admin', 'edit'],
+        role: 'Admin',
+      };
+
+      // Mock authentication
+      (fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            access_token: 'test-token',
+            expires_in: 3600,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => mockPermissions,
+        });
+
+      const result = await client.getGamePermissions('123456789', 'user123');
+
+      expect(result).toEqual(mockPermissions);
+      expect(fetch).toHaveBeenCalledWith(
+        'https://apis.roblox.com/v1/games/123456789/permissions?userId=user123',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Authorization': 'Bearer test-token',
+            'Accept': 'application/json',
+          }),
+        })
+      );
+    });
+
+    it('should return null for 404 response', async () => {
+      // Mock authentication
+      (fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            access_token: 'test-token',
+            expires_in: 3600,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+        });
+
+      const result = await client.getGamePermissions('123456789', 'user123');
+
+      expect(result).toBeNull();
+    });
+
+    it('should throw error for other API failures', async () => {
+      // Mock authentication
+      (fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            access_token: 'test-token',
+            expires_in: 3600,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          statusText: 'Internal Server Error',
+        });
+
+      await expect(client.getGamePermissions('123456789', 'user123')).rejects.toThrow(
+        'Failed to fetch game permissions: Internal Server Error'
       );
     });
   });

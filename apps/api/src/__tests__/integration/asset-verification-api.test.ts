@@ -15,56 +15,57 @@ jest.mock('@bloxtr8/database', () => ({
 import request from 'supertest';
 import app from '../../index.js';
 
-// Mock the AssetVerificationService
+// Mock the GameVerificationService
 jest.mock('../../lib/asset-verification.js', () => ({
-  AssetVerificationService: jest.fn().mockImplementation(() => ({
-    verifyAssetOwnership: jest.fn(),
-    getUserVerifiedAssets: jest.fn(),
-    createAssetSnapshot: jest.fn(),
+  GameVerificationService: jest.fn().mockImplementation(() => ({
+    verifyGameOwnership: jest.fn(),
+    getUserVerifiedGames: jest.fn(),
+    createGameSnapshot: jest.fn(),
   })),
 }));
 
-describe('Asset Verification API', () => {
-  let mockAssetVerificationService: any;
+describe('Game Verification API', () => {
+  let mockGameVerificationService: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
     
     // Get the mocked service instance
-    const { AssetVerificationService } = require('../../lib/asset-verification.js');
-    mockAssetVerificationService = new AssetVerificationService();
+    const { GameVerificationService } = require('../../lib/asset-verification.js');
+    mockGameVerificationService = new GameVerificationService();
   });
 
   describe('POST /api/asset-verification/verify', () => {
-    it('should verify asset ownership successfully', async () => {
+    it('should verify game ownership successfully', async () => {
       const mockResult = {
         success: true,
         verified: true,
-        assetDetails: {
+        gameDetails: {
           id: '123456789',
-          name: 'Test Asset',
-          assetType: { name: 'Limited' },
+          name: 'Test Game',
+          description: 'A test game',
+          creator: { name: 'Test Creator', id: 123, type: 'User' },
+          visits: 1000,
+          playing: 50,
         },
+        ownershipType: 'Owner',
         verificationId: 'verification123',
       };
 
-      mockAssetVerificationService.verifyAssetOwnership.mockResolvedValue(mockResult);
-
-      // Mock authentication middleware
-      const mockReq = {
-        user: { id: 'user123' },
-      };
+      mockGameVerificationService.verifyGameOwnership.mockResolvedValue(mockResult);
 
       const response = await request(app)
         .post('/api/asset-verification/verify')
         .send({
-          assetId: '123456789',
+          gameId: '123456789',
           robloxUserId: '987654321',
+          userId: 'user123', // Add userId to request body since no auth middleware
         })
         .expect(200);
 
       expect(response.body.verified).toBe(true);
-      expect(response.body.assetDetails).toBeDefined();
+      expect(response.body.gameDetails).toBeDefined();
+      expect(response.body.ownershipType).toBe('Owner');
       expect(response.body.verificationId).toBe('verification123');
     });
 
@@ -79,100 +80,104 @@ describe('Asset Verification API', () => {
       const mockResult = {
         success: false,
         verified: false,
-        error: 'Asset not found',
+        error: 'Game not found',
       };
 
-      mockAssetVerificationService.verifyAssetOwnership.mockResolvedValue(mockResult);
+      mockGameVerificationService.verifyGameOwnership.mockResolvedValue(mockResult);
 
       await request(app)
         .post('/api/asset-verification/verify')
         .send({
-          assetId: '123456789',
+          gameId: '123456789',
           robloxUserId: '987654321',
+          userId: 'user123',
         })
         .expect(400);
     });
 
     it('should return 500 on internal server error', async () => {
-      mockAssetVerificationService.verifyAssetOwnership.mockRejectedValue(
+      mockGameVerificationService.verifyGameOwnership.mockRejectedValue(
         new Error('Internal error')
       );
 
       await request(app)
         .post('/api/asset-verification/verify')
         .send({
-          assetId: '123456789',
+          gameId: '123456789',
           robloxUserId: '987654321',
+          userId: 'user123',
         })
         .expect(500);
     });
   });
 
-  describe('GET /api/asset-verification/user/:userId/assets', () => {
-    it('should return user verified assets', async () => {
-      const mockAssets = [
+  describe('GET /api/asset-verification/user/:userId/games', () => {
+    it('should return user verified games', async () => {
+      const mockGames = [
         {
           id: 'verification1',
-          assetId: 'asset1',
+          gameId: 'game1',
           verificationStatus: 'VERIFIED',
+          ownershipType: 'OWNER',
           verifiedAt: new Date(),
         },
         {
           id: 'verification2',
-          assetId: 'asset2',
+          gameId: 'game2',
           verificationStatus: 'VERIFIED',
+          ownershipType: 'ADMIN',
           verifiedAt: new Date(),
         },
       ];
 
-      mockAssetVerificationService.getUserVerifiedAssets.mockResolvedValue(mockAssets);
+      mockGameVerificationService.getUserVerifiedGames.mockResolvedValue(mockGames);
 
       const response = await request(app)
-        .get('/api/asset-verification/user/user123/assets')
+        .get('/api/asset-verification/user/user123/games')
         .expect(200);
 
-      expect(response.body.assets).toEqual(mockAssets);
+      expect(response.body.games).toEqual(mockGames);
       expect(response.body.count).toBe(2);
     });
 
-    it('should return empty array when no assets found', async () => {
-      mockAssetVerificationService.getUserVerifiedAssets.mockResolvedValue([]);
+    it('should return empty array when no games found', async () => {
+      mockGameVerificationService.getUserVerifiedGames.mockResolvedValue([]);
 
       const response = await request(app)
-        .get('/api/asset-verification/user/user123/assets')
+        .get('/api/asset-verification/user/user123/games')
         .expect(200);
 
-      expect(response.body.assets).toEqual([]);
+      expect(response.body.games).toEqual([]);
       expect(response.body.count).toBe(0);
     });
 
     it('should return 500 on internal server error', async () => {
-      mockAssetVerificationService.getUserVerifiedAssets.mockRejectedValue(
+      mockGameVerificationService.getUserVerifiedGames.mockRejectedValue(
         new Error('Database error')
       );
 
       await request(app)
-        .get('/api/asset-verification/user/user123/assets')
+        .get('/api/asset-verification/user/user123/games')
         .expect(500);
     });
   });
 
   describe('POST /api/asset-verification/snapshot', () => {
-    it('should create asset snapshot successfully', async () => {
+    it('should create game snapshot successfully', async () => {
       const mockSnapshot = {
         id: 'snapshot123',
-        assetId: 'asset456',
-        assetName: 'Test Asset',
+        gameId: 'game456',
+        gameName: 'Test Game',
         verifiedOwnership: true,
       };
 
-      mockAssetVerificationService.createAssetSnapshot.mockResolvedValue(mockSnapshot);
+      mockGameVerificationService.createGameSnapshot.mockResolvedValue(mockSnapshot);
 
       const response = await request(app)
         .post('/api/asset-verification/snapshot')
         .send({
           listingId: 'listing123',
-          assetId: 'asset456',
+          gameId: 'game456',
           verificationId: 'verification789',
         })
         .expect(200);
@@ -185,21 +190,21 @@ describe('Asset Verification API', () => {
         .post('/api/asset-verification/snapshot')
         .send({
           listingId: 'listing123',
-          // Missing assetId and verificationId
+          // Missing gameId and verificationId
         })
         .expect(400);
     });
 
     it('should return 500 when snapshot creation fails', async () => {
-      mockAssetVerificationService.createAssetSnapshot.mockRejectedValue(
-        new Error('Asset not verified')
+      mockGameVerificationService.createGameSnapshot.mockRejectedValue(
+        new Error('Game not verified')
       );
 
       await request(app)
         .post('/api/asset-verification/snapshot')
         .send({
           listingId: 'listing123',
-          assetId: 'asset456',
+          gameId: 'game456',
           verificationId: 'verification789',
         })
         .expect(500);

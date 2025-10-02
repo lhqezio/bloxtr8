@@ -5,14 +5,10 @@ interface RobloxApiConfig {
   rateLimitDelay: number;
 }
 
-interface RobloxAsset {
+interface RobloxGame {
   id: string;
   name: string;
   description?: string;
-  assetType: {
-    id: number;
-    name: string;
-  };
   creator: {
     id: number;
     name: string;
@@ -20,16 +16,18 @@ interface RobloxAsset {
   };
   created: string;
   updated: string;
+  visits: number;
+  playing: number;
+  maxPlayers: number;
+  genre: string;
+  thumbnailUrl?: string;
 }
 
-interface RobloxInventoryItem {
-  id: string;
-  name: string;
-  assetId: string;
-  assetTypeId: number;
-  serialNumber?: number;
-  originalPrice?: number;
-  recentAveragePrice?: number;
+interface GamePermissions {
+  gameId: string;
+  userId: string;
+  permissions: string[];
+  role: 'Owner' | 'Admin' | 'Developer' | 'Member';
 }
 
 export class RobloxApiClient {
@@ -67,19 +65,18 @@ export class RobloxApiClient {
   }
 
   /**
-   * Get user's Roblox inventory
+   * Get user's games (games they own or have permissions for)
    */
-  async getUserInventory(userId: string, assetTypeIds?: number[]): Promise<RobloxInventoryItem[]> {
+  async getUserGames(userId: string): Promise<RobloxGame[]> {
     await this.ensureAuthenticated();
     
     const params = new URLSearchParams({
-      assetTypes: assetTypeIds?.join(',') || '',
       limit: '100',
       sortOrder: 'Desc'
     });
 
     const response = await fetch(
-      `${this.config.baseUrl}/inventory/v1/users/${userId}/assets/collectibles?${params}`,
+      `${this.config.baseUrl}/v1/users/${userId}/games?${params}`,
       {
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
@@ -89,7 +86,7 @@ export class RobloxApiClient {
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch user inventory: ${response.statusText}`);
+      throw new Error(`Failed to fetch user games: ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -97,25 +94,43 @@ export class RobloxApiClient {
   }
 
   /**
-   * Verify if user owns specific asset
+   * Verify if user owns or has admin access to specific game
    */
-  async verifyAssetOwnership(userId: string, assetId: string): Promise<boolean> {
+  async verifyGameOwnership(userId: string, gameId: string): Promise<{ owns: boolean; role: string }> {
     try {
-      const inventory = await this.getUserInventory(userId);
-      return inventory.some(item => item.assetId === assetId);
+      const games = await this.getUserGames(userId);
+      const game = games.find(g => g.id === gameId);
+      
+      if (!game) {
+        return { owns: false, role: 'None' };
+      }
+
+      // Check if user is the creator/owner
+      const gameDetails = await this.getGameDetails(gameId);
+      if (gameDetails && gameDetails.creator.id.toString() === userId) {
+        return { owns: true, role: 'Owner' };
+      }
+
+      // Check permissions for admin/developer roles
+      const permissions = await this.getGamePermissions(gameId, userId);
+      if (permissions && permissions.role !== 'Member') {
+        return { owns: true, role: permissions.role };
+      }
+
+      return { owns: false, role: 'Member' };
     } catch (error) {
-      console.error('Asset ownership verification failed:', error);
-      return false;
+      console.error('Game ownership verification failed:', error);
+      return { owns: false, role: 'None' };
     }
   }
 
   /**
-   * Get asset details
+   * Get game details
    */
-  async getAssetDetails(assetId: string): Promise<RobloxAsset | null> {
+  async getGameDetails(gameId: string): Promise<RobloxGame | null> {
     await this.ensureAuthenticated();
 
-    const response = await fetch(`${this.config.baseUrl}/catalog/v1/assets/${assetId}/details`, {
+    const response = await fetch(`${this.config.baseUrl}/v1/games?gameIds=${gameId}`, {
       headers: {
         'Authorization': `Bearer ${this.accessToken}`,
         'Accept': 'application/json'
@@ -126,7 +141,34 @@ export class RobloxApiClient {
       if (response.status === 404) {
         return null;
       }
-      throw new Error(`Failed to fetch asset details: ${response.statusText}`);
+      throw new Error(`Failed to fetch game details: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.data?.[0] || null;
+  }
+
+  /**
+   * Get game permissions for a user
+   */
+  async getGamePermissions(gameId: string, userId: string): Promise<GamePermissions | null> {
+    await this.ensureAuthenticated();
+
+    const response = await fetch(
+      `${this.config.baseUrl}/v1/games/${gameId}/permissions?userId=${userId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Accept': 'application/json'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      throw new Error(`Failed to fetch game permissions: ${response.statusText}`);
     }
 
     return await response.json();
