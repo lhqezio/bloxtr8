@@ -16,15 +16,17 @@ import { getApiBaseUrl } from '../utils/apiClient.js';
 import { verifyUserForListing } from '../utils/userVerification.js';
 import { ensureUserExists } from '../utils/userVerification.js';
 
-// ✅ In-memory cache with TTL, size limits, and cleanup
+// ✅ In-memory cache with TTL, size limits, cleanup, and API fallback
 // FEATURES:
-// - TTL: Entries expire after 15 minutes
+// - TTL: Entries expire after 15 minutes (cache only)
+// - API fallback: Valid for 24 hours (persisted via API/database layer)
 // - Size limits: Maximum 1000 entries with LRU eviction
 // - Cleanup: Automatic cleanup every 5 minutes
-// - Not persistent: Data lost on bot restart (use Redis for production)
+// - Not persistent: Cache data lost on bot restart, but API layer retains for 24h
 //
 // NOTE for Production:
-// - Consider Redis for persistence and multi-instance support
+// - Consider Redis for persistence and multi-instance cache coordination
+// - Bot communicates via API layer, never calls database directly
 interface GameDetails {
   id: string;
   name: string;
@@ -530,7 +532,42 @@ export async function handleListingWithGameModalSubmit(
 
     // Get cached verification data
     const discordId = interaction.user.id;
-    const cachedData = getCacheEntry(discordId);
+    let cachedData = getCacheEntry(discordId);
+
+    // If cache expired, try to recover from API (24hr expiration vs 15min cache)
+    if (!cachedData) {
+      try {
+        // Call API to get user's most recent verified game
+        const response = await fetch(
+          `${getApiBaseUrl()}/api/asset-verification/user/${userResult.user.id}/games`
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          
+          // Get the most recent verification
+          if (result.games && result.games.length > 0) {
+            const verification = result.games[0];
+            const metadata = verification.metadata as any;
+            
+            cachedData = {
+              verificationId: verification.id,
+              gameDetails: metadata?.gameDetails || {
+                id: verification.gameId,
+                name: 'Game',
+              },
+            };
+            
+            // Repopulate cache for future use
+            setCacheEntry(discordId, cachedData);
+            
+            console.log(`[Cache Recovery] Restored verification from API for user: ${discordId}`);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to recover verification from API:', error);
+      }
+    }
 
     if (!cachedData) {
       await interaction.reply({
