@@ -4,15 +4,34 @@ import request from 'supertest';
 const mockUserFindUnique = jest.fn();
 const mockUserFindFirst = jest.fn();
 const mockUserCreate = jest.fn();
+const mockUserUpdate = jest.fn();
 const mockAccountFindMany = jest.fn();
+const mockAccountFindFirst = jest.fn();
 const mockAccountCreate = jest.fn();
 const mockAccountUpsert = jest.fn();
-const mockTransaction = jest.fn();
 const mockLinkTokenFindUnique = jest.fn();
 const mockLinkTokenCreate = jest.fn();
 const mockLinkTokenUpdate = jest.fn();
 const mockLinkTokenDelete = jest.fn();
 const mockLinkTokenDeleteMany = jest.fn();
+
+const mockTransaction = jest.fn((callback) => {
+  // Execute the callback with a mock transaction client that has the same methods
+  return callback({
+    user: {
+      findUnique: mockUserFindUnique,
+      findFirst: mockUserFindFirst,
+      create: mockUserCreate,
+      update: mockUserUpdate,
+    },
+    account: {
+      findMany: mockAccountFindMany,
+      findFirst: mockAccountFindFirst,
+      create: mockAccountCreate,
+      upsert: mockAccountUpsert,
+    },
+  });
+});
 
 jest.mock('@bloxtr8/database', () => ({
   prisma: {
@@ -20,9 +39,11 @@ jest.mock('@bloxtr8/database', () => ({
       findUnique: mockUserFindUnique,
       findFirst: mockUserFindFirst,
       create: mockUserCreate,
+      update: mockUserUpdate,
     },
     account: {
       findMany: mockAccountFindMany,
+      findFirst: mockAccountFindFirst,
       create: mockAccountCreate,
       upsert: mockAccountUpsert,
     },
@@ -45,7 +66,9 @@ describe('Users API Routes', () => {
     mockUserFindUnique.mockClear();
     mockUserFindFirst.mockClear();
     mockUserCreate.mockClear();
+    mockUserUpdate.mockClear();
     mockAccountFindMany.mockClear();
+    mockAccountFindFirst.mockClear();
     mockAccountCreate.mockClear();
     mockAccountUpsert.mockClear();
     mockTransaction.mockClear();

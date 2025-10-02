@@ -442,6 +442,19 @@ router.post('/users/link-account', async (req, res, next) => {
     });
 
     if (existingAccount) {
+      // Even if account is already linked, check if user needs tier upgrade
+      // This fixes cases where users were stuck at TIER_0
+      if (providerId === 'roblox' && user.kycTier === 'TIER_0') {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { kycTier: 'TIER_1' },
+        });
+        console.info('Upgraded user KYC tier from TIER_0 to TIER_1 (existing account)', {
+          userId,
+          providerId,
+        });
+      }
+
       return res.status(200).json({
         success: true,
         message: 'Account already linked',
@@ -449,27 +462,32 @@ router.post('/users/link-account', async (req, res, next) => {
       });
     }
 
-    // Create new account link
-    const newAccount = await prisma.account.create({
-      data: {
-        id: `${providerId}_${accountId}`,
-        accountId,
-        providerId,
-        userId,
-      },
-    });
+    // Create new account link and upgrade tier atomically
+    const newAccount = await prisma.$transaction(async tx => {
+      // Create the account link
+      const account = await tx.account.create({
+        data: {
+          id: `${providerId}_${accountId}`,
+          accountId,
+          providerId,
+          userId,
+        },
+      });
 
-    // Automatically upgrade user from TIER_0 to TIER_1 when they link Roblox account
-    if (providerId === 'roblox' && user.kycTier === 'TIER_0') {
-      await prisma.user.update({
-        where: { id: userId },
-        data: { kycTier: 'TIER_1' },
-      });
-      console.info('Upgraded user KYC tier from TIER_0 to TIER_1', {
-        userId,
-        providerId,
-      });
-    }
+      // Automatically upgrade user from TIER_0 to TIER_1 when they link Roblox account
+      if (providerId === 'roblox' && user.kycTier === 'TIER_0') {
+        await tx.user.update({
+          where: { id: userId },
+          data: { kycTier: 'TIER_1' },
+        });
+        console.info('Upgraded user KYC tier from TIER_0 to TIER_1', {
+          userId,
+          providerId,
+        });
+      }
+
+      return account;
+    });
 
     res.status(201).json({
       success: true,

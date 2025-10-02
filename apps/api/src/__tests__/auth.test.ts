@@ -1,7 +1,7 @@
 import request from 'supertest';
 
 // Mock the database
-const mockPrismaClient = {
+const mockPrismaClient: any = {
   linkToken: {
     findUnique: jest.fn(),
     delete: jest.fn(),
@@ -11,11 +11,19 @@ const mockPrismaClient = {
   },
   user: {
     findFirst: jest.fn(),
+    update: jest.fn(),
   },
   account: {
     findFirst: jest.fn(),
     create: jest.fn(),
   },
+  $transaction: jest.fn((callback: any): any => {
+    // Execute the callback with a mock transaction client that has the same methods
+    return callback({
+      account: mockPrismaClient.account,
+      user: mockPrismaClient.user,
+    });
+  }),
   $disconnect: jest.fn(),
 };
 
@@ -380,12 +388,13 @@ describe('Auth API Routes', () => {
       const { validateRobloxOAuth } = await import('../lib/roblox-oauth.js');
       (validateRobloxOAuth as jest.Mock).mockResolvedValue('roblox-123456');
 
-      const mockUser = { id: 'user-123' };
+      const mockUser = { id: 'user-123', kycTier: 'TIER_0' };
       const mockCreatedAccount = { id: 'account-123' };
 
       mockPrismaClient.user.findFirst.mockResolvedValue(mockUser);
       mockPrismaClient.account.findFirst.mockResolvedValue(null);
       mockPrismaClient.account.create.mockResolvedValue(mockCreatedAccount);
+      mockPrismaClient.user.update.mockResolvedValue({ ...mockUser, kycTier: 'TIER_1' });
 
       const response = await request(app)
         .get(
@@ -403,6 +412,10 @@ describe('Auth API Routes', () => {
           accountId: 'roblox-123456',
           providerId: 'roblox',
         },
+      });
+      expect(mockPrismaClient.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-123' },
+        data: { kycTier: 'TIER_1' },
       });
     });
 
