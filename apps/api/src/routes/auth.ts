@@ -125,10 +125,8 @@ router.get('/roblox/callback', async (req, res, _next) => {
     try {
       // Use the same redirectUri pattern that the frontend sends
       // This must match exactly what was used in the initial OAuth request
-      // The frontend uses getApiBaseUrl() which returns process.env.VITE_API_BASE_URL or defaults to localhost:3000
       const apiBaseUrl =
         process.env.API_BASE_URL ||
-        process.env.VITE_API_BASE_URL ||
         'http://localhost:3000';
       const redirectUri = `${apiBaseUrl}/api/oauth/roblox/callback`;
 
@@ -254,11 +252,8 @@ router.get('/roblox/callback', async (req, res, _next) => {
         return res.redirect(webAppErrorUrl);
       }
 
-      // Check if user needs tier upgrade before transaction
-      const shouldUpgradeTier = user.kycTier === 'TIER_0';
-
       // Link Roblox account to Discord user and upgrade tier atomically
-      const updatedUser = await prisma.$transaction(async tx => {
+      await prisma.$transaction(async tx => {
         // Create the Roblox account link
         await tx.account.create({
           data: {
@@ -269,27 +264,24 @@ router.get('/roblox/callback', async (req, res, _next) => {
           },
         });
 
+        // Check tier inside transaction to avoid race condition
+        const currentUser = await tx.user.findUnique({
+          where: { id: user.id },
+          select: { kycTier: true },
+        });
+
         // Automatically upgrade user from TIER_0 to TIER_1 when they link Roblox account
-        if (shouldUpgradeTier) {
-          const upgraded = await tx.user.update({
+        if (currentUser?.kycTier === 'TIER_0') {
+          await tx.user.update({
             where: { id: user.id },
             data: { kycTier: 'TIER_1' },
-            select: { kycTier: true },
           });
           console.info('Upgraded user KYC tier from TIER_0 to TIER_1', {
             userId: user.id,
             discordId,
           });
-          return upgraded;
         }
-
-        return null;
       });
-
-      // Update local user object with fresh data if tier was upgraded
-      if (updatedUser) {
-        user.kycTier = updatedUser.kycTier;
-      }
 
       console.info('Successfully linked Roblox account', {
         discordId,

@@ -444,18 +444,28 @@ router.post('/users/link-account', async (req, res, next) => {
     if (existingAccount) {
       // Even if account is already linked, check if user needs tier upgrade
       // This fixes cases where users were stuck at TIER_0
-      if (providerId === 'roblox' && user.kycTier === 'TIER_0') {
-        await prisma.user.update({
-          where: { id: userId },
-          data: { kycTier: 'TIER_1' },
-        });
-        console.info(
-          'Upgraded user KYC tier from TIER_0 to TIER_1 (existing account)',
-          {
-            userId,
-            providerId,
+      // Check inside transaction to avoid race condition
+      if (providerId === 'roblox') {
+        await prisma.$transaction(async tx => {
+          const currentUser = await tx.user.findUnique({
+            where: { id: userId },
+            select: { kycTier: true },
+          });
+
+          if (currentUser?.kycTier === 'TIER_0') {
+            await tx.user.update({
+              where: { id: userId },
+              data: { kycTier: 'TIER_1' },
+            });
+            console.info(
+              'Upgraded user KYC tier from TIER_0 to TIER_1 (existing account)',
+              {
+                userId,
+                providerId,
+              }
+            );
           }
-        );
+        });
       }
 
       return res.status(200).json({
@@ -465,12 +475,8 @@ router.post('/users/link-account', async (req, res, next) => {
       });
     }
 
-    // Check if user needs tier upgrade before transaction
-    const shouldUpgradeTier =
-      providerId === 'roblox' && user.kycTier === 'TIER_0';
-
     // Create new account link and upgrade tier atomically
-    const result = await prisma.$transaction(async tx => {
+    const newAccount = await prisma.$transaction(async tx => {
       // Create the account link
       const account = await tx.account.create({
         data: {
@@ -481,25 +487,28 @@ router.post('/users/link-account', async (req, res, next) => {
         },
       });
 
-      // Automatically upgrade user from TIER_0 to TIER_1 when they link Roblox account
-      let updatedKycTier = user.kycTier;
-      if (shouldUpgradeTier) {
-        const updatedUser = await tx.user.update({
+      // Check tier inside transaction to avoid race condition
+      if (providerId === 'roblox') {
+        const currentUser = await tx.user.findUnique({
           where: { id: userId },
-          data: { kycTier: 'TIER_1' },
           select: { kycTier: true },
         });
-        updatedKycTier = updatedUser.kycTier;
-        console.info('Upgraded user KYC tier from TIER_0 to TIER_1', {
-          userId,
-          providerId,
-        });
+
+        // Automatically upgrade user from TIER_0 to TIER_1 when they link Roblox account
+        if (currentUser?.kycTier === 'TIER_0') {
+          await tx.user.update({
+            where: { id: userId },
+            data: { kycTier: 'TIER_1' },
+          });
+          console.info('Upgraded user KYC tier from TIER_0 to TIER_1', {
+            userId,
+            providerId,
+          });
+        }
       }
 
-      return { account, kycTier: updatedKycTier };
+      return account;
     });
-
-    const newAccount = result.account;
 
     res.status(201).json({
       success: true,
