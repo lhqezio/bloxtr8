@@ -1,3 +1,8 @@
+// Mock functions that will be used
+const mockVerifyGameOwnership = jest.fn();
+const mockGetUserVerifiedGames = jest.fn();
+const mockCreateGameSnapshot = jest.fn();
+
 // Mock Prisma Client before importing anything else
 jest.mock('@bloxtr8/database', () => ({
   PrismaClient: jest.fn().mockImplementation(() => ({
@@ -12,27 +17,21 @@ jest.mock('@bloxtr8/database', () => ({
   })),
 }));
 
-import request from 'supertest';
-import app from '../../index.js';
-
 // Mock the GameVerificationService
 jest.mock('../../lib/asset-verification.js', () => ({
   GameVerificationService: jest.fn().mockImplementation(() => ({
-    verifyGameOwnership: jest.fn(),
-    getUserVerifiedGames: jest.fn(),
-    createGameSnapshot: jest.fn(),
+    verifyGameOwnership: mockVerifyGameOwnership,
+    getUserVerifiedGames: mockGetUserVerifiedGames,
+    createGameSnapshot: mockCreateGameSnapshot,
   })),
 }));
 
-describe('Game Verification API', () => {
-  let mockGameVerificationService: any;
+import request from 'supertest';
+import app from '../../index.js';
 
+describe('Game Verification API', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
-    // Get the mocked service instance
-    const { GameVerificationService } = require('../../lib/asset-verification.js');
-    mockGameVerificationService = new GameVerificationService();
   });
 
   describe('POST /api/asset-verification/verify', () => {
@@ -52,7 +51,7 @@ describe('Game Verification API', () => {
         verificationId: 'verification123',
       };
 
-      mockGameVerificationService.verifyGameOwnership.mockResolvedValue(mockResult);
+      mockVerifyGameOwnership.mockResolvedValue(mockResult);
 
       const response = await request(app)
         .post('/api/asset-verification/verify')
@@ -83,7 +82,7 @@ describe('Game Verification API', () => {
         error: 'Game not found',
       };
 
-      mockGameVerificationService.verifyGameOwnership.mockResolvedValue(mockResult);
+      mockVerifyGameOwnership.mockResolvedValue(mockResult);
 
       await request(app)
         .post('/api/asset-verification/verify')
@@ -96,7 +95,7 @@ describe('Game Verification API', () => {
     });
 
     it('should return 500 on internal server error', async () => {
-      mockGameVerificationService.verifyGameOwnership.mockRejectedValue(
+      mockVerifyGameOwnership.mockRejectedValue(
         new Error('Internal error')
       );
 
@@ -113,35 +112,40 @@ describe('Game Verification API', () => {
 
   describe('GET /api/asset-verification/user/:userId/games', () => {
     it('should return user verified games', async () => {
+      const now = new Date();
       const mockGames = [
         {
           id: 'verification1',
           gameId: 'game1',
           verificationStatus: 'VERIFIED',
           ownershipType: 'OWNER',
-          verifiedAt: new Date(),
+          verifiedAt: now,
         },
         {
           id: 'verification2',
           gameId: 'game2',
           verificationStatus: 'VERIFIED',
           ownershipType: 'ADMIN',
-          verifiedAt: new Date(),
+          verifiedAt: now,
         },
       ];
 
-      mockGameVerificationService.getUserVerifiedGames.mockResolvedValue(mockGames);
+      mockGetUserVerifiedGames.mockResolvedValue(mockGames);
 
       const response = await request(app)
         .get('/api/asset-verification/user/user123/games')
         .expect(200);
 
-      expect(response.body.games).toEqual(mockGames);
+      // Dates are serialized to strings in JSON
+      expect(response.body.games).toEqual([
+        { ...mockGames[0], verifiedAt: now.toISOString() },
+        { ...mockGames[1], verifiedAt: now.toISOString() },
+      ]);
       expect(response.body.count).toBe(2);
     });
 
     it('should return empty array when no games found', async () => {
-      mockGameVerificationService.getUserVerifiedGames.mockResolvedValue([]);
+      mockGetUserVerifiedGames.mockResolvedValue([]);
 
       const response = await request(app)
         .get('/api/asset-verification/user/user123/games')
@@ -152,7 +156,7 @@ describe('Game Verification API', () => {
     });
 
     it('should return 500 on internal server error', async () => {
-      mockGameVerificationService.getUserVerifiedGames.mockRejectedValue(
+      mockGetUserVerifiedGames.mockRejectedValue(
         new Error('Database error')
       );
 
@@ -171,7 +175,7 @@ describe('Game Verification API', () => {
         verifiedOwnership: true,
       };
 
-      mockGameVerificationService.createGameSnapshot.mockResolvedValue(mockSnapshot);
+      mockCreateGameSnapshot.mockResolvedValue(mockSnapshot);
 
       const response = await request(app)
         .post('/api/asset-verification/snapshot')
@@ -196,7 +200,7 @@ describe('Game Verification API', () => {
     });
 
     it('should return 500 when snapshot creation fails', async () => {
-      mockGameVerificationService.createGameSnapshot.mockRejectedValue(
+      mockCreateGameSnapshot.mockRejectedValue(
         new Error('Game not verified')
       );
 
