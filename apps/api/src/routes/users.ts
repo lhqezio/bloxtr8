@@ -468,15 +468,28 @@ router.post('/users/link-account', async (req, res, next) => {
         });
       }
 
+      // Fetch updated user information to include in response
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          kycVerified: true,
+          kycTier: true,
+        },
+      });
+
       return res.status(200).json({
         success: true,
         message: 'Account already linked',
         account: existingAccount,
+        user: updatedUser,
       });
     }
 
     // Create new account link and upgrade tier atomically
-    const newAccount = await prisma.$transaction(async tx => {
+    const result = await prisma.$transaction(async tx => {
       // Create the account link
       const account = await tx.account.create({
         data: {
@@ -507,13 +520,26 @@ router.post('/users/link-account', async (req, res, next) => {
         }
       }
 
-      return account;
+      // Fetch updated user information to include in response
+      const updatedUser = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          kycVerified: true,
+          kycTier: true,
+        },
+      });
+
+      return { account, user: updatedUser };
     });
 
     res.status(201).json({
       success: true,
       message: 'Account linked successfully',
-      account: newAccount,
+      account: result.account,
+      user: result.user,
     });
   } catch (error) {
     console.error('Error linking account:', error);
