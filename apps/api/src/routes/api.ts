@@ -1,7 +1,7 @@
 import { Router, type Router as ExpressRouter } from 'express';
 
-import authRouter from './auth.js';
 import assetVerificationRouter from './asset-verification.js';
+import authRouter from './auth.js';
 import contractsRouter from './contracts.js';
 import listingsRouter from './listings.js';
 import metricsRouter from './metrics.js';

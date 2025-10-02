@@ -27,6 +27,7 @@ jest.mock('../../lib/asset-verification.js', () => ({
 }));
 
 import request from 'supertest';
+
 import app from '../../index.js';
 
 describe('Game Verification API', () => {

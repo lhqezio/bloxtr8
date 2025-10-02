@@ -1,4 +1,5 @@
 import { Router } from 'express';
+
 import { GameVerificationService } from '../lib/asset-verification.js';
 
 const router = Router();

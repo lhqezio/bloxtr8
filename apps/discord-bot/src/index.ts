@@ -10,10 +10,6 @@ import {
 // Command handlers
 import { handleHelp } from './commands/help.js';
 import { handleLinkRoblox } from './commands/linkRoblox.js';
-import {
-  handleListingCreate,
-  handleListingModalSubmit,
-} from './commands/listing.js';
 import { 
   handleListingCreateWithVerification, 
   handleGameVerificationModalSubmit,
@@ -21,6 +17,10 @@ import {
   handleListingWithGameModalSubmit,
   handleCancelListingCreation
 } from './commands/listing-enhanced.js';
+import {
+  handleListingCreate,
+  handleListingModalSubmit,
+} from './commands/listing.js';
 import { handlePing } from './commands/ping.js';
 import {
   handleSignup,

@@ -17,7 +17,18 @@ import { verifyUserForListing } from '../utils/userVerification.js';
 import { ensureUserExists } from '../utils/userVerification.js';
 
 // Temporary storage for verification data (in production, use Redis or database)
-const verificationCache = new Map<string, { verificationId: string; assetDetails: any }>();
+interface GameDetails {
+  id: string;
+  name: string;
+  description?: string;
+  creator?: { name: string; id: number; type: string };
+  visits?: number;
+  playing?: number;
+  genre?: string;
+  thumbnailUrl?: string;
+}
+
+const verificationCache = new Map<string, { verificationId: string; gameDetails: GameDetails }>();
 
 export async function handleListingCreateWithVerification(
   interaction: ChatInputCommandInteraction

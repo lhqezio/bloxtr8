@@ -88,19 +88,19 @@ export class RobloxRiskAssessmentService {
     return recommendations;
   }
 
-  private async getOwnershipHistory(assetId: string): Promise<string[]> {
+  private async getOwnershipHistory(_assetId: string): Promise<string[]> {
     // Implementation would query external services or Roblox API
     // for ownership history
     return [];
   }
 
-  private async calculatePriceVolatility(assetId: string): Promise<number> {
+  private async calculatePriceVolatility(_assetId: string): Promise<number> {
     // Implementation would calculate price volatility
     // based on historical data
     return 0;
   }
 
-  private async checkSuspiciousActivity(assetId: string): Promise<boolean> {
+  private async checkSuspiciousActivity(_assetId: string): Promise<boolean> {
     // Implementation would check for suspicious patterns
     // such as rapid ownership changes, unusual pricing, etc.
     return false;
