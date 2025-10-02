@@ -315,13 +315,21 @@ router.get('/roblox/callback', async (req, res, _next) => {
         userId: user.id,
       });
 
-      // Clean up any active link tokens and OAuth states for this user
+      // Clean up only the specific OAuth state that was used (already marked as used in validateOAuthState)
+      // and any roblox_link tokens. We don't delete ALL oauth_state tokens to avoid invalidating
+      // concurrent OAuth flows for the same user.
       await prisma.linkToken.deleteMany({
         where: {
-          discordId,
-          purpose: {
-            in: ['roblox_link', 'oauth_state'],
-          },
+          OR: [
+            {
+              token: state as string,
+              purpose: 'oauth_state',
+            },
+            {
+              discordId,
+              purpose: 'roblox_link',
+            },
+          ],
         },
       });
 
