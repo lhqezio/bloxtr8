@@ -62,9 +62,9 @@ router.post('/roblox/url', async (req, res, _next) => {
       throw new AppError('Roblox OAuth not configured', 500);
     }
 
-    // Generate secure state parameter server-side
+    // Generate secure state parameter server-side (stored in database)
     const stateDiscordId = token ? validatedDiscordId : discordId;
-    const state = generateOAuthState(stateDiscordId);
+    const state = await generateOAuthState(stateDiscordId);
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -73,9 +73,7 @@ router.post('/roblox/url', async (req, res, _next) => {
       scope: 'openid',
     });
 
-    if (state) {
-      params.append('state', state);
-    }
+    params.append('state', state);
 
     const authUrl = `https://apis.roblox.com/oauth/v1/authorize?${params.toString()}`;
 
@@ -110,27 +108,13 @@ router.get('/roblox/callback', async (req, res, _next) => {
       );
     }
 
-    // Extract and validate Discord ID from state
-    let discordId: string | undefined;
-    if (typeof state === 'string' && state.startsWith('discord_')) {
-      const stateParts = state.split('_');
-      if (stateParts.length >= 2) {
-        discordId = stateParts[1];
-      }
-    }
+    // Validate the state parameter and retrieve the associated Discord ID
+    // This prevents CSRF attacks and eliminates circular dependency
+    const discordId = await validateOAuthState(state as string);
 
     if (!discordId) {
-      console.error('Could not extract Discord ID from state:', state);
-      return res.redirect(
-        `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?error=invalid_state`
-      );
-    }
-
-    // Validate the state parameter to prevent CSRF attacks
-    if (!validateOAuthState(state as string, discordId)) {
       console.error('Invalid or expired state parameter:', {
         state,
-        discordId,
       });
       return res.redirect(
         `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?error=invalid_state`
@@ -286,11 +270,13 @@ router.get('/roblox/callback', async (req, res, _next) => {
         userId: user.id,
       });
 
-      // Clean up any active link tokens for this user
+      // Clean up any active link tokens and OAuth states for this user
       await prisma.linkToken.deleteMany({
         where: {
           discordId,
-          purpose: 'roblox_link',
+          purpose: {
+            in: ['roblox_link', 'oauth_state'],
+          },
         },
       });
 
