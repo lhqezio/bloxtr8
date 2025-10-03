@@ -68,8 +68,20 @@ export class GameVerificationService {
           gameDetails = (existingVerification.metadata as any).gameDetails;
         }
 
-        // If gameDetails is missing from cache, create fallback
-        if (!gameDetails) {
+        // Validate gameDetails structure - ensure it has required fields
+        const isValidGameDetails = (details: any): boolean => {
+          return (
+            details &&
+            typeof details === 'object' &&
+            typeof details.id === 'string' &&
+            typeof details.name === 'string' &&
+            details.id.trim() !== '' &&
+            details.name.trim() !== ''
+          );
+        };
+
+        // If gameDetails is missing from cache or invalid, create fallback
+        if (!isValidGameDetails(gameDetails)) {
           gameDetails = {
             id: gameId,
             name: `Game ${gameId}`,
@@ -261,8 +273,21 @@ export class GameVerificationService {
     }
 
     const gameDetails = (verification.metadata as any)?.gameDetails;
-    if (!gameDetails) {
-      throw new Error('Game details not found');
+    
+    // Validate gameDetails structure - ensure it has required fields
+    const isValidGameDetails = (details: any): boolean => {
+      return (
+        details &&
+        typeof details === 'object' &&
+        typeof details.id === 'string' &&
+        typeof details.name === 'string' &&
+        details.id.trim() !== '' &&
+        details.name.trim() !== ''
+      );
+    };
+    
+    if (!isValidGameDetails(gameDetails)) {
+      throw new Error('Game details not found or invalid');
     }
 
     const snapshot = await this.prisma.robloxSnapshot.create({
