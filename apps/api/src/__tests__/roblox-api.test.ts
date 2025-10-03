@@ -156,8 +156,8 @@ describe('RobloxApiClient', () => {
       const result = await client.getUserExperiences('123');
 
       expect(result).toHaveLength(2);
-      expect(result[0].name).toBe('First Experience');
-      expect(result[1].name).toBe('Second Experience');
+      expect(result[0]!.name).toBe('First Experience');
+      expect(result[1]!.name).toBe('Second Experience');
       expect(fetch).toHaveBeenCalledTimes(4);
     });
 
@@ -233,7 +233,7 @@ describe('RobloxApiClient', () => {
 
       const result = await client.getUserExperiences('123');
 
-      expect(result[0].creator.name).toBe('Unknown');
+      expect(result[0]!.creator.name).toBe('Unknown');
       expect(consoleSpy).toHaveBeenCalledWith(
         'Failed to fetch creator name:',
         expect.any(Error)
