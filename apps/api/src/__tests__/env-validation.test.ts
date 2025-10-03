@@ -104,6 +104,39 @@ describe('Environment Validation', () => {
       expect(() => validateEnvironment()).toThrow();
       expect(console.warn).not.toHaveBeenCalled();
     });
+
+    it('should throw error when DATABASE_URL is empty string', () => {
+      process.env.DATABASE_URL = '';
+      process.env.DISCORD_CLIENT_ID = 'test-client-id';
+      process.env.DISCORD_CLIENT_SECRET = 'test-client-secret';
+
+      expect(() => validateEnvironment()).toThrow(
+        'Missing required environment variables: DATABASE_URL\n' +
+          'Please check your .env file or environment configuration.'
+      );
+    });
+
+    it('should throw error when DISCORD_CLIENT_ID is empty string', () => {
+      process.env.DATABASE_URL = 'postgresql://localhost:5432/test';
+      process.env.DISCORD_CLIENT_ID = '';
+      process.env.DISCORD_CLIENT_SECRET = 'test-client-secret';
+
+      expect(() => validateEnvironment()).toThrow(
+        'Missing required environment variables: DISCORD_CLIENT_ID\n' +
+          'Please check your .env file or environment configuration.'
+      );
+    });
+
+    it('should throw error when DISCORD_CLIENT_SECRET is empty string', () => {
+      process.env.DATABASE_URL = 'postgresql://localhost:5432/test';
+      process.env.DISCORD_CLIENT_ID = 'test-client-id';
+      process.env.DISCORD_CLIENT_SECRET = '';
+
+      expect(() => validateEnvironment()).toThrow(
+        'Missing required environment variables: DISCORD_CLIENT_SECRET\n' +
+          'Please check your .env file or environment configuration.'
+      );
+    });
   });
 
   describe('getEnvVar', () => {
@@ -134,17 +167,17 @@ describe('Environment Validation', () => {
     it('should return empty string when environment variable is empty and no default provided', () => {
       process.env.TEST_VAR = '';
 
-      expect(() => getEnvVar('TEST_VAR')).toThrow(
-        'Environment variable TEST_VAR is not set'
-      );
+      const result = getEnvVar('TEST_VAR');
+
+      expect(result).toBe('');
     });
 
-    it('should return default value when environment variable is empty string', () => {
+    it('should return empty string when environment variable is empty string even with default', () => {
       process.env.TEST_VAR = '';
 
       const result = getEnvVar('TEST_VAR', 'default-value');
 
-      expect(result).toBe('default-value');
+      expect(result).toBe('');
     });
   });
 

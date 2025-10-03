@@ -34,7 +34,9 @@ export function validateEnvironment(): void {
   const missing: string[] = [];
 
   for (const varName of required) {
-    if (!process.env[varName]) {
+    const value = process.env[varName];
+    // Check if value is undefined (not set) or empty string
+    if (value === undefined || value === '') {
       missing.push(varName);
     }
   }
@@ -62,10 +64,12 @@ export function validateEnvironment(): void {
  */
 export function getEnvVar(name: string, defaultValue?: string): string {
   const value = process.env[name];
-  if (!value && defaultValue === undefined) {
+  // Check if value is undefined (not set) vs empty string
+  if (value === undefined && defaultValue === undefined) {
     throw new Error(`Environment variable ${name} is not set`);
   }
-  return value || defaultValue!;
+  // Return the actual value if it exists (including empty strings), otherwise return default
+  return value !== undefined ? value : defaultValue!;
 }
 
 /**

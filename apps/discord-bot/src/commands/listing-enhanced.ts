@@ -954,7 +954,7 @@ export async function handleListingWithGameModalSubmit(
         },
         {
           name: '🎮 Game',
-          value: `[Open on Roblox](https://www.roblox.com/games/${cachedData.placeId || cachedData.gameDetails.id})`,
+          value: `[Open on Roblox](https://www.roblox.com/games/${cachedData.placeId !== undefined && cachedData.placeId !== '' ? cachedData.placeId : cachedData.gameDetails.id})`,
           inline: false,
         }
       )
@@ -970,7 +970,7 @@ export async function handleListingWithGameModalSubmit(
         .setLabel('🎮 Open Game on Roblox')
         .setStyle(ButtonStyle.Link)
         .setURL(
-          `https://www.roblox.com/games/${cachedData.placeId || cachedData.gameDetails.id}`
+          `https://www.roblox.com/games/${cachedData.placeId !== undefined && cachedData.placeId !== '' ? cachedData.placeId : cachedData.gameDetails.id}`
         )
     );
 

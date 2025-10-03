@@ -336,5 +336,7 @@ export async function checkProviderAccount(
  * Gets the base URL for API calls
  */
 function getApiBaseUrl(): string {
-  return process.env.API_BASE_URL || 'http://localhost:3000';
+  const value = process.env.API_BASE_URL;
+  // Return default if undefined or empty string
+  return value !== undefined && value !== '' ? value : 'http://localhost:3000';
 }
