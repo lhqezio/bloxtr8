@@ -102,54 +102,73 @@ export async function validateOAuthState(
 
   const { prisma } = await import('@bloxtr8/database');
 
-  // Use a single atomic operation to find and update the state atomically
-  // This eliminates the TOCTOU race condition by checking all conditions
-  // and marking as used in a single database operation
-  const updateResult = await prisma.linkToken.updateMany({
-    where: {
-      token: state,
-      purpose: 'oauth_state',
-      used: false, // Only update if still unused
-      expiresAt: {
-        gt: new Date(), // Only update if not expired
-      },
-    },
-    data: { used: true },
-  });
-
-  // If no rows were updated, the state is invalid (not found, expired, already used, or wrong purpose)
-  if (updateResult.count === 0) {
-    // Log the specific reason for debugging (but don't expose internal details)
-    const linkToken = await prisma.linkToken.findUnique({
+  // Use a single atomic transaction to eliminate race conditions
+  // This ensures all operations (validation, update, cleanup) happen atomically
+  return await prisma.$transaction(async (tx) => {
+    // First, find the token with all validation criteria
+    const linkToken = await tx.linkToken.findUnique({
       where: { token: state },
     });
 
+    // If token doesn't exist, return null
     if (!linkToken) {
       console.warn('OAuth state not found in database', { state });
-    } else if (linkToken.purpose !== 'oauth_state') {
+      return null;
+    }
+
+    // Check if token has correct purpose
+    if (linkToken.purpose !== 'oauth_state') {
       console.warn('OAuth state has incorrect purpose', {
         state,
         purpose: linkToken.purpose,
       });
-    } else if (linkToken.expiresAt < new Date()) {
+      return null;
+    }
+
+    // Check if token is already used
+    if (linkToken.used) {
+      console.warn('OAuth state already used', { state });
+      return null;
+    }
+
+    // Check if token is expired
+    if (linkToken.expiresAt < new Date()) {
       console.warn('OAuth state expired', {
         state,
         expiresAt: linkToken.expiresAt,
       });
-      // Clean up expired state
-      await prisma.linkToken.delete({ where: { id: linkToken.id } });
-    } else if (linkToken.used) {
-      console.warn('OAuth state already used', { state });
+      // Clean up expired state atomically
+      await tx.linkToken.delete({ where: { id: linkToken.id } });
+      return null;
     }
 
-    return null;
-  }
+    // Token is valid - mark as used and return the Discord ID
+    await tx.linkToken.update({
+      where: { id: linkToken.id },
+      data: { used: true },
+    });
 
-  // Fetch the Discord ID from the updated token
-  const updatedToken = await prisma.linkToken.findUnique({
-    where: { token: state },
-    select: { discordId: true },
+    return linkToken.discordId;
+  });
+}
+
+/**
+ * Clean up expired OAuth state tokens to prevent database bloat
+ * This function should be called periodically (e.g., via a cron job)
+ */
+export async function cleanupExpiredOAuthStates(): Promise<number> {
+  const { prisma } = await import('@bloxtr8/database');
+
+  const result = await prisma.linkToken.deleteMany({
+    where: {
+      purpose: 'oauth_state',
+      OR: [
+        { expiresAt: { lt: new Date() } }, // Expired tokens
+        { used: true }, // Already used tokens
+      ],
+    },
   });
 
-  return updatedToken?.discordId || null;
+  console.log(`Cleaned up ${result.count} expired/used OAuth state tokens`);
+  return result.count;
 }
