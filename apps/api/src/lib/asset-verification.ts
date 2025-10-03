@@ -273,7 +273,7 @@ export class GameVerificationService {
     }
 
     const gameDetails = (verification.metadata as any)?.gameDetails;
-    
+
     // Validate gameDetails structure - ensure it has required fields
     const isValidGameDetails = (details: any): boolean => {
       return (
@@ -285,7 +285,7 @@ export class GameVerificationService {
         details.name.trim() !== ''
       );
     };
-    
+
     if (!isValidGameDetails(gameDetails)) {
       throw new Error('Game details not found or invalid');
     }
