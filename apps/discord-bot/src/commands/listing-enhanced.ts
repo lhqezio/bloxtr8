@@ -718,9 +718,39 @@ export async function handleCreateListingWithGameButton(
     const cachedData = getCacheEntry(discordId);
 
     if (!cachedData) {
+      const embed = new EmbedBuilder()
+        .setColor(0xf59e0b)
+        .setTitle('⏰ Verification Expired')
+        .setDescription(
+          '**Your game verification has expired. Please verify your game again.**'
+        )
+        .setThumbnail(interaction.user.displayAvatarURL())
+        .addFields(
+          {
+            name: '🔒 Why?',
+            value:
+              'We need to ensure the listing matches the game you verified',
+            inline: true,
+          },
+          {
+            name: '⏱️ Time Limit',
+            value: '15 minutes after verification',
+            inline: true,
+          },
+          {
+            name: '🔄 Next Step',
+            value: 'Use `/listing` to start over',
+            inline: true,
+          }
+        )
+        .setFooter({
+          text: 'Security measure to prevent incorrect listings',
+          iconURL: interaction.user.displayAvatarURL(),
+        })
+        .setTimestamp();
+
       return interaction.reply({
-        content:
-          '❌ Game verification data not found or expired. Please start over.',
+        embeds: [embed],
         ephemeral: true,
       });
     }
@@ -856,45 +886,6 @@ export async function handleListingWithGameModalSubmit(
       return;
     }
 
-    // If cache expired, require user to re-verify to ensure correct game data
-    if (!cachedData) {
-      const embed = new EmbedBuilder()
-        .setColor(0xf59e0b)
-        .setTitle('⏰ Verification Expired')
-        .setDescription(
-          '**Your game verification has expired. Please verify your game again.**'
-        )
-        .setThumbnail(interaction.user.displayAvatarURL())
-        .addFields(
-          {
-            name: '🔒 Why?',
-            value:
-              'We need to ensure the listing matches the game you verified',
-            inline: true,
-          },
-          {
-            name: '⏱️ Time Limit',
-            value: '15 minutes after verification',
-            inline: true,
-          },
-          {
-            name: '🔄 Next Step',
-            value: 'Use `/listing` to start over',
-            inline: true,
-          }
-        )
-        .setFooter({
-          text: 'Security measure to prevent incorrect listings',
-          iconURL: interaction.user.displayAvatarURL(),
-        })
-        .setTimestamp();
-
-      await interaction.reply({
-        embeds: [embed],
-        ephemeral: true,
-      });
-      return;
-    }
 
     await interaction.deferReply({ ephemeral: true });
 
