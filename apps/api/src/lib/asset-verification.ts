@@ -57,6 +57,7 @@ export class GameVerificationService {
         existingVerification &&
         existingVerification.verificationStatus === 'VERIFIED' &&
         existingVerification.expiresAt &&
+        existingVerification.expiresAt instanceof Date &&
         existingVerification.expiresAt > new Date()
       ) {
         // Extract gameDetails from cached metadata
@@ -77,6 +78,8 @@ export class GameVerificationService {
             typeof details.name === 'string' &&
             details.id &&
             details.name &&
+            typeof details.id.trim === 'function' &&
+            typeof details.name.trim === 'function' &&
             details.id.trim() !== '' &&
             details.name.trim() !== ''
           );
@@ -86,8 +89,13 @@ export class GameVerificationService {
         if (!isValidGameDetails(gameDetails)) {
           // Try to fetch the actual game details from Roblox API
           try {
-            const actualGameDetails = await this.robloxApi.getGameDetails(gameId);
-            if (actualGameDetails && actualGameDetails.id && actualGameDetails.name) {
+            const actualGameDetails =
+              await this.robloxApi.getGameDetails(gameId);
+            if (
+              actualGameDetails &&
+              actualGameDetails.id &&
+              actualGameDetails.name
+            ) {
               gameDetails = actualGameDetails;
             } else {
               // If API call fails, create minimal fallback
@@ -314,6 +322,8 @@ export class GameVerificationService {
         typeof details.name === 'string' &&
         details.id &&
         details.name &&
+        typeof details.id.trim === 'function' &&
+        typeof details.name.trim === 'function' &&
         details.id.trim() !== '' &&
         details.name.trim() !== ''
       );

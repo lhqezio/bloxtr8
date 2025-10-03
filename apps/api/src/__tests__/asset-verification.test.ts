@@ -353,6 +353,75 @@ describe('GameVerificationService', () => {
       // Should call getGameDetails to fetch fresh data
       expect(mockRobloxApi.getGameDetails).toHaveBeenCalledWith(gameId);
     });
+
+    it('should handle null expiresAt without throwing TypeError', async () => {
+      const userId = 'user123';
+      const gameId = 'game456';
+      const robloxUserId = 'roblox789';
+
+      // Mock cached verification with null expiresAt
+      const existingVerification = {
+        id: 'verification123',
+        verificationStatus: 'VERIFIED',
+        ownershipType: 'OWNER',
+        expiresAt: null, // This should not cause TypeError
+        metadata: {
+          gameDetails: {
+            id: gameId,
+            name: 'Test Game',
+            description: 'A test game',
+            creator: { name: 'Test Creator', id: 123, type: 'User' },
+            created: '2023-01-01T00:00:00Z',
+            visits: 1000,
+            playing: 50,
+            genre: 'Adventure',
+            thumbnailUrl: 'https://example.com/thumbnail.png',
+          },
+        },
+      };
+
+      const mockOwnershipResult = {
+        owns: true,
+        role: 'Owner',
+        gameDetails: {
+          id: gameId,
+          name: 'Test Game',
+          description: 'A test game',
+          creator: { name: 'Test Creator', id: 123, type: 'User' },
+          created: '2023-01-01T00:00:00Z',
+          visits: 1000,
+          playing: 50,
+          genre: 'Adventure',
+          thumbnailUrl: 'https://example.com/thumbnail.png',
+        },
+      };
+
+      mockPrisma.assetVerification.findUnique.mockResolvedValue(
+        existingVerification
+      );
+      mockRobloxApi.verifyGameOwnership.mockResolvedValue(mockOwnershipResult);
+      mockPrisma.assetVerification.upsert.mockResolvedValue({
+        ...existingVerification,
+        id: 'verification123',
+      });
+
+      const result = await service.verifyGameOwnership(
+        userId,
+        gameId,
+        robloxUserId
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.verified).toBe(true);
+      expect(result.gameDetails).toEqual(mockOwnershipResult.gameDetails);
+      expect(result.ownershipType).toBe('Owner');
+
+      // Should call verifyGameOwnership since expiresAt is null
+      expect(mockRobloxApi.verifyGameOwnership).toHaveBeenCalledWith(
+        robloxUserId,
+        gameId
+      );
+    });
   });
 
   describe('getUserVerifiedGames', () => {
