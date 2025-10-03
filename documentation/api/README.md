@@ -128,7 +128,9 @@ Create user if doesn't exist, or return existing user.
 }
 ```
 
-**Response**: User object
+**Response**: User object with all linked accounts
+
+**Performance**: Optimized to eliminate unnecessary database queries by returning transaction results directly.
 
 #### `GET /api/users/:userId/experiences`
 
@@ -358,6 +360,7 @@ Roblox OAuth callback handler.
 - `state`: State parameter for CSRF protection (validated against stored token)
 
 **Process**:
+
 1. Validates OAuth code with Roblox
 2. Verifies state parameter (prevents CSRF attacks)
 3. Links Roblox account to Discord user
@@ -368,10 +371,12 @@ Roblox OAuth callback handler.
 **Response**: Redirects to web app with success/error
 
 **Security Features**:
+
 - State token validation with 10-minute expiration
 - Automatic cleanup of used tokens
-- Race condition protection
+- Race condition protection via atomic token validation
 - Memory leak prevention
+- Atomic updateMany operation prevents concurrent access issues
 
 ### Health
 

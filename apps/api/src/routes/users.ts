@@ -395,41 +395,25 @@ router.post('/users/ensure', async (req, res, next) => {
           },
         });
 
+        // Fetch all accounts for the new user to include any existing Roblox accounts
+        const allAccounts = await tx.account.findMany({
+          where: { userId: newUser.id },
+          select: {
+            accountId: true,
+            providerId: true,
+          },
+        });
+
         return {
           ...newUser,
-          accounts: [{ accountId: discordId, providerId: 'discord' }],
+          accounts: allAccounts,
         };
       });
 
       user = result;
     }
 
-    // Always re-query to get ALL accounts (including Roblox) for consistency
-    const finalUser = await prisma.user.findFirst({
-      where: {
-        accounts: {
-          some: {
-            accountId: discordId,
-            providerId: 'discord',
-          },
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        kycVerified: true,
-        kycTier: true,
-        accounts: {
-          select: {
-            accountId: true,
-            providerId: true,
-          },
-        },
-      },
-    });
-
-    res.status(200).json(finalUser);
+    res.status(200).json(user);
   } catch (error) {
     next(error);
   }

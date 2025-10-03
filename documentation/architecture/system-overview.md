@@ -399,8 +399,9 @@ Both parties ← Completion notification
   - Cryptographically secure random state tokens (32 bytes)
   - Server-side storage with 10-minute expiration
   - Automatic cleanup after successful/unsuccessful flows
-  - Race condition protection with atomic token marking
+  - Race condition protection with atomic token validation using updateMany
   - CSRF protection via state validation
+  - Atomic operations prevent concurrent access and TOCTOU vulnerabilities
 
 - **Token Lifecycle**:
   - Generation: Random bytes + database storage
@@ -430,6 +431,8 @@ Both parties ← Completion notification
   - Indexed foreign keys
   - Composite indexes for common queries
   - Connection pooling
+  - Atomic operations to prevent race conditions
+  - Eliminated unnecessary re-queries in user creation flow
 
 - **Caching**:
   - Asset verification cache (24h)

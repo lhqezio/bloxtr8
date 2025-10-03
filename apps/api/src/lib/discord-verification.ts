@@ -102,61 +102,54 @@ export async function validateOAuthState(
 
   const { prisma } = await import('@bloxtr8/database');
 
-  // Look up the state in the database
-  const linkToken = await prisma.linkToken.findUnique({
-    where: {
-      token: state,
-    },
-  });
-
-  if (!linkToken) {
-    console.warn('OAuth state not found in database', { state });
-    return null;
-  }
-
-  // Check if state has the correct purpose
-  if (linkToken.purpose !== 'oauth_state') {
-    console.warn('OAuth state has incorrect purpose', {
-      state,
-      purpose: linkToken.purpose,
-    });
-    return null;
-  }
-
-  // Check if state has expired
-  if (linkToken.expiresAt < new Date()) {
-    console.warn('OAuth state expired', {
-      state,
-      expiresAt: linkToken.expiresAt,
-    });
-    // Clean up expired state
-    await prisma.linkToken.delete({ where: { id: linkToken.id } });
-    return null;
-  }
-
-  // Check if state has already been used
-  if (linkToken.used) {
-    console.warn('OAuth state already used', { state });
-    return null;
-  }
-
-  // Mark state as used atomically to prevent replay attacks
-  // Use updateMany with a where clause to ensure the state hasn't been used
+  // Use a single atomic operation to find and update the state atomically
+  // This eliminates the TOCTOU race condition by checking all conditions
+  // and marking as used in a single database operation
   const updateResult = await prisma.linkToken.updateMany({
     where: {
-      id: linkToken.id,
+      token: state,
+      purpose: 'oauth_state',
       used: false, // Only update if still unused
+      expiresAt: {
+        gt: new Date(), // Only update if not expired
+      },
     },
     data: { used: true },
   });
 
-  // If no rows were updated, the state was already used by a concurrent request
+  // If no rows were updated, the state is invalid (not found, expired, already used, or wrong purpose)
   if (updateResult.count === 0) {
-    console.warn('OAuth state already used (race condition detected)', {
-      state,
+    // Log the specific reason for debugging (but don't expose internal details)
+    const linkToken = await prisma.linkToken.findUnique({
+      where: { token: state },
     });
+
+    if (!linkToken) {
+      console.warn('OAuth state not found in database', { state });
+    } else if (linkToken.purpose !== 'oauth_state') {
+      console.warn('OAuth state has incorrect purpose', {
+        state,
+        purpose: linkToken.purpose,
+      });
+    } else if (linkToken.expiresAt < new Date()) {
+      console.warn('OAuth state expired', {
+        state,
+        expiresAt: linkToken.expiresAt,
+      });
+      // Clean up expired state
+      await prisma.linkToken.delete({ where: { id: linkToken.id } });
+    } else if (linkToken.used) {
+      console.warn('OAuth state already used', { state });
+    }
+    
     return null;
   }
 
-  return linkToken.discordId;
+  // Fetch the Discord ID from the updated token
+  const updatedToken = await prisma.linkToken.findUnique({
+    where: { token: state },
+    select: { discordId: true },
+  });
+
+  return updatedToken?.discordId || null;
 }

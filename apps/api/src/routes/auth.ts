@@ -287,7 +287,7 @@ router.get('/roblox/callback', async (req, res, _next) => {
                 discordId,
               },
             });
-            
+
             const webAppSuccessUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/success?${new URLSearchParams(
               {
                 message: 'Roblox account is already linked',
@@ -346,7 +346,7 @@ router.get('/roblox/callback', async (req, res, _next) => {
       res.redirect(webAppSuccessUrl);
     } catch (error) {
       console.error('Error processing OAuth in callback:', error);
-      
+
       // Clean up OAuth state token even on error to prevent accumulation
       try {
         const { prisma } = await import('@bloxtr8/database');
@@ -360,7 +360,7 @@ router.get('/roblox/callback', async (req, res, _next) => {
       } catch (cleanupError) {
         console.error('Error cleaning up OAuth state token:', cleanupError);
       }
-      
+
       const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
         {
           error: 'callback_error',

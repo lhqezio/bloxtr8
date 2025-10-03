@@ -358,19 +358,16 @@ describe('Users API Routes', () => {
 
       const _mockTransactionResult = {
         ...mockNewUser,
-        accounts: [{ accountId: 'discord-123' }],
+        accounts: [{ accountId: 'discord-123', providerId: 'discord' }],
       };
 
-      const mockFinalUser = {
+      const _mockFinalUser = {
         ...mockNewUser,
         accounts: [{ accountId: 'discord-123', providerId: 'discord' }],
       };
 
       // Mock first call (user lookup) returns null
-      // Mock second call (final user query) returns the final user
-      mockUserFindFirst
-        .mockResolvedValueOnce(null) // First call: user lookup
-        .mockResolvedValueOnce(mockFinalUser); // Second call: final query
+      mockUserFindFirst.mockResolvedValueOnce(null);
 
       mockTransaction.mockImplementation(async callback => {
         const mockTx = {
@@ -379,6 +376,7 @@ describe('Users API Routes', () => {
           },
           account: {
             create: jest.fn().mockResolvedValue({}),
+            findMany: jest.fn().mockResolvedValue([{ accountId: 'discord-123', providerId: 'discord' }]),
           },
         };
         return callback(mockTx);
@@ -392,8 +390,8 @@ describe('Users API Routes', () => {
         })
         .expect(200);
 
-      expect(response.body).toEqual(mockFinalUser);
-      expect(mockUserFindFirst).toHaveBeenCalledTimes(2);
+      expect(response.body).toEqual(_mockTransactionResult);
+      expect(mockUserFindFirst).toHaveBeenCalledTimes(1);
       expect(mockTransaction).toHaveBeenCalled();
     });
 
@@ -561,7 +559,7 @@ describe('Users API Routes', () => {
 
     it('should handle unicode characters in usernames', async () => {
       const unicodeUsername = '用户测试🚀';
-      const mockFinalUser = {
+      const _mockFinalUser = {
         id: 'user-123',
         name: unicodeUsername,
         email: 'discord-123@discord.example',
@@ -570,10 +568,8 @@ describe('Users API Routes', () => {
         accounts: [{ accountId: 'discord-123', providerId: 'discord' }],
       };
 
-      // Mock both findFirst calls
-      mockUserFindFirst
-        .mockResolvedValueOnce(null) // First call: user lookup
-        .mockResolvedValueOnce(mockFinalUser); // Second call: final query
+      // Mock first call (user lookup) returns null
+      mockUserFindFirst.mockResolvedValueOnce(null);
 
       mockTransaction.mockImplementation(async callback => {
         const mockTx = {
@@ -588,6 +584,7 @@ describe('Users API Routes', () => {
           },
           account: {
             create: jest.fn().mockResolvedValue({}),
+            findMany: jest.fn().mockResolvedValue([{ accountId: 'discord-123', providerId: 'discord' }]),
           },
         };
         return callback(mockTx);
@@ -602,6 +599,7 @@ describe('Users API Routes', () => {
         .expect(200);
 
       expect(response.body.name).toBe(unicodeUsername);
+      expect(response.body.accounts).toEqual([{ accountId: 'discord-123', providerId: 'discord' }]);
     });
   });
 

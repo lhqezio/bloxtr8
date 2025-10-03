@@ -235,46 +235,64 @@ describe('Discord Verification Functions', () => {
       const discordId = 'discord-user-123';
       const state = 'valid-state-token';
 
-      mockPrisma.linkToken.findUnique.mockResolvedValueOnce({
-        id: 'link-token-id',
-        token: state,
-        discordId,
-        purpose: 'oauth_state',
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes from now
-        used: false,
-      });
-
+      // First updateMany call succeeds (state is valid and unused)
       mockPrisma.linkToken.updateMany.mockResolvedValueOnce({ count: 1 });
+      
+      // Then findUnique call returns the Discord ID
+      mockPrisma.linkToken.findUnique.mockResolvedValueOnce({
+        discordId,
+      });
 
       const result = await validateOAuthState(state);
 
       expect(result).toBe(discordId);
-      expect(mockPrisma.linkToken.findUnique).toHaveBeenCalledWith({
-        where: { token: state },
-      });
       expect(mockPrisma.linkToken.updateMany).toHaveBeenCalledWith({
         where: {
-          id: 'link-token-id',
+          token: state,
+          purpose: 'oauth_state',
           used: false,
+          expiresAt: {
+            gt: expect.any(Date),
+          },
         },
         data: { used: true },
+      });
+      expect(mockPrisma.linkToken.findUnique).toHaveBeenCalledWith({
+        where: { token: state },
+        select: { discordId: true },
       });
     });
 
     it('should return null when state not found in database', async () => {
       const state = 'nonexistent-state';
 
+      // updateMany returns 0 (no rows updated)
+      mockPrisma.linkToken.updateMany.mockResolvedValueOnce({ count: 0 });
+      // findUnique returns null for debugging
       mockPrisma.linkToken.findUnique.mockResolvedValueOnce(null);
 
       const result = await validateOAuthState(state);
 
       expect(result).toBeNull();
-      expect(mockPrisma.linkToken.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.linkToken.updateMany).toHaveBeenCalledWith({
+        where: {
+          token: state,
+          purpose: 'oauth_state',
+          used: false,
+          expiresAt: {
+            gt: expect.any(Date),
+          },
+        },
+        data: { used: true },
+      });
     });
 
     it('should return null when state has wrong purpose', async () => {
       const state = 'wrong-purpose-state';
 
+      // updateMany returns 0 (no rows updated due to wrong purpose)
+      mockPrisma.linkToken.updateMany.mockResolvedValueOnce({ count: 0 });
+      // findUnique returns token with wrong purpose for debugging
       mockPrisma.linkToken.findUnique.mockResolvedValueOnce({
         id: 'link-token-id',
         token: state,
@@ -287,13 +305,26 @@ describe('Discord Verification Functions', () => {
       const result = await validateOAuthState(state);
 
       expect(result).toBeNull();
-      expect(mockPrisma.linkToken.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.linkToken.updateMany).toHaveBeenCalledWith({
+        where: {
+          token: state,
+          purpose: 'oauth_state',
+          used: false,
+          expiresAt: {
+            gt: expect.any(Date),
+          },
+        },
+        data: { used: true },
+      });
     });
 
     it('should return null and delete expired state', async () => {
       const state = 'expired-state';
       const expiredDate = new Date(Date.now() - 1 * 60 * 1000); // 1 minute ago
 
+      // updateMany returns 0 (no rows updated due to expiration)
+      mockPrisma.linkToken.updateMany.mockResolvedValueOnce({ count: 0 });
+      // findUnique returns expired token for debugging
       mockPrisma.linkToken.findUnique.mockResolvedValueOnce({
         id: 'link-token-id',
         token: state,
@@ -302,7 +333,7 @@ describe('Discord Verification Functions', () => {
         expiresAt: expiredDate,
         used: false,
       });
-
+      // delete is called to clean up expired token
       mockPrisma.linkToken.delete.mockResolvedValueOnce({
         id: 'link-token-id',
         token: state,
@@ -315,15 +346,28 @@ describe('Discord Verification Functions', () => {
       const result = await validateOAuthState(state);
 
       expect(result).toBeNull();
+      expect(mockPrisma.linkToken.updateMany).toHaveBeenCalledWith({
+        where: {
+          token: state,
+          purpose: 'oauth_state',
+          used: false,
+          expiresAt: {
+            gt: expect.any(Date),
+          },
+        },
+        data: { used: true },
+      });
       expect(mockPrisma.linkToken.delete).toHaveBeenCalledWith({
         where: { id: 'link-token-id' },
       });
-      expect(mockPrisma.linkToken.updateMany).not.toHaveBeenCalled();
     });
 
     it('should return null when state has already been used', async () => {
       const state = 'used-state';
 
+      // updateMany returns 0 (no rows updated due to already used)
+      mockPrisma.linkToken.updateMany.mockResolvedValueOnce({ count: 0 });
+      // findUnique returns used token for debugging
       mockPrisma.linkToken.findUnique.mockResolvedValueOnce({
         id: 'link-token-id',
         token: state,
@@ -336,7 +380,17 @@ describe('Discord Verification Functions', () => {
       const result = await validateOAuthState(state);
 
       expect(result).toBeNull();
-      expect(mockPrisma.linkToken.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.linkToken.updateMany).toHaveBeenCalledWith({
+        where: {
+          token: state,
+          purpose: 'oauth_state',
+          used: false,
+          expiresAt: {
+            gt: expect.any(Date),
+          },
+        },
+        data: { used: true },
+      });
     });
 
     it('should return null when state is undefined', async () => {
@@ -350,26 +404,31 @@ describe('Discord Verification Functions', () => {
       const discordId = 'discord-user-456';
       const state = 'valid-unused-state';
 
-      mockPrisma.linkToken.findUnique.mockResolvedValueOnce({
-        id: 'link-token-id-2',
-        token: state,
-        discordId,
-        purpose: 'oauth_state',
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-        used: false,
-      });
-
+      // First updateMany call succeeds (state is valid and unused)
       mockPrisma.linkToken.updateMany.mockResolvedValueOnce({ count: 1 });
+      
+      // Then findUnique call returns the Discord ID
+      mockPrisma.linkToken.findUnique.mockResolvedValueOnce({
+        discordId,
+      });
 
       const result = await validateOAuthState(state);
 
       expect(result).toBe(discordId);
       expect(mockPrisma.linkToken.updateMany).toHaveBeenCalledWith({
         where: {
-          id: 'link-token-id-2',
+          token: state,
+          purpose: 'oauth_state',
           used: false,
+          expiresAt: {
+            gt: expect.any(Date),
+          },
         },
         data: { used: true },
+      });
+      expect(mockPrisma.linkToken.findUnique).toHaveBeenCalledWith({
+        where: { token: state },
+        select: { discordId: true },
       });
     });
   });
