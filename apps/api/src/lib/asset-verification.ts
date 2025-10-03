@@ -89,6 +89,26 @@ export class GameVerificationService {
           };
         }
 
+        // Fix creator name if it's "Unknown" - fetch the correct name
+        if (
+          gameDetails.creator &&
+          gameDetails.creator.name === 'Unknown' &&
+          gameDetails.creator.id
+        ) {
+          try {
+            const creatorResponse = await fetch(
+              `https://users.roblox.com/v1/users/${gameDetails.creator.id}`
+            );
+            if (creatorResponse.ok) {
+              const creatorData = await creatorResponse.json();
+              gameDetails.creator.name =
+                creatorData.name || creatorData.displayName || 'Unknown';
+            }
+          } catch (error) {
+            console.log('Failed to fix cached creator name:', error);
+          }
+        }
+
         return {
           success: true,
           verified: true,
@@ -112,8 +132,33 @@ export class GameVerificationService {
         };
       }
 
-      // Get game details from Roblox
-      let gameDetails = await this.robloxApi.getGameDetails(gameId);
+      // Use game details from verification result if available, otherwise fetch them
+      let gameDetails = ownershipResult.gameDetails;
+
+      if (!gameDetails) {
+        // If verification passed but no game details, fetch from user's experiences
+        const userExperiences =
+          await this.robloxApi.getUserExperiences(robloxUserId);
+        const ownedExperience = userExperiences.find(exp => exp.id === gameId);
+
+        if (ownedExperience) {
+          gameDetails = {
+            id: ownedExperience.id,
+            name: ownedExperience.name,
+            description: ownedExperience.description,
+            creator: ownedExperience.creator,
+            created: ownedExperience.created,
+            updated: ownedExperience.updated,
+            visits: ownedExperience.visits,
+            playing: ownedExperience.playing,
+            maxPlayers: ownedExperience.maxPlayers,
+            genre: ownedExperience.genre,
+            thumbnailUrl: ownedExperience.thumbnailUrl,
+          };
+        } else {
+          gameDetails = await this.robloxApi.getGameDetails(gameId);
+        }
+      }
 
       if (!gameDetails) {
         // Even if game details fail, we know ownership is verified
@@ -180,6 +225,16 @@ export class GameVerificationService {
             robloxUserId,
           } as any,
         },
+      });
+
+      console.log('Debug - GameVerificationService final result:', {
+        success: true,
+        verified: true,
+        gameDetails: gameDetails
+          ? { id: gameDetails.id, name: gameDetails.name }
+          : null,
+        ownershipType: ownershipResult.role,
+        verificationId: verification.id,
       });
 
       return {

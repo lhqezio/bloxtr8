@@ -19,6 +19,7 @@ jest.mock('../lib/roblox-api.js', () => ({
   RobloxApiClient: jest.fn().mockImplementation(() => ({
     getGameDetails: jest.fn(),
     verifyGameOwnership: jest.fn(),
+    getUserExperiences: jest.fn(),
   })),
 }));
 
@@ -37,6 +38,7 @@ describe('GameVerificationService', () => {
     mockRobloxApi = {
       getGameDetails: jest.fn(),
       verifyGameOwnership: jest.fn(),
+      getUserExperiences: jest.fn(),
     };
 
     mockPrisma = {
@@ -98,6 +100,7 @@ describe('GameVerificationService', () => {
       mockPrisma.assetVerification.findUnique.mockResolvedValue(null);
       mockRobloxApi.getGameDetails.mockResolvedValue(mockGameDetails);
       mockRobloxApi.verifyGameOwnership.mockResolvedValue(mockOwnershipResult);
+      mockRobloxApi.getUserExperiences.mockResolvedValue([]);
       mockPrisma.assetVerification.upsert.mockResolvedValue(mockVerification);
 
       const result = await service.verifyGameOwnership(
@@ -178,6 +181,7 @@ describe('GameVerificationService', () => {
         owns: true,
         role: 'Owner',
       });
+      mockRobloxApi.getUserExperiences.mockResolvedValue([]);
       // Mock upsert to return a verification object with id
       mockPrisma.assetVerification.upsert.mockResolvedValue({
         id: 'verification123',

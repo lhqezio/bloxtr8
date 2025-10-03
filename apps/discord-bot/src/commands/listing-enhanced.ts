@@ -4,11 +4,14 @@ import {
   ButtonStyle,
   EmbedBuilder,
   ModalBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
   TextInputBuilder,
   TextInputStyle,
   type ButtonInteraction,
   type ChatInputCommandInteraction,
   type ModalSubmitInteraction,
+  type StringSelectMenuInteraction,
 } from 'discord.js';
 
 import { createListing } from '../utils/apiClient.js';
@@ -41,9 +44,30 @@ interface GameDetails {
   thumbnailUrl?: string;
 }
 
+interface RobloxExperience {
+  id: string;
+  name: string;
+  description?: string;
+  creator: {
+    id: number;
+    name: string;
+    type: string;
+  };
+  created: string;
+  updated: string;
+  visits: number;
+  playing: number;
+  maxPlayers: number;
+  genre: string;
+  thumbnailUrl?: string;
+  universeId: number;
+  placeId?: string;
+}
+
 interface CacheEntry {
   verificationId: string;
   gameDetails: GameDetails;
+  placeId?: string;
   timestamp: number;
   lastAccessed: number;
 }
@@ -97,7 +121,7 @@ function evictLRUEntry(): void {
 // Helper to set cache entry with size check
 function setCacheEntry(
   key: string,
-  value: { verificationId: string; gameDetails: GameDetails }
+  value: { verificationId: string; gameDetails: GameDetails; placeId?: string }
 ): void {
   const isUpdate = verificationCache.has(key);
 
@@ -119,7 +143,11 @@ function setCacheEntry(
 // Helper to get cache entry with TTL check and access time update
 function getCacheEntry(
   key: string
-): { verificationId: string; gameDetails: GameDetails } | null {
+): {
+  verificationId: string;
+  gameDetails: GameDetails;
+  placeId?: string;
+} | null {
   const entry = verificationCache.get(key);
 
   if (!entry) {
@@ -141,6 +169,7 @@ function getCacheEntry(
   return {
     verificationId: entry.verificationId,
     gameDetails: entry.gameDetails,
+    placeId: entry.placeId,
   };
 }
 
@@ -162,6 +191,35 @@ export function cleanupVerificationCache(): void {
   console.log(
     '[Cache Cleanup] Cleared verification cache and stopped cleanup timer'
   );
+}
+
+// Function to fetch user's Roblox experiences
+async function fetchUserExperiences(
+  userId: string
+): Promise<RobloxExperience[]> {
+  try {
+    const response = await fetch(
+      `${getApiBaseUrl()}/api/users/${userId}/experiences`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(10000), // 10 second timeout
+      }
+    );
+
+    if (!response.ok) {
+      console.error(`Failed to fetch user experiences: ${response.statusText}`);
+      return [];
+    }
+
+    const data = await response.json();
+    return data.experiences || [];
+  } catch (error) {
+    console.error('Error fetching user experiences:', error);
+    return [];
+  }
 }
 
 export async function handleListingCreateWithVerification(
@@ -289,23 +347,82 @@ export async function handleListingCreateWithVerification(
       return;
     }
 
-    // Show game verification modal
-    const gameVerificationModal = new ModalBuilder()
-      .setCustomId('game_verification_modal')
-      .setTitle('Game Ownership Verification');
+    // Fetch user's experiences
+    await interaction.deferReply({ ephemeral: true });
 
-    const gameIdInput = new TextInputBuilder()
-      .setCustomId('game_id')
-      .setLabel('Roblox Game ID')
-      .setStyle(TextInputStyle.Short)
-      .setPlaceholder('Enter the Roblox game ID you want to list')
-      .setRequired(true);
+    const experiences = await fetchUserExperiences(userResult.user.id);
 
-    gameVerificationModal.addComponents(
-      new ActionRowBuilder<TextInputBuilder>().addComponents(gameIdInput)
+    if (experiences.length === 0) {
+      const embed = new EmbedBuilder()
+        .setColor(0xf59e0b)
+        .setTitle('🎮 No Experiences Found')
+        .setDescription(
+          "**You don't have any public Roblox experiences to list**"
+        )
+        .setThumbnail(interaction.user.displayAvatarURL())
+        .addFields({
+          name: '💡 What can you do?',
+          value: 'Create a public Roblox experience and try again',
+        })
+        .setFooter({
+          text: 'Only public experiences can be listed',
+          iconURL: interaction.user.displayAvatarURL(),
+        })
+        .setTimestamp();
+
+      await interaction.editReply({
+        embeds: [embed],
+      });
+      return;
+    }
+
+    // Create dropdown for experience selection
+    const experienceSelect = new StringSelectMenuBuilder()
+      .setCustomId('experience_selection')
+      .setPlaceholder('Select an experience to list')
+      .setMinValues(1)
+      .setMaxValues(1);
+
+    // Add experiences to dropdown (limit to 25 due to Discord's limit)
+    const experiencesToShow = experiences.slice(0, 25);
+    for (const experience of experiencesToShow) {
+      const option = new StringSelectMenuOptionBuilder()
+        .setLabel(experience.name)
+        .setDescription(
+          `${experience.visits.toLocaleString()} visits • ${experience.genre || 'Unknown genre'}`
+        )
+        .setValue(experience.id)
+        .setEmoji('🎮');
+
+      experienceSelect.addOptions(option);
+    }
+
+    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+      experienceSelect
     );
 
-    await interaction.showModal(gameVerificationModal);
+    const embed = new EmbedBuilder()
+      .setColor(0x00d4aa)
+      .setTitle('🎮 Select Experience to List')
+      .setDescription(
+        `**Choose from your ${experiences.length} public experiences**`
+      )
+      .setThumbnail(interaction.user.displayAvatarURL())
+      .addFields({
+        name: '📋 What happens next?',
+        value:
+          '1. Select your experience\n2. Verify ownership\n3. Create your listing',
+      })
+      .setFooter({
+        text: `Showing ${experiencesToShow.length} of ${experiences.length} experiences`,
+        iconURL: interaction.user.displayAvatarURL(),
+      })
+      .setTimestamp();
+
+    await interaction.editReply({
+      embeds: [embed],
+      components: [row],
+    });
   } catch (error) {
     console.error('Error handling listing create with verification:', error);
 
@@ -327,6 +444,143 @@ export async function handleListingCreateWithVerification(
         console.error('Failed to send error message:', followUpError);
       }
     }
+  }
+}
+
+export async function handleExperienceSelection(
+  interaction: StringSelectMenuInteraction
+) {
+  try {
+    const selectedExperienceId = interaction.values[0];
+    const discordId = interaction.user.id;
+
+    // Get user's Roblox account
+    const userResult = await ensureUserExists(
+      discordId,
+      interaction.user.username
+    );
+    const robloxAccount = userResult.user?.accounts?.find(
+      acc => (acc as { providerId?: string }).providerId === 'roblox'
+    );
+
+    if (!robloxAccount) {
+      return interaction.reply({
+        content:
+          '❌ You must link your Roblox account first to verify game ownership.',
+        ephemeral: true,
+      });
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    // Get the selected experience details to find placeId
+    const experiences = await fetchUserExperiences(userResult.user!.id);
+    const selectedExperience = experiences.find(
+      exp => exp.id === selectedExperienceId
+    );
+    const placeId = selectedExperience?.placeId;
+
+    // Verify game ownership via API
+
+    const verificationResponse = await fetch(
+      `${getApiBaseUrl()}/api/asset-verification/verify`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          gameId: selectedExperienceId,
+          robloxUserId: robloxAccount.accountId,
+          userId: userResult.user!.id,
+        }),
+      }
+    );
+
+    const verificationResult = await verificationResponse.json();
+
+    if (!verificationResult.verified) {
+      return interaction.editReply({
+        content: `❌ Game verification failed: ${verificationResult.error || 'You do not own or have admin access to this game.'}`,
+      });
+    }
+
+    // Show game details and proceed to listing creation
+    const gameDetails = verificationResult.gameDetails;
+    const ownershipType = verificationResult.ownershipType;
+
+    if (!gameDetails) {
+      console.error(
+        'Missing gameDetails in verification result:',
+        verificationResult
+      );
+      return interaction.editReply({
+        content: `❌ Game verification succeeded but game details are missing. Please try again.`,
+      });
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle('✅ Game Ownership Verified')
+      .setDescription(`**${gameDetails.name}**`)
+      .addFields(
+        {
+          name: 'Ownership Type',
+          value: ownershipType || 'Owner',
+          inline: true,
+        },
+        {
+          name: 'Player Count',
+          value: `${gameDetails.playing || 0} playing`,
+          inline: true,
+        },
+        {
+          name: 'Total Visits',
+          value: `${gameDetails.visits || 0}`,
+          inline: true,
+        },
+        {
+          name: 'Creator',
+          value: gameDetails.creator?.name || 'Unknown',
+          inline: true,
+        },
+        { name: 'Genre', value: gameDetails.genre || 'Unknown', inline: true }
+      )
+      .setThumbnail(
+        gameDetails.thumbnailUrl ||
+          `https://thumbnails.roblox.com/v1/games/icons?gameIds=${selectedExperienceId}&size=420x420&format=Png`
+      )
+      .setColor('Green');
+
+    // Create buttons for next steps
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId('create_listing_with_game')
+        .setLabel('Create Game Listing')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('cancel_listing_creation')
+        .setLabel('Cancel')
+        .setStyle(ButtonStyle.Secondary)
+    );
+
+    await interaction.editReply({
+      content: 'Game ownership verified! You can now create your listing.',
+      embeds: [embed],
+      components: [row],
+    });
+
+    // Store verification ID for later use in listing creation
+    setCacheEntry(discordId, {
+      verificationId: verificationResult.verificationId,
+      gameDetails,
+      placeId,
+    });
+  } catch (error) {
+    console.error('Error handling experience selection:', error);
+    await interaction.editReply({
+      content:
+        '❌ An error occurred during game verification. Please try again later.',
+    });
   }
 }
 
@@ -711,8 +965,8 @@ export async function handleListingWithGameModalSubmit(
           inline: true,
         },
         {
-          name: '🔗 View',
-          value: `[View on Website](${getApiBaseUrl()}/api/listings/${apiResult.data.id})`,
+          name: '🎮 Game',
+          value: `[Open on Roblox](https://www.roblox.com/games/${cachedData.placeId || cachedData.gameDetails.id})`,
           inline: false,
         }
       )
@@ -727,7 +981,9 @@ export async function handleListingWithGameModalSubmit(
       new ButtonBuilder()
         .setLabel('🎮 Open Game on Roblox')
         .setStyle(ButtonStyle.Link)
-        .setURL(`https://www.roblox.com/games/${cachedData.gameDetails.id}`)
+        .setURL(
+          `https://www.roblox.com/games/${cachedData.placeId || cachedData.gameDetails.id}`
+        )
     );
 
     await interaction.editReply({

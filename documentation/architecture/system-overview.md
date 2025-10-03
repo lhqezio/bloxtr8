@@ -215,6 +215,12 @@ User (Discord) → /listing create
     ↓
 Discord Bot → Verify KYC tier (must be TIER_1+)
     ↓
+Discord Bot → Fetch user's Roblox experiences
+    ↓
+Discord Bot → Show experience selection dropdown
+    ↓
+User selects experience → Verify ownership automatically
+    ↓
 Discord Bot → Show listing modal (title, description, price)
     ↓
 User submits → POST /api/listings
@@ -223,7 +229,7 @@ API → Validate input (Zod schema)
     ↓
 API → Create Listing record
     ↓
-API → Trigger game verification
+API → Use cached verification result
     ↓
 API → Create RobloxSnapshot
     ↓
@@ -241,15 +247,19 @@ GameVerificationService → Check cache (24h TTL)
     ↓
 Cache miss → Call Roblox API
     ↓
+Roblox API → Get user experiences (if available)
+    ↓
 Roblox API → Get game details
     ↓
 Roblox API → Verify ownership/permissions
     ↓
+Roblox API → Resolve creator names (if needed)
+    ↓
 GameVerificationService → Create/update AssetVerification
     ↓
-GameVerificationService → Store metadata
+GameVerificationService → Store metadata + game details
     ↓
-API ← Verification result
+API ← Verification result with game details
 ```
 
 ### 5. Payment Escrow Flow (Stripe)
@@ -295,13 +305,19 @@ Both parties ← Completion notification
 
 ### 2. Roblox
 
-- **Purpose**: Game ownership verification
+- **Purpose**: Game ownership verification and experience management
 - **Integration**: Open Cloud API, OAuth 2.0
 - **APIs**:
   - Game Details API
+  - User Experiences API (public games)
   - User Games API
   - Permissions API
+  - Users API (creator name resolution)
 - **Security**: OAuth credentials, API rate limiting
+- **Features**:
+  - Automatic experience fetching for listing creation
+  - Creator name resolution for cached games
+  - Enhanced ownership verification with game details
 
 ### 3. Stripe
 

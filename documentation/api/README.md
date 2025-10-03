@@ -130,6 +130,48 @@ Create user if doesn't exist, or return existing user.
 
 **Response**: User object
 
+#### `GET /api/users/:userId/experiences`
+
+Get user's Roblox experiences (public games they own).
+
+**Parameters**:
+
+- `userId` (path): User ID
+
+**Response**:
+
+```json
+{
+  "success": true,
+  "experiences": [
+    {
+      "id": "123456789",
+      "name": "Epic Game",
+      "description": "An amazing RPG experience",
+      "creator": {
+        "id": 789,
+        "name": "CreatorName",
+        "type": "User"
+      },
+      "created": "2023-01-01T00:00:00Z",
+      "updated": "2024-01-01T00:00:00Z",
+      "visits": 1000000,
+      "playing": 50,
+      "maxPlayers": 100,
+      "genre": "RPG",
+      "thumbnailUrl": "https://thumbnails.roblox.com/...",
+      "universeId": 987654321,
+      "placeId": "123456789"
+    }
+  ]
+}
+```
+
+**Errors**:
+
+- `400 Bad Request`: User has no linked Roblox account
+- `404 Not Found`: User not found
+
 ### Listings
 
 #### `POST /api/listings`

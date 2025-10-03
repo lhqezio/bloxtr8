@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { prisma } from '@bloxtr8/database';
 import { Router, type Router as ExpressRouter } from 'express';
 
+import { RobloxApiClient } from '../lib/roblox-api.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const router: ExpressRouter = Router();
@@ -630,6 +631,63 @@ router.get('/users/:userId/accounts', async (req, res, next) => {
     });
   } catch (error) {
     console.error('Error fetching user accounts:', error);
+    next(error);
+  }
+});
+
+// Get user's Roblox experiences
+router.get('/users/:userId/experiences', async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      throw new AppError('User ID is required', 400);
+    }
+
+    // Find user and their Roblox account
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        accounts: {
+          where: { providerId: 'roblox' },
+          select: {
+            accountId: true,
+            providerId: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    const robloxAccount = user.accounts.find(
+      acc => acc.providerId === 'roblox'
+    );
+    if (!robloxAccount) {
+      throw new AppError('User has no linked Roblox account', 400);
+    }
+
+    // Initialize Roblox API client
+    const robloxApi = new RobloxApiClient({
+      clientId: process.env.ROBLOX_CLIENT_ID || '',
+      clientSecret: process.env.ROBLOX_CLIENT_SECRET || '',
+      baseUrl: 'https://apis.roblox.com',
+      rateLimitDelay: 1000,
+    });
+
+    // Fetch user's experiences
+    const experiences = await robloxApi.getUserExperiences(
+      robloxAccount.accountId
+    );
+
+    res.status(200).json({
+      success: true,
+      experiences,
+    });
+  } catch (error) {
+    console.error('Error fetching user experiences:', error);
     next(error);
   }
 });

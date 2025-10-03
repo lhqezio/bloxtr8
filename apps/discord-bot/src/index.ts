@@ -16,6 +16,7 @@ import {
   handleCreateListingWithGameButton,
   handleListingWithGameModalSubmit,
   handleCancelListingCreation,
+  handleExperienceSelection,
   cleanupVerificationCache,
 } from './commands/listing-enhanced.js';
 import { handlePing } from './commands/ping.js';
@@ -154,6 +155,13 @@ client.on('interactionCreate', async interaction => {
     }
     if (interaction.customId === 'cancel_listing_creation') {
       await handleCancelListingCreation(interaction);
+    }
+  }
+
+  // Handle string select menu interactions
+  if (interaction.isStringSelectMenu()) {
+    if (interaction.customId === 'experience_selection') {
+      await handleExperienceSelection(interaction);
     }
   }
 });
