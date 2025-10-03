@@ -75,6 +75,8 @@ export class GameVerificationService {
             typeof details === 'object' &&
             typeof details.id === 'string' &&
             typeof details.name === 'string' &&
+            details.id &&
+            details.name &&
             details.id.trim() !== '' &&
             details.name.trim() !== ''
           );
@@ -82,23 +84,52 @@ export class GameVerificationService {
 
         // If gameDetails is missing from cache or invalid, create fallback
         if (!isValidGameDetails(gameDetails)) {
-          gameDetails = {
-            id: gameId,
-            name: `Game ${gameId}`,
-            description: 'Game verification successful (cached)',
-            creator: {
-              id: parseInt(robloxUserId),
-              name: 'Verified Owner',
-              type: 'User',
-            },
-            visits: 0,
-            playing: 0,
-            maxPlayers: 0,
-            genre: 'Unknown',
-            created: '',
-            updated: '',
-            thumbnailUrl: `https://thumbnails.roblox.com/v1/games/icons?gameIds=${gameId}&size=420x420&format=Png`,
-          };
+          // Try to fetch the actual game details from Roblox API
+          try {
+            const actualGameDetails = await this.robloxApi.getGameDetails(gameId);
+            if (actualGameDetails && actualGameDetails.id && actualGameDetails.name) {
+              gameDetails = actualGameDetails;
+            } else {
+              // If API call fails, create minimal fallback
+              gameDetails = {
+                id: gameId,
+                name: `Game ${gameId}`,
+                description: 'Game verification successful (cached)',
+                creator: {
+                  id: 0, // Use 0 instead of robloxUserId to avoid confusion
+                  name: 'Unknown Creator',
+                  type: 'User',
+                },
+                visits: 0,
+                playing: 0,
+                maxPlayers: 0,
+                genre: 'Unknown',
+                created: '',
+                updated: '',
+                thumbnailUrl: `https://thumbnails.roblox.com/v1/games/icons?gameIds=${gameId}&size=420x420&format=Png`,
+              };
+            }
+          } catch (error) {
+            // If API call fails, create minimal fallback
+            console.log('Failed to fetch game details for fallback:', error);
+            gameDetails = {
+              id: gameId,
+              name: `Game ${gameId}`,
+              description: 'Game verification successful (cached)',
+              creator: {
+                id: 0, // Use 0 instead of robloxUserId to avoid confusion
+                name: 'Unknown Creator',
+                type: 'User',
+              },
+              visits: 0,
+              playing: 0,
+              maxPlayers: 0,
+              genre: 'Unknown',
+              created: '',
+              updated: '',
+              thumbnailUrl: `https://thumbnails.roblox.com/v1/games/icons?gameIds=${gameId}&size=420x420&format=Png`,
+            };
+          }
         }
 
         // Fix creator name if it's "Unknown" - fetch the correct name
@@ -180,8 +211,8 @@ export class GameVerificationService {
           name: `Game ${gameId}`,
           description: 'Game verification successful',
           creator: {
-            id: parseInt(robloxUserId),
-            name: 'Verified Owner',
+            id: 0, // Use 0 instead of robloxUserId to avoid confusion with actual creator
+            name: 'Unknown Creator',
             type: 'User',
           },
           visits: 0,
@@ -281,6 +312,8 @@ export class GameVerificationService {
         typeof details === 'object' &&
         typeof details.id === 'string' &&
         typeof details.name === 'string' &&
+        details.id &&
+        details.name &&
         details.id.trim() !== '' &&
         details.name.trim() !== ''
       );

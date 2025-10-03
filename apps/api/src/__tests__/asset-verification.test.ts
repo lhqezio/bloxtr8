@@ -126,6 +126,19 @@ describe('GameVerificationService', () => {
         verificationStatus: 'VERIFIED',
         ownershipType: 'OWNER',
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // Still valid
+        metadata: {
+          gameDetails: {
+            id: gameId,
+            name: 'Test Game',
+            description: 'A test game',
+            creator: { name: 'Test Creator', id: 123, type: 'User' },
+            created: '2023-01-01T00:00:00Z',
+            visits: 1000,
+            playing: 50,
+            genre: 'Adventure',
+            thumbnailUrl: 'https://example.com/thumbnail.png',
+          },
+        },
       };
 
       mockPrisma.assetVerification.findUnique.mockResolvedValue(
@@ -233,6 +246,112 @@ describe('GameVerificationService', () => {
       expect(result.error).toBe(
         'You do not own or have admin access to this game'
       );
+    });
+
+    it('should handle invalid cached gameDetails without throwing TypeError', async () => {
+      const userId = 'user123';
+      const gameId = 'game456';
+      const robloxUserId = 'roblox789';
+
+      // Mock cached verification with invalid gameDetails
+      const existingVerification = {
+        id: 'verification123',
+        verificationStatus: 'VERIFIED',
+        ownershipType: 'OWNER',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // Still valid
+        metadata: {
+          gameDetails: {
+            id: null, // This would cause TypeError with .trim()
+            name: undefined, // This would cause TypeError with .trim()
+            creator: { name: 'Test Creator', id: 123, type: 'User' },
+          },
+        },
+      };
+
+      const mockGameDetails = {
+        id: gameId,
+        name: 'Test Game',
+        description: 'A test game',
+        creator: { name: 'Test Creator', id: 123, type: 'User' },
+        created: '2023-01-01T00:00:00Z',
+        visits: 1000,
+        playing: 50,
+        genre: 'Adventure',
+        thumbnailUrl: 'https://example.com/thumbnail.png',
+      };
+
+      mockPrisma.assetVerification.findUnique.mockResolvedValue(
+        existingVerification
+      );
+      mockRobloxApi.getGameDetails.mockResolvedValue(mockGameDetails);
+
+      const result = await service.verifyGameOwnership(
+        userId,
+        gameId,
+        robloxUserId
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.verified).toBe(true);
+      expect(result.gameDetails).toEqual(mockGameDetails);
+      expect(result.ownershipType).toBe('OWNER');
+      expect(result.verificationId).toBe('verification123');
+
+      // Should call getGameDetails to fetch fresh data
+      expect(mockRobloxApi.getGameDetails).toHaveBeenCalledWith(gameId);
+    });
+
+    it('should handle empty string gameDetails without throwing TypeError', async () => {
+      const userId = 'user123';
+      const gameId = 'game456';
+      const robloxUserId = 'roblox789';
+
+      // Mock cached verification with empty string gameDetails
+      const existingVerification = {
+        id: 'verification123',
+        verificationStatus: 'VERIFIED',
+        ownershipType: 'OWNER',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // Still valid
+        metadata: {
+          gameDetails: {
+            id: '', // Empty string
+            name: '', // Empty string
+            creator: { name: 'Test Creator', id: 123, type: 'User' },
+          },
+        },
+      };
+
+      const mockGameDetails = {
+        id: gameId,
+        name: 'Test Game',
+        description: 'A test game',
+        creator: { name: 'Test Creator', id: 123, type: 'User' },
+        created: '2023-01-01T00:00:00Z',
+        visits: 1000,
+        playing: 50,
+        genre: 'Adventure',
+        thumbnailUrl: 'https://example.com/thumbnail.png',
+      };
+
+      mockPrisma.assetVerification.findUnique.mockResolvedValue(
+        existingVerification
+      );
+      mockRobloxApi.getGameDetails.mockResolvedValue(mockGameDetails);
+
+      const result = await service.verifyGameOwnership(
+        userId,
+        gameId,
+        robloxUserId
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.verified).toBe(true);
+      expect(result.gameDetails).toEqual(mockGameDetails);
+      expect(result.ownershipType).toBe('OWNER');
+      expect(result.verificationId).toBe('verification123');
+
+      // Should call getGameDetails to fetch fresh data
+      expect(mockRobloxApi.getGameDetails).toHaveBeenCalledWith(gameId);
     });
   });
 
