@@ -311,7 +311,17 @@ router.get('/roblox/callback', async (req, res, _next) => {
             ).toString()}`;
             return res.redirect(webAppErrorUrl);
           }
-          throw error;
+
+          // Handle all other unexpected errors with generic error redirect
+          console.error('Unexpected error in transaction:', error);
+          const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
+            {
+              error: 'transaction_error',
+              message: 'An error occurred during account linking',
+              discordId,
+            }
+          ).toString()}`;
+          return res.redirect(webAppErrorUrl);
         });
 
       // Early return if transaction handled the response
