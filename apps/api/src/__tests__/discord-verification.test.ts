@@ -237,7 +237,7 @@ describe('Discord Verification Functions', () => {
 
       // First updateMany call succeeds (state is valid and unused)
       mockPrisma.linkToken.updateMany.mockResolvedValueOnce({ count: 1 });
-      
+
       // Then findUnique call returns the Discord ID
       mockPrisma.linkToken.findUnique.mockResolvedValueOnce({
         discordId,
@@ -406,7 +406,7 @@ describe('Discord Verification Functions', () => {
 
       // First updateMany call succeeds (state is valid and unused)
       mockPrisma.linkToken.updateMany.mockResolvedValueOnce({ count: 1 });
-      
+
       // Then findUnique call returns the Discord ID
       mockPrisma.linkToken.findUnique.mockResolvedValueOnce({
         discordId,

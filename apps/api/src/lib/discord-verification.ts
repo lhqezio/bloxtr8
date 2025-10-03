@@ -141,7 +141,7 @@ export async function validateOAuthState(
     } else if (linkToken.used) {
       console.warn('OAuth state already used', { state });
     }
-    
+
     return null;
   }
 

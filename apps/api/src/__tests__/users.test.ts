@@ -376,7 +376,11 @@ describe('Users API Routes', () => {
           },
           account: {
             create: jest.fn().mockResolvedValue({}),
-            findMany: jest.fn().mockResolvedValue([{ accountId: 'discord-123', providerId: 'discord' }]),
+            findMany: jest
+              .fn()
+              .mockResolvedValue([
+                { accountId: 'discord-123', providerId: 'discord' },
+              ]),
           },
         };
         return callback(mockTx);
@@ -584,7 +588,11 @@ describe('Users API Routes', () => {
           },
           account: {
             create: jest.fn().mockResolvedValue({}),
-            findMany: jest.fn().mockResolvedValue([{ accountId: 'discord-123', providerId: 'discord' }]),
+            findMany: jest
+              .fn()
+              .mockResolvedValue([
+                { accountId: 'discord-123', providerId: 'discord' },
+              ]),
           },
         };
         return callback(mockTx);
@@ -599,7 +607,9 @@ describe('Users API Routes', () => {
         .expect(200);
 
       expect(response.body.name).toBe(unicodeUsername);
-      expect(response.body.accounts).toEqual([{ accountId: 'discord-123', providerId: 'discord' }]);
+      expect(response.body.accounts).toEqual([
+        { accountId: 'discord-123', providerId: 'discord' },
+      ]);
     });
   });
 
