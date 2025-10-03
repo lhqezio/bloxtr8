@@ -104,7 +104,7 @@ export async function validateOAuthState(
 
   // Use a single atomic transaction to eliminate race conditions
   // This ensures all operations (validation, update, cleanup) happen atomically
-  return await prisma.$transaction(async (tx) => {
+  return await prisma.$transaction(async tx => {
     // First, find the token with all validation criteria
     const linkToken = await tx.linkToken.findUnique({
       where: { token: state },

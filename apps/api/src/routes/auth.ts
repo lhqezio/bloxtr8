@@ -203,8 +203,11 @@ router.get('/roblox/callback', async (req, res, _next) => {
 
       // Link Roblox account to Discord user and upgrade tier atomically
       // All checks now happen inside transaction to prevent race conditions
-      await prisma
-        .$transaction(async tx => {
+      let transactionResult: 'linked' | 'already_linked' | 'conflict' | 'error';
+      let errorDetails: any = null;
+
+      try {
+        const result = await prisma.$transaction(async tx => {
           // Check if Roblox account is already linked to this user (inside transaction)
           const existingRobloxAccount = await tx.account.findFirst({
             where: {
@@ -218,8 +221,8 @@ router.get('/roblox/callback', async (req, res, _next) => {
               discordId,
               userId: user.id,
             });
-            // Return null to signal "already linked" case
-            return null;
+            // Return 'already_linked' to signal this case
+            return 'already_linked';
           }
 
           // Check if Roblox account is linked to a different user (inside transaction)
@@ -276,77 +279,72 @@ router.get('/roblox/callback', async (req, res, _next) => {
           }
 
           return 'linked';
-        })
-        .then(async result => {
-          if (result === null) {
-            // Account already linked - still need to clean up OAuth state token
-            await prisma.linkToken.deleteMany({
-              where: {
-                token: state as string,
-                purpose: 'oauth_state',
-                discordId,
-              },
-            });
-
-            const webAppSuccessUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/success?${new URLSearchParams(
-              {
-                message: 'Roblox account is already linked',
-                discordId,
-              }
-            ).toString()}`;
-            return res.redirect(webAppSuccessUrl);
-          }
-          // Continue with success flow
-          return null;
-        })
-        .catch(error => {
-          if (error instanceof AppError && error.statusCode === 409) {
-            // Account conflict
-            const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
-              {
-                error: 'account_conflict',
-                message: 'Roblox account is already linked to another user',
-                discordId,
-              }
-            ).toString()}`;
-            return res.redirect(webAppErrorUrl);
-          }
-
-          // Handle all other unexpected errors with generic error redirect
-          console.error('Unexpected error in transaction:', error);
-          const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
-            {
-              error: 'transaction_error',
-              message: 'An error occurred during account linking',
-              discordId,
-            }
-          ).toString()}`;
-          return res.redirect(webAppErrorUrl);
         });
 
-      // Early return if transaction handled the response
-      if (res.headersSent) {
-        return;
+        transactionResult = result;
+      } catch (error) {
+        if (error instanceof AppError && error.statusCode === 409) {
+          transactionResult = 'conflict';
+        } else {
+          transactionResult = 'error';
+          errorDetails = error;
+        }
       }
 
+      // Clean up OAuth state token in all cases
+      try {
+        await prisma.linkToken.deleteMany({
+          where: {
+            token: state as string,
+            purpose: 'oauth_state',
+            discordId,
+          },
+        });
+      } catch (cleanupError) {
+        console.error('Error cleaning up OAuth state token:', cleanupError);
+      }
+
+      // Handle transaction results with single response
+      if (transactionResult === 'already_linked') {
+        const webAppSuccessUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/success?${new URLSearchParams(
+          {
+            message: 'Roblox account is already linked',
+            discordId,
+          }
+        ).toString()}`;
+        return res.redirect(webAppSuccessUrl);
+      }
+
+      if (transactionResult === 'conflict') {
+        const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
+          {
+            error: 'account_conflict',
+            message: 'Roblox account is already linked to another user',
+            discordId,
+          }
+        ).toString()}`;
+        return res.redirect(webAppErrorUrl);
+      }
+
+      if (transactionResult === 'error') {
+        console.error('Unexpected error in transaction:', errorDetails);
+        const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
+          {
+            error: 'transaction_error',
+            message: 'An error occurred during account linking',
+            discordId,
+          }
+        ).toString()}`;
+        return res.redirect(webAppErrorUrl);
+      }
+
+      // Success case - account was linked
       console.info('Successfully linked Roblox account', {
         discordId,
         robloxUserId,
         userId: user.id,
       });
 
-      // Clean up the specific OAuth state token that was used
-      // Only delete the specific oauth_state token, not all roblox_link tokens
-      // to avoid interfering with concurrent linking attempts
-      await prisma.linkToken.deleteMany({
-        where: {
-          token: state as string,
-          purpose: 'oauth_state',
-          discordId,
-        },
-      });
-
-      // Redirect to dedicated success page
       const webAppSuccessUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/success?${new URLSearchParams(
         {
           message: 'Roblox account linked successfully!',
