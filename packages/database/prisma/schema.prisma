@@ -27,7 +27,7 @@ model User {
 
 
   // KYC tiers
-  kycTier     KycTier @default(TIER_1)
+  kycTier     KycTier @default(TIER_0)
   kycVerified Boolean @default(false)
 
   // Wallet screening
@@ -43,6 +43,7 @@ model User {
   deliveries       Delivery[]
   disputes         Dispute[]     @relation("DisputeUser")
   guildMemberships GuildMember[]
+  assetVerifications AssetVerification[]
 
   @@unique([email])
   @@index([email])
@@ -361,20 +362,52 @@ model Dispute {
 }
 
 model RobloxSnapshot {
-  id          String   @id @default(cuid())
-  groupId     String
-  owner       String
-  memberCount Int
-  metadata    Json?
-  createdAt   DateTime @default(now())
+  id                String   @id @default(cuid())
+  gameId            String   // Roblox game ID
+  gameName          String
+  gameDescription   String?
+  thumbnailUrl      String?
+  playerCount       Int?     // Current player count
+  visits            Int?     // Total visits
+  createdDate       DateTime?
+  verifiedOwnership Boolean  @default(false)
+  ownershipType     GameOwnershipType @default(OWNER)
+  verificationDate  DateTime?
+  metadata          Json?    // Additional game metadata
+  createdAt         DateTime @default(now())
 
   // Relations
   listingId String?
   listing   Listing? @relation(fields: [listingId], references: [id])
 
+  @@index([gameId])
   @@index([listingId])
-  @@index([groupId])
+  @@index([verifiedOwnership])
+  @@index([verificationDate])
   @@map("roblox_snapshots")
+}
+
+model AssetVerification {
+  id              String                @id @default(cuid())
+  userId          String
+  gameId          String
+  verificationStatus VerificationStatus @default(PENDING)
+  verificationMethod VerificationMethod
+  ownershipType   GameOwnershipType     @default(OWNER)
+  verifiedAt      DateTime?
+  expiresAt       DateTime?
+  metadata        Json?                 // API response data
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  // Relations
+  user  User   @relation(fields: [userId], references: [id])
+  
+  @@unique([userId, gameId], name: "userId_gameId")
+  @@index([userId])
+  @@index([gameId])
+  @@index([verificationStatus])
+  @@map("asset_verifications")
 }
 
 model AuditLog {
@@ -411,8 +444,9 @@ model WebhookEvent {
 
 // Enums
 enum KycTier {
-  TIER_1
-  TIER_2
+  TIER_0  // Signed up - no Roblox account
+  TIER_1  // Signed up - Roblox linked - can post listings
+  TIER_2  // Signed up - Roblox linked - verified by Bloxtr8 team
 }
 
 enum WalletRisk {
@@ -446,6 +480,25 @@ enum ContractStatus {
 enum EscrowRail {
   STRIPE
   USDC_BASE
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  EXPIRED
+}
+
+enum VerificationMethod {
+  GAME_OWNERSHIP_API
+  GAME_PERMISSIONS_API
+  MANUAL
+}
+
+enum GameOwnershipType {
+  OWNER
+  ADMIN
+  DEVELOPER
 }
 
 enum EscrowStatus {

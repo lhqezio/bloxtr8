@@ -1,12 +1,12 @@
 import crypto from 'crypto';
 
-import { PrismaClient } from '@bloxtr8/database';
+import { prisma } from '@bloxtr8/database';
 import { Router, type Router as ExpressRouter } from 'express';
 
+import { RobloxApiClient } from '../lib/roblox-api.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const router: ExpressRouter = Router();
-const prisma = new PrismaClient();
 
 // Get user account by ID
 router.get('/users/account/:id', async (req, res, next) => {
@@ -330,75 +330,6 @@ router.post('/users/link-token/:token/use', async (req, res, next) => {
   }
 });
 
-// Transfer Roblox account between users (admin function)
-router.post('/users/transfer-roblox', async (req, res, next) => {
-  try {
-    const { fromDiscordId, toDiscordId, robloxId } = req.body;
-
-    if (!fromDiscordId || !toDiscordId || !robloxId) {
-      throw new AppError(
-        'From Discord ID, To Discord ID, and Roblox ID are required',
-        400
-      );
-    }
-
-    // Find target user by Discord ID
-    const targetUser = await prisma.user.findFirst({
-      where: {
-        accounts: {
-          some: {
-            accountId: String(toDiscordId),
-            providerId: 'discord',
-          },
-        },
-      },
-    });
-
-    if (!targetUser) {
-      throw new AppError('Target user not found', 404);
-    }
-
-    // Find the Roblox account
-    const robloxAccount = await prisma.account.findFirst({
-      where: {
-        accountId: String(robloxId),
-        providerId: 'roblox',
-      },
-    });
-
-    if (!robloxAccount) {
-      throw new AppError('Roblox account not found', 404);
-    }
-
-    // Check if target user already has this Roblox account
-    if (robloxAccount.userId === targetUser.id) {
-      return res.status(200).json({
-        success: true,
-        message: 'Roblox account already linked to target user',
-        userId: targetUser.id,
-        robloxId: String(robloxId),
-      });
-    }
-
-    // Transfer the Roblox account
-    await prisma.account.update({
-      where: { id: robloxAccount.id },
-      data: { userId: targetUser.id },
-    });
-
-    res.status(200).json({
-      success: true,
-      message: 'Roblox account transferred successfully',
-      fromUserId: robloxAccount.userId,
-      toUserId: targetUser.id,
-      robloxId: String(robloxId),
-    });
-  } catch (error) {
-    console.error(error);
-    next(error);
-  }
-});
-
 // Ensure user exists (create if not)
 router.post('/users/ensure', async (req, res, next) => {
   try {
@@ -425,11 +356,9 @@ router.post('/users/ensure', async (req, res, next) => {
         kycVerified: true,
         kycTier: true,
         accounts: {
-          where: {
-            providerId: 'discord',
-          },
           select: {
             accountId: true,
+            providerId: true,
           },
         },
       },
@@ -445,7 +374,7 @@ router.post('/users/ensure', async (req, res, next) => {
             name: username,
             email: `${discordId}@discord.example`, // Placeholder email for Discord users
             kycVerified: false, // Default to unverified
-            kycTier: 'TIER_1', // Default tier
+            kycTier: 'TIER_0', // Default tier - no Roblox account linked yet
           },
           select: {
             id: true,
@@ -466,9 +395,18 @@ router.post('/users/ensure', async (req, res, next) => {
           },
         });
 
+        // Fetch all accounts for the new user to include any existing Roblox accounts
+        const allAccounts = await tx.account.findMany({
+          where: { userId: newUser.id },
+          select: {
+            accountId: true,
+            providerId: true,
+          },
+        });
+
         return {
           ...newUser,
-          accounts: [{ accountId: discordId }],
+          accounts: allAccounts,
         };
       });
 
@@ -502,37 +440,141 @@ router.post('/users/link-account', async (req, res, next) => {
       throw new AppError('User not found', 404);
     }
 
-    // Check if account is already linked
-    const existingAccount = await prisma.account.findFirst({
-      where: {
-        userId,
-        providerId,
-        accountId,
-      },
-    });
-
-    if (existingAccount) {
-      return res.status(200).json({
-        success: true,
-        message: 'Account already linked',
-        account: existingAccount,
+    // Create new account link and upgrade tier atomically
+    // All checks now happen inside transaction to prevent race conditions
+    const result = await prisma.$transaction(async tx => {
+      // Check if account is already linked to this user (inside transaction)
+      const existingAccount = await tx.account.findFirst({
+        where: {
+          userId,
+          providerId,
+          accountId,
+        },
       });
-    }
 
-    // Create new account link
-    const newAccount = await prisma.account.create({
-      data: {
-        id: `${providerId}_${accountId}`,
-        accountId,
-        providerId,
-        userId,
-      },
+      if (existingAccount) {
+        // Even if account is already linked, check if user needs tier upgrade
+        // This fixes cases where users were stuck at TIER_0
+        if (providerId === 'roblox') {
+          const currentUser = await tx.user.findUnique({
+            where: { id: userId },
+            select: { kycTier: true },
+          });
+
+          if (currentUser?.kycTier === 'TIER_0') {
+            await tx.user.update({
+              where: { id: userId },
+              data: { kycTier: 'TIER_1' },
+            });
+            console.info(
+              'Upgraded user KYC tier from TIER_0 to TIER_1 (existing account)',
+              {
+                userId,
+                providerId,
+              }
+            );
+          }
+        }
+
+        // Fetch updated user information to include in response
+        const updatedUser = await tx.user.findUnique({
+          where: { id: userId },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            kycVerified: true,
+            kycTier: true,
+          },
+        });
+
+        return {
+          account: existingAccount,
+          user: updatedUser,
+          alreadyLinked: true,
+        };
+      }
+
+      // Check if account is linked to a different user (inside transaction)
+      if (providerId === 'roblox') {
+        const existingRobloxUser = await tx.user.findFirst({
+          where: {
+            accounts: {
+              some: {
+                accountId,
+                providerId: 'roblox',
+              },
+            },
+          },
+          select: { id: true },
+        });
+
+        if (existingRobloxUser && existingRobloxUser.id !== userId) {
+          console.warn('Roblox account linked to different user', {
+            userId,
+            accountId,
+          });
+          // Throw error to signal conflict
+          throw new AppError(
+            'Roblox account is already linked to another user',
+            409
+          );
+        }
+      }
+
+      // Create the account link
+      const account = await tx.account.create({
+        data: {
+          id: `${providerId}_${accountId}`,
+          accountId,
+          providerId,
+          userId,
+        },
+      });
+
+      // Check tier inside transaction to avoid race condition
+      if (providerId === 'roblox') {
+        const currentUser = await tx.user.findUnique({
+          where: { id: userId },
+          select: { kycTier: true },
+        });
+
+        // Automatically upgrade user from TIER_0 to TIER_1 when they link Roblox account
+        if (currentUser?.kycTier === 'TIER_0') {
+          await tx.user.update({
+            where: { id: userId },
+            data: { kycTier: 'TIER_1' },
+          });
+          console.info('Upgraded user KYC tier from TIER_0 to TIER_1', {
+            userId,
+            providerId,
+          });
+        }
+      }
+
+      // Fetch updated user information to include in response
+      const updatedUser = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          kycVerified: true,
+          kycTier: true,
+        },
+      });
+
+      return { account, user: updatedUser, alreadyLinked: false };
     });
 
-    res.status(201).json({
+    // Return appropriate status and message based on whether account was already linked
+    res.status(result.alreadyLinked ? 200 : 201).json({
       success: true,
-      message: 'Account linked successfully',
-      account: newAccount,
+      message: result.alreadyLinked
+        ? 'Account already linked'
+        : 'Account linked successfully',
+      account: result.account,
+      user: result.user,
     });
   } catch (error) {
     console.error('Error linking account:', error);
@@ -573,6 +615,63 @@ router.get('/users/:userId/accounts', async (req, res, next) => {
     });
   } catch (error) {
     console.error('Error fetching user accounts:', error);
+    next(error);
+  }
+});
+
+// Get user's Roblox experiences
+router.get('/users/:userId/experiences', async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      throw new AppError('User ID is required', 400);
+    }
+
+    // Find user and their Roblox account
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        accounts: {
+          where: { providerId: 'roblox' },
+          select: {
+            accountId: true,
+            providerId: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    const robloxAccount = user.accounts.find(
+      acc => acc.providerId === 'roblox'
+    );
+    if (!robloxAccount) {
+      throw new AppError('User has no linked Roblox account', 400);
+    }
+
+    // Initialize Roblox API client
+    const robloxApi = new RobloxApiClient({
+      clientId: process.env.ROBLOX_CLIENT_ID || '',
+      clientSecret: process.env.ROBLOX_CLIENT_SECRET || '',
+      baseUrl: 'https://apis.roblox.com',
+      rateLimitDelay: 1000,
+    });
+
+    // Fetch user's experiences
+    const experiences = await robloxApi.getUserExperiences(
+      robloxAccount.accountId
+    );
+
+    res.status(200).json({
+      success: true,
+      experiences,
+    });
+  } catch (error) {
+    console.error('Error fetching user experiences:', error);
     next(error);
   }
 });

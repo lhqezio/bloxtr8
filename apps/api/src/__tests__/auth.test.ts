@@ -1,34 +1,44 @@
 import request from 'supertest';
 
 // Mock the database
-const mockPrismaClient = {
+const mockPrismaClient: any = {
   linkToken: {
     findUnique: jest.fn(),
     delete: jest.fn(),
     deleteMany: jest.fn(),
     update: jest.fn(),
+    create: jest.fn(),
   },
   user: {
     findFirst: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
   },
   account: {
     findFirst: jest.fn(),
     create: jest.fn(),
   },
+  $transaction: jest.fn((callback: any): any => {
+    // Execute the callback with a mock transaction client that has the same methods
+    return callback({
+      account: mockPrismaClient.account,
+      user: mockPrismaClient.user,
+    });
+  }),
   $disconnect: jest.fn(),
 };
 
 // Mock the database import
 jest.mock('@bloxtr8/database', () => ({
-  PrismaClient: jest.fn(() => mockPrismaClient),
+  prisma: mockPrismaClient,
 }));
 
 import app from '../index.js';
 
 // Mock the lib functions
 jest.mock('../lib/discord-verification.js', () => ({
-  generateOAuthState: jest.fn(() => 'discord_123456789'),
-  validateOAuthState: jest.fn(() => true),
+  generateOAuthState: jest.fn(() => Promise.resolve('mock-state-token-123')),
+  validateOAuthState: jest.fn(() => Promise.resolve('123456789')),
 }));
 
 jest.mock('../lib/roblox-oauth.js', () => ({
@@ -55,6 +65,16 @@ describe('Auth API Routes', () => {
 
   describe('POST /api/oauth/roblox/url', () => {
     it('should generate OAuth URL with discordId', async () => {
+      mockPrismaClient.linkToken.deleteMany.mockResolvedValue({ count: 0 });
+      mockPrismaClient.linkToken.create = jest.fn().mockResolvedValue({
+        id: 'link-token-id',
+        token: 'mock-state-token-123',
+        discordId: '123456789',
+        purpose: 'oauth_state',
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        used: false,
+      });
+
       const response = await request(app)
         .post('/api/oauth/roblox/url')
         .send({
@@ -75,7 +95,7 @@ describe('Auth API Routes', () => {
       );
       expect(response.body.authUrl).toContain('response_type=code');
       expect(response.body.authUrl).toContain('scope=openid');
-      expect(response.body.authUrl).toContain('state=discord_123456789');
+      expect(response.body.authUrl).toContain('state=mock-state-token-123');
     });
 
     it('should generate OAuth URL with valid token', async () => {
@@ -88,6 +108,15 @@ describe('Auth API Routes', () => {
       };
 
       mockPrismaClient.linkToken.findUnique.mockResolvedValue(mockToken);
+      mockPrismaClient.linkToken.deleteMany.mockResolvedValue({ count: 0 });
+      mockPrismaClient.linkToken.create.mockResolvedValue({
+        id: 'link-token-id',
+        token: 'mock-state-token-123',
+        discordId: '123456789',
+        purpose: 'oauth_state',
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        used: false,
+      });
 
       const response = await request(app)
         .post('/api/oauth/roblox/url')
@@ -259,6 +288,12 @@ describe('Auth API Routes', () => {
     });
 
     it('should redirect to error page when state is invalid', async () => {
+      const { validateOAuthState } = await import(
+        '../lib/discord-verification.js'
+      );
+      // Mock to return null (invalid state)
+      (validateOAuthState as jest.Mock).mockResolvedValue(null);
+
       const response = await request(app)
         .get('/api/oauth/roblox/callback?code=test-code&state=invalid-state')
         .expect(302);
@@ -266,6 +301,9 @@ describe('Auth API Routes', () => {
       expect(response.headers.location).toBe(
         'http://localhost:5173/auth/link/error?error=invalid_state'
       );
+
+      // Reset mock back to default
+      (validateOAuthState as jest.Mock).mockResolvedValue('123456789');
     });
 
     it('should redirect to error page when OAuth validation fails', async () => {
@@ -351,12 +389,25 @@ describe('Auth API Routes', () => {
       const { validateRobloxOAuth } = await import('../lib/roblox-oauth.js');
       (validateRobloxOAuth as jest.Mock).mockResolvedValue('roblox-123456');
 
-      const mockUser = { id: 'user-123' };
+      const mockUser = { id: 'user-123', kycTier: 'TIER_0' };
       const mockCreatedAccount = { id: 'account-123' };
 
-      mockPrismaClient.user.findFirst.mockResolvedValue(mockUser);
-      mockPrismaClient.account.findFirst.mockResolvedValue(null);
+      mockPrismaClient.user.findFirst
+        .mockResolvedValueOnce(mockUser) // First call: find user by Discord ID
+        .mockResolvedValueOnce(null); // Second call: check if Roblox account exists for different user
+      mockPrismaClient.account.findFirst
+        .mockResolvedValueOnce(null) // First call: check if Roblox account already linked to this user
+        .mockResolvedValueOnce(null); // Second call: for potential additional checks
+      mockPrismaClient.user.findUnique.mockResolvedValue({
+        id: 'user-123',
+        kycTier: 'TIER_0',
+      });
       mockPrismaClient.account.create.mockResolvedValue(mockCreatedAccount);
+      mockPrismaClient.user.update.mockResolvedValue({
+        ...mockUser,
+        kycTier: 'TIER_1',
+      });
+      mockPrismaClient.linkToken.deleteMany.mockResolvedValue({ count: 0 });
 
       const response = await request(app)
         .get(
@@ -374,6 +425,10 @@ describe('Auth API Routes', () => {
           accountId: 'roblox-123456',
           providerId: 'roblox',
         },
+      });
+      expect(mockPrismaClient.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-123' },
+        data: { kycTier: 'TIER_1' },
       });
     });
 

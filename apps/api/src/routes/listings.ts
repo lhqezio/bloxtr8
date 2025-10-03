@@ -1,11 +1,10 @@
-import { PrismaClient } from '@bloxtr8/database';
+import { prisma } from '@bloxtr8/database';
 import { Router, type Router as ExpressRouter } from 'express';
 
 import { AppError } from '../middleware/errorHandler.js';
 import { createListingSchema } from '../schemas/index.js';
 
 const router: ExpressRouter = Router();
-const prisma = new PrismaClient();
 
 // Create listing endpoint
 router.post('/listings', async (req, res, next) => {
@@ -28,7 +27,7 @@ router.post('/listings', async (req, res, next) => {
     const { title, summary, price, category, sellerId, guildId } =
       validationResult.data;
 
-    // Look up guild by discordId if guildId is provided
+    // Guild validation is optional - don't require guild for listings
     let internalGuildId = null;
     if (guildId) {
       const guild = await prisma.guild.findUnique({
@@ -36,11 +35,10 @@ router.post('/listings', async (req, res, next) => {
         select: { id: true },
       });
 
-      if (!guild) {
-        throw new AppError('Invalid guild ID provided', 400);
+      // If guild exists, use it; otherwise just skip guild association
+      if (guild) {
+        internalGuildId = guild.id;
       }
-
-      internalGuildId = guild.id;
     }
 
     // Insert listing with sellerId

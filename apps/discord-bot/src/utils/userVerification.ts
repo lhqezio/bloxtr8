@@ -9,8 +9,8 @@ export interface UserVerificationResult {
     name: string | null;
     email: string;
     kycVerified: boolean;
-    kycTier: 'TIER_1' | 'TIER_2';
-    accounts: Array<{ accountId: string }>;
+    kycTier: 'TIER_0' | 'TIER_1' | 'TIER_2';
+    accounts: Account[];
   };
   error?: string;
 }
@@ -26,7 +26,7 @@ export interface VerifyResponse {
     name: string;
     email: string;
     kycVerified: boolean;
-    kycTier: 'TIER_1' | 'TIER_2';
+    kycTier: 'TIER_0' | 'TIER_1' | 'TIER_2';
   };
   accounts: Account[];
   discordUserInfo: {
@@ -140,16 +140,17 @@ export async function verifyUserForListing(
       name: string | null;
       email: string;
       kycVerified: boolean;
-      kycTier: 'TIER_1' | 'TIER_2';
-      accounts: Array<{ accountId: string }>;
+      kycTier: 'TIER_0' | 'TIER_1' | 'TIER_2';
+      accounts: Account[];
     };
 
-    if (!userData.kycVerified) {
+    // Allow TIER_1+ users to create listings (partial verification)
+    if (userData.kycTier === 'TIER_0') {
       return {
         isVerified: false,
         user: userData,
         error:
-          'Account verification required. Please complete KYC verification to create listings.',
+          'Account verification required. Please complete account setup and link your Roblox account to create listings.',
       };
     }
 
@@ -207,8 +208,8 @@ export async function checkUserExists(
       name: string;
       email: string;
       kycVerified: boolean;
-      kycTier: 'TIER_1' | 'TIER_2';
-      accounts: { accountId: string }[];
+      kycTier: 'TIER_0' | 'TIER_1' | 'TIER_2';
+      accounts: Account[];
     };
 
     return {
@@ -268,8 +269,8 @@ export async function ensureUserExists(
       name: string | null;
       email: string;
       kycVerified: boolean;
-      kycTier: 'TIER_1' | 'TIER_2';
-      accounts: Array<{ accountId: string }>;
+      kycTier: 'TIER_0' | 'TIER_1' | 'TIER_2';
+      accounts: Account[];
     };
 
     return {
@@ -310,8 +311,21 @@ export async function checkProviderAccount(
       return false;
     }
 
-    const accounts = (await response.json()) as Account[];
-    return accounts.some(account => account.providerId === providerId);
+    const responseData = (await response.json()) as Account[] | VerifyResponse;
+
+    // Handle empty array response (no user found)
+    if (Array.isArray(responseData)) {
+      return (
+        responseData.length > 0 &&
+        responseData.some(account => account.providerId === providerId)
+      );
+    }
+
+    // Handle VerifyResponse object (user found)
+    const accounts = responseData.accounts || [];
+    return accounts.some(
+      (account: Account) => account.providerId === providerId
+    );
   } catch (error) {
     console.error('Error checking provider account:', error);
     return false;
@@ -322,5 +336,7 @@ export async function checkProviderAccount(
  * Gets the base URL for API calls
  */
 function getApiBaseUrl(): string {
-  return process.env.API_BASE_URL || 'http://localhost:3000';
+  const value = process.env.API_BASE_URL;
+  // Return default if undefined or empty string
+  return value !== undefined && value !== '' ? value : 'http://localhost:3000';
 }

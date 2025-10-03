@@ -4,25 +4,46 @@ import request from 'supertest';
 const mockUserFindUnique = jest.fn();
 const mockUserFindFirst = jest.fn();
 const mockUserCreate = jest.fn();
+const mockUserUpdate = jest.fn();
 const mockAccountFindMany = jest.fn();
+const mockAccountFindFirst = jest.fn();
 const mockAccountCreate = jest.fn();
 const mockAccountUpsert = jest.fn();
-const mockTransaction = jest.fn();
 const mockLinkTokenFindUnique = jest.fn();
 const mockLinkTokenCreate = jest.fn();
 const mockLinkTokenUpdate = jest.fn();
 const mockLinkTokenDelete = jest.fn();
 const mockLinkTokenDeleteMany = jest.fn();
 
-jest.mock('@bloxtr8/database', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => ({
+const mockTransaction = jest.fn(callback => {
+  // Execute the callback with a mock transaction client that has the same methods
+  return callback({
     user: {
       findUnique: mockUserFindUnique,
       findFirst: mockUserFindFirst,
       create: mockUserCreate,
+      update: mockUserUpdate,
     },
     account: {
       findMany: mockAccountFindMany,
+      findFirst: mockAccountFindFirst,
+      create: mockAccountCreate,
+      upsert: mockAccountUpsert,
+    },
+  });
+});
+
+jest.mock('@bloxtr8/database', () => ({
+  prisma: {
+    user: {
+      findUnique: mockUserFindUnique,
+      findFirst: mockUserFindFirst,
+      create: mockUserCreate,
+      update: mockUserUpdate,
+    },
+    account: {
+      findMany: mockAccountFindMany,
+      findFirst: mockAccountFindFirst,
       create: mockAccountCreate,
       upsert: mockAccountUpsert,
     },
@@ -34,7 +55,7 @@ jest.mock('@bloxtr8/database', () => ({
       deleteMany: mockLinkTokenDeleteMany,
     },
     $transaction: mockTransaction,
-  })),
+  },
 }));
 
 import app from '../index.js';
@@ -45,7 +66,9 @@ describe('Users API Routes', () => {
     mockUserFindUnique.mockClear();
     mockUserFindFirst.mockClear();
     mockUserCreate.mockClear();
+    mockUserUpdate.mockClear();
     mockAccountFindMany.mockClear();
+    mockAccountFindFirst.mockClear();
     mockAccountCreate.mockClear();
     mockAccountUpsert.mockClear();
     mockTransaction.mockClear();
@@ -315,11 +338,9 @@ describe('Users API Routes', () => {
           kycVerified: true,
           kycTier: true,
           accounts: {
-            where: {
-              providerId: 'discord',
-            },
             select: {
               accountId: true,
+              providerId: true,
             },
           },
         },
@@ -332,15 +353,22 @@ describe('Users API Routes', () => {
         name: 'New User',
         email: 'discord-123@discord.example',
         kycVerified: false,
-        kycTier: 'TIER_1',
+        kycTier: 'TIER_0',
       };
 
-      const mockTransactionResult = {
+      const _mockTransactionResult = {
         ...mockNewUser,
-        accounts: [{ accountId: 'discord-123' }],
+        accounts: [{ accountId: 'discord-123', providerId: 'discord' }],
       };
 
-      mockUserFindFirst.mockResolvedValue(null);
+      const _mockFinalUser = {
+        ...mockNewUser,
+        accounts: [{ accountId: 'discord-123', providerId: 'discord' }],
+      };
+
+      // Mock first call (user lookup) returns null
+      mockUserFindFirst.mockResolvedValueOnce(null);
+
       mockTransaction.mockImplementation(async callback => {
         const mockTx = {
           user: {
@@ -348,13 +376,15 @@ describe('Users API Routes', () => {
           },
           account: {
             create: jest.fn().mockResolvedValue({}),
+            findMany: jest
+              .fn()
+              .mockResolvedValue([
+                { accountId: 'discord-123', providerId: 'discord' },
+              ]),
           },
         };
         return callback(mockTx);
       });
-
-      // Mock the transaction to return the expected result
-      mockTransaction.mockResolvedValue(mockTransactionResult);
 
       const response = await request(app)
         .post('/api/users/ensure')
@@ -364,8 +394,8 @@ describe('Users API Routes', () => {
         })
         .expect(200);
 
-      expect(response.body).toEqual(mockTransactionResult);
-      expect(mockUserFindFirst).toHaveBeenCalled();
+      expect(response.body).toEqual(_mockTransactionResult);
+      expect(mockUserFindFirst).toHaveBeenCalledTimes(1);
       expect(mockTransaction).toHaveBeenCalled();
     });
 
@@ -533,14 +563,39 @@ describe('Users API Routes', () => {
 
     it('should handle unicode characters in usernames', async () => {
       const unicodeUsername = '用户测试🚀';
-      mockUserFindFirst.mockResolvedValue(null);
-      mockTransaction.mockResolvedValue({
+      const _mockFinalUser = {
         id: 'user-123',
         name: unicodeUsername,
         email: 'discord-123@discord.example',
         kycVerified: false,
-        kycTier: 'TIER_1',
-        accounts: [{ accountId: 'discord-123' }],
+        kycTier: 'TIER_0',
+        accounts: [{ accountId: 'discord-123', providerId: 'discord' }],
+      };
+
+      // Mock first call (user lookup) returns null
+      mockUserFindFirst.mockResolvedValueOnce(null);
+
+      mockTransaction.mockImplementation(async callback => {
+        const mockTx = {
+          user: {
+            create: jest.fn().mockResolvedValue({
+              id: 'user-123',
+              name: unicodeUsername,
+              email: 'discord-123@discord.example',
+              kycVerified: false,
+              kycTier: 'TIER_0',
+            }),
+          },
+          account: {
+            create: jest.fn().mockResolvedValue({}),
+            findMany: jest
+              .fn()
+              .mockResolvedValue([
+                { accountId: 'discord-123', providerId: 'discord' },
+              ]),
+          },
+        };
+        return callback(mockTx);
       });
 
       const response = await request(app)
@@ -552,6 +607,9 @@ describe('Users API Routes', () => {
         .expect(200);
 
       expect(response.body.name).toBe(unicodeUsername);
+      expect(response.body.accounts).toEqual([
+        { accountId: 'discord-123', providerId: 'discord' },
+      ]);
     });
   });
 

@@ -1,8 +1,6 @@
 // src/prisma/seed.ts
 
-import { PrismaClient, GuildRole, KycTier } from './index.js';
-
-const prisma = new PrismaClient();
+import { prisma, GuildRole, KycTier } from './index.js';
 const randomId = () => Math.random().toString(36).substring(2);
 
 async function main() {
@@ -192,10 +190,16 @@ async function main() {
       guildId: robloxTradersGuild.id,
       robloxSnapshots: {
         create: {
-          groupId: 'roblox_group_111',
-          owner: 'AliceTheCreator',
-          memberCount: 1500,
-          metadata: { rarity: 'Legendary', damage: 99 },
+          gameId: 'game_123456789',
+          gameName: 'Epic Adventure Game',
+          gameDescription: 'An amazing Roblox adventure game',
+          playerCount: 150,
+          visits: 50000,
+          createdDate: new Date('2023-01-15'),
+          verifiedOwnership: true,
+          ownershipType: 'OWNER',
+          verificationDate: new Date(),
+          metadata: { genre: 'Adventure', rating: 4.8 },
         },
       },
     },

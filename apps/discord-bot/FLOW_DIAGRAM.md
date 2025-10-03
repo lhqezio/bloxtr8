@@ -11,14 +11,12 @@ flowchart TD
 
     C -->|YES| G[Check KYC verification]
 
-    F --> H{KYC verified?}
+    F --> H{KYC tier check}
     G --> H
+    H -->|TIER_0| I[Show setup message]
+    I --> J[User must link Roblox account]
 
-    H -->|NO| I[Show error message]
-    I --> J[User must complete KYC first]
-    J --> K[End process]
-
-    H -->|YES| L[Show Discord modal]
+    H -->|TIER_1+| L[Show Discord modal]
     L --> M[User fills form]
     M --> N[Validate input]
     N --> O{Valid input?}
@@ -39,7 +37,7 @@ flowchart TD
 
 ## Key Components
 
-1. **User Verification**: Ensures user exists and is KYC verified
+1. **User Verification**: Ensures user exists and is TIER_1+ (can create listings)
 2. **Modal Form**: Discord modal for collecting listing details
 3. **Input Validation**: Client-side and server-side validation
 4. **API Integration**: Calls existing POST /listings endpoint
@@ -48,7 +46,7 @@ flowchart TD
 ## Error Handling Points
 
 - User not found → Create user record
-- User not KYC verified → Show verification required message
+- User not TIER_1+ → Show account setup message
 - Invalid form input → Show validation error
 - API failure → Show API error message
 - Network error → Show generic error message
