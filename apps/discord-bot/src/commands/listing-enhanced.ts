@@ -886,7 +886,6 @@ export async function handleListingWithGameModalSubmit(
       return;
     }
 
-
     await interaction.deferReply({ ephemeral: true });
 
     // Create listing via API
