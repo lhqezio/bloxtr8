@@ -191,6 +191,18 @@ export function cleanupVerificationCache(): void {
   );
 }
 
+// Helper function to construct proper Roblox game URL
+function getRobloxGameUrl(placeId?: string): string {
+  // Check if placeId is valid (not null, undefined, empty string, or "undefined")
+  if (placeId && placeId !== '' && placeId !== 'undefined' && placeId !== 'null') {
+    return `https://www.roblox.com/games/${placeId}`;
+  }
+  
+  // If no valid placeId, we cannot construct a proper Roblox URL
+  // Return a generic Roblox games page since gameDetails.id is a universe ID
+  return 'https://www.roblox.com/games/';
+}
+
 // Function to fetch user's Roblox experiences
 async function fetchUserExperiences(
   userId: string
@@ -954,7 +966,7 @@ export async function handleListingWithGameModalSubmit(
         },
         {
           name: '🎮 Game',
-          value: `[Open on Roblox](https://www.roblox.com/games/${cachedData.placeId !== undefined && cachedData.placeId !== '' ? cachedData.placeId : cachedData.gameDetails.id})`,
+          value: `[Open on Roblox](${getRobloxGameUrl(cachedData.placeId)})`,
           inline: false,
         }
       )
@@ -969,9 +981,7 @@ export async function handleListingWithGameModalSubmit(
       new ButtonBuilder()
         .setLabel('🎮 Open Game on Roblox')
         .setStyle(ButtonStyle.Link)
-        .setURL(
-          `https://www.roblox.com/games/${cachedData.placeId !== undefined && cachedData.placeId !== '' ? cachedData.placeId : cachedData.gameDetails.id}`
-        )
+        .setURL(getRobloxGameUrl(cachedData.placeId))
     );
 
     await interaction.editReply({
