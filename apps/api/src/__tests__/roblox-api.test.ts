@@ -15,7 +15,7 @@ describe('RobloxApiClient', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     client = new RobloxApiClient(mockConfig);
-    
+
     // Mock getUserExperiences method
     jest.spyOn(client, 'getUserExperiences').mockResolvedValue([]);
   });
@@ -132,21 +132,23 @@ describe('RobloxApiClient', () => {
       };
 
       // Mock getUserExperiences and getGameDetails
-      jest.spyOn(client, 'getUserExperiences').mockResolvedValue(mockGames as any);
+      jest
+        .spyOn(client, 'getUserExperiences')
+        .mockResolvedValue(mockGames as any);
       jest
         .spyOn(client, 'getGameDetails')
         .mockResolvedValue(mockGameDetails as any);
 
       const result = await client.verifyGameOwnership('1', '123456789');
 
-      expect(result).toEqual({ 
-        owns: true, 
+      expect(result).toEqual({
+        owns: true,
         role: 'Owner',
         gameDetails: expect.objectContaining({
           id: '123456789',
           name: 'Test Game',
-          creator: { id: 1, name: 'Test Creator', type: 'User' }
-        })
+          creator: { id: 1, name: 'Test Creator', type: 'User' },
+        }),
       });
     });
 
@@ -173,7 +175,9 @@ describe('RobloxApiClient', () => {
       };
 
       // Mock getUserExperiences, getGameDetails, and getGamePermissions
-      jest.spyOn(client, 'getUserExperiences').mockResolvedValue(mockGames as any);
+      jest
+        .spyOn(client, 'getUserExperiences')
+        .mockResolvedValue(mockGames as any);
       jest
         .spyOn(client, 'getGameDetails')
         .mockResolvedValue(mockGameDetails as any);
@@ -183,14 +187,14 @@ describe('RobloxApiClient', () => {
 
       const result = await client.verifyGameOwnership('1', '123456789');
 
-      expect(result).toEqual({ 
-        owns: true, 
+      expect(result).toEqual({
+        owns: true,
         role: 'Owner',
         gameDetails: expect.objectContaining({
           id: '123456789',
           name: 'Test Game',
-          creator: { id: 999, name: 'Other Creator', type: 'User' }
-        })
+          creator: { id: 999, name: 'Other Creator', type: 'User' },
+        }),
       });
     });
 
@@ -204,7 +208,9 @@ describe('RobloxApiClient', () => {
       ];
 
       // Mock getUserExperiences
-      jest.spyOn(client, 'getUserExperiences').mockResolvedValue(mockGames as any);
+      jest
+        .spyOn(client, 'getUserExperiences')
+        .mockResolvedValue(mockGames as any);
 
       const result = await client.verifyGameOwnership('1', '123456789');
 

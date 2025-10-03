@@ -171,10 +171,11 @@ describe('MetricsCollector', () => {
     it('should return 0 when no attempts have been made', () => {
       // Get current state and calculate expected rate
       const currentMetrics = metrics.getMetrics();
-      const expectedRate = currentMetrics.oauthAttempts > 0 
-        ? (currentMetrics.oauthSuccess / currentMetrics.oauthAttempts) * 100 
-        : 0;
-      
+      const expectedRate =
+        currentMetrics.oauthAttempts > 0
+          ? (currentMetrics.oauthSuccess / currentMetrics.oauthAttempts) * 100
+          : 0;
+
       const successRate = metrics.getSuccessRate();
       expect(successRate).toBe(expectedRate);
     });
@@ -194,7 +195,8 @@ describe('MetricsCollector', () => {
       }
 
       const successRate = metrics.getSuccessRate();
-      const expectedRate = ((initialSuccess + 7) / (initialAttempts + 10)) * 100;
+      const expectedRate =
+        ((initialSuccess + 7) / (initialAttempts + 10)) * 100;
       expect(successRate).toBeCloseTo(expectedRate, 1);
     });
 

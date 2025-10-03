@@ -141,9 +141,7 @@ function setCacheEntry(
 }
 
 // Helper to get cache entry with TTL check and access time update
-function getCacheEntry(
-  key: string
-): {
+function getCacheEntry(key: string): {
   verificationId: string;
   gameDetails: GameDetails;
   placeId?: string;

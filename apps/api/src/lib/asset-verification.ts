@@ -227,16 +227,6 @@ export class GameVerificationService {
         },
       });
 
-      console.log('Debug - GameVerificationService final result:', {
-        success: true,
-        verified: true,
-        gameDetails: gameDetails
-          ? { id: gameDetails.id, name: gameDetails.name }
-          : null,
-        ownershipType: ownershipResult.role,
-        verificationId: verification.id,
-      });
-
       return {
         success: true,
         verified: true,
