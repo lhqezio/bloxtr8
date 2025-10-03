@@ -43,7 +43,9 @@ export function buildVerificationEmbeds(data: Account[] | VerifyResponse) {
           name: account ? '✅ Connected' : '❌ Not Linked',
           value: account
             ? `[View Profile](${provider.buildUrl(account.accountId)})`
-            : `Use \`/link\` to connect`,
+            : provider.id === 'discord'
+              ? `Use \`/signup\` to connect`
+              : `Use \`/link\` to connect`,
         })
         .setFooter({
           text: account ? 'Verified' : 'Link to unlock',
@@ -75,7 +77,7 @@ export function buildVerificationEmbeds(data: Account[] | VerifyResponse) {
     )
     .addFields({
       name: '📋 Profile Information',
-      value: `**Name:** ${user.name || 'Not set'}\n**KYC Status:** ${user.kycVerified ? '✅ Verified' : '❌ Not Verified'}\n**Tier:** ${user.kycTier}`,
+      value: `**Name:** ${user.name || 'Not set'}\n**Verification:** ${user.kycTier === 'TIER_1' ? '🟡 Partially Verified' : user.kycVerified ? '✅ Fully Verified' : '❌ Not Verified'}\n**Tier:** ${user.kycTier}`,
       inline: false,
     });
 

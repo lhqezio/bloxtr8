@@ -40,59 +40,20 @@ export class RobloxApiClient {
   }
 
   /**
-   * Authenticate with Roblox API using client credentials
+   * No authentication needed for public endpoints
    */
   async authenticate(): Promise<void> {
-    const response = await fetch(`${this.config.baseUrl}/oauth/v1/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Basic ${Buffer.from(`${this.config.clientId}:${this.config.clientSecret}`).toString('base64')}`,
-      },
-      body: JSON.stringify({
-        grant_type: 'client_credentials',
-        scope: 'read',
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Roblox API authentication failed: ${response.statusText}`
-      );
-    }
-
-    const tokenData = await response.json();
-    this.accessToken = tokenData.access_token;
-    this.tokenExpiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
+    // Public endpoints don't require authentication
+    return;
   }
 
   /**
    * Get user's games (games they own or have permissions for)
+   * Note: This method is not used in the current implementation
    */
-  async getUserGames(userId: string): Promise<RobloxGame[]> {
-    await this.ensureAuthenticated();
-
-    const params = new URLSearchParams({
-      limit: '100',
-      sortOrder: 'Desc',
-    });
-
-    const response = await fetch(
-      `${this.config.baseUrl}/v1/users/${userId}/games?${params}`,
-      {
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-          Accept: 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch user games: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.data || [];
+  async getUserGames(_userId: string): Promise<RobloxGame[]> {
+    // This would require authentication, so return empty array for now
+    return [];
   }
 
   /**
@@ -103,26 +64,54 @@ export class RobloxApiClient {
     gameId: string
   ): Promise<{ owns: boolean; role: string }> {
     try {
-      const games = await this.getUserGames(userId);
-      const game = games.find(g => g.id === gameId);
+      // First, get universe ID from game ID (place ID)
+      const universeResponse = await fetch(
+        `${this.config.baseUrl}/universes/v1/places/${gameId}/universe`
+      );
 
-      if (!game) {
+      if (!universeResponse.ok) {
         return { owns: false, role: 'None' };
       }
 
-      // Check if user is the creator/owner
-      const gameDetails = await this.getGameDetails(gameId);
-      if (gameDetails && gameDetails.creator.id.toString() === userId) {
+      const universeData = await universeResponse.json();
+      const universeId = universeData.universeId;
+
+      if (!universeId) {
+        return { owns: false, role: 'None' };
+      }
+
+      // Get game details by universe ID
+      const gameResponse = await fetch(
+        `https://games.roblox.com/v1/games?universeIds=${universeId}`
+      );
+
+      if (!gameResponse.ok) {
+        return { owns: false, role: 'None' };
+      }
+
+      const gameData = await gameResponse.json();
+      const game = gameData.data?.[0];
+
+      if (!game || !game.creator) {
+        return { owns: false, role: 'None' };
+      }
+
+      // Check if user is the creator
+      if (
+        game.creator.type === 'User' &&
+        game.creator.id.toString() === userId
+      ) {
         return { owns: true, role: 'Owner' };
       }
 
-      // Check permissions for admin/developer roles
-      const permissions = await this.getGamePermissions(gameId, userId);
-      if (permissions && permissions.role !== 'Member') {
-        return { owns: true, role: permissions.role };
+      // If group-owned, check if user is in the group
+      if (game.creator.type === 'Group') {
+        // For now, assume user doesn't own group-owned games
+        // In a complete implementation, you'd check group membership via Open Cloud API
+        return { owns: false, role: 'None' };
       }
 
-      return { owns: false, role: 'Member' };
+      return { owns: false, role: 'None' };
     } catch (error) {
       console.error('Game ownership verification failed:', error);
       return { owns: false, role: 'None' };
@@ -133,67 +122,84 @@ export class RobloxApiClient {
    * Get game details
    */
   async getGameDetails(gameId: string): Promise<RobloxGame | null> {
-    await this.ensureAuthenticated();
+    try {
+      // First, get universe ID from game ID (place ID)
+      const universeResponse = await fetch(
+        `${this.config.baseUrl}/universes/v1/places/${gameId}/universe`
+      );
 
-    const response = await fetch(
-      `${this.config.baseUrl}/v1/games?gameIds=${gameId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-          Accept: 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      if (response.status === 404) {
+      if (!universeResponse.ok) {
         return null;
       }
-      throw new Error(`Failed to fetch game details: ${response.statusText}`);
-    }
 
-    const data = await response.json();
-    return data.data?.[0] || null;
+      const universeData = await universeResponse.json();
+      const universeId = universeData.universeId;
+
+      if (!universeId) {
+        return null;
+      }
+
+      // Get game details by universe ID
+      const gameResponse = await fetch(
+        `https://games.roblox.com/v1/games?universeIds=${universeId}`
+      );
+
+      if (!gameResponse.ok) {
+        if (gameResponse.status === 404) {
+          return null;
+        }
+        throw new Error(
+          `Failed to fetch game details: ${gameResponse.statusText}`
+        );
+      }
+
+      const gameData = await gameResponse.json();
+      const game = gameData.data?.[0];
+
+      if (!game) {
+        return null;
+      }
+
+      // Transform to our interface
+      return {
+        id: gameId,
+        name: game.name || 'Unknown Game',
+        description: game.description || '',
+        creator: {
+          id: game.creator?.id || 0,
+          name: game.creator?.name || 'Unknown',
+          type: game.creator?.type || 'User',
+        },
+        created: game.created || '',
+        updated: game.updated || '',
+        visits: game.visits || 0,
+        playing: game.playing || 0,
+        maxPlayers: game.maxPlayers || 0,
+        genre: game.genre || '',
+        thumbnailUrl:
+          game.thumbnail?.finalUrl ||
+          `https://thumbnails.roblox.com/v1/games/icons?gameIds=${gameId}&size=420x420&format=Png`,
+      };
+    } catch (error) {
+      console.error('Failed to fetch game details:', error);
+      return null;
+    }
   }
 
   /**
    * Get game permissions for a user
+   * Note: This method would require authentication and is not used in the current implementation
    */
   async getGamePermissions(
-    gameId: string,
-    userId: string
+    _gameId: string,
+    _userId: string
   ): Promise<GamePermissions | null> {
-    await this.ensureAuthenticated();
-
-    const response = await fetch(
-      `${this.config.baseUrl}/v1/games/${gameId}/permissions?userId=${userId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-          Accept: 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        return null;
-      }
-      throw new Error(
-        `Failed to fetch game permissions: ${response.statusText}`
-      );
-    }
-
-    return await response.json();
+    // This would require authentication, so return null for now
+    return null;
   }
 
   private async ensureAuthenticated(): Promise<void> {
-    if (
-      !this.accessToken ||
-      !this.tokenExpiresAt ||
-      this.tokenExpiresAt <= new Date()
-    ) {
-      await this.authenticate();
-    }
+    // No authentication needed for public endpoints
+    return;
   }
 }

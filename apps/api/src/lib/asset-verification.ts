@@ -59,25 +59,46 @@ export class GameVerificationService {
         existingVerification.expiresAt &&
         existingVerification.expiresAt > new Date()
       ) {
+        // Extract gameDetails from cached metadata
+        let gameDetails = null;
+        if (
+          existingVerification.metadata &&
+          typeof existingVerification.metadata === 'object'
+        ) {
+          gameDetails = (existingVerification.metadata as any).gameDetails;
+        }
+
+        // If gameDetails is missing from cache, create fallback
+        if (!gameDetails) {
+          gameDetails = {
+            id: gameId,
+            name: `Game ${gameId}`,
+            description: 'Game verification successful (cached)',
+            creator: {
+              id: parseInt(robloxUserId),
+              name: 'Verified Owner',
+              type: 'User',
+            },
+            visits: 0,
+            playing: 0,
+            maxPlayers: 0,
+            genre: 'Unknown',
+            created: '',
+            updated: '',
+            thumbnailUrl: `https://thumbnails.roblox.com/v1/games/icons?gameIds=${gameId}&size=420x420&format=Png`,
+          };
+        }
+
         return {
           success: true,
           verified: true,
+          gameDetails,
           ownershipType: existingVerification.ownershipType,
           verificationId: existingVerification.id,
         };
       }
 
-      // Get game details from Roblox
-      const gameDetails = await this.robloxApi.getGameDetails(gameId);
-      if (!gameDetails) {
-        return {
-          success: false,
-          verified: false,
-          error: 'Game not found',
-        };
-      }
-
-      // Verify ownership/admin access
+      // Verify ownership/admin access first
       const ownershipResult = await this.robloxApi.verifyGameOwnership(
         robloxUserId,
         gameId
@@ -87,8 +108,32 @@ export class GameVerificationService {
         return {
           success: true,
           verified: false,
-          gameDetails,
           error: 'You do not own or have admin access to this game',
+        };
+      }
+
+      // Get game details from Roblox
+      let gameDetails = await this.robloxApi.getGameDetails(gameId);
+
+      if (!gameDetails) {
+        // Even if game details fail, we know ownership is verified
+        // Create basic game details as fallback
+        gameDetails = {
+          id: gameId,
+          name: `Game ${gameId}`,
+          description: 'Game verification successful',
+          creator: {
+            id: parseInt(robloxUserId),
+            name: 'Verified Owner',
+            type: 'User',
+          },
+          visits: 0,
+          playing: 0,
+          maxPlayers: 0,
+          genre: 'Unknown',
+          created: '',
+          updated: '',
+          thumbnailUrl: `https://thumbnails.roblox.com/v1/games/icons?gameIds=${gameId}&size=420x420&format=Png`,
         };
       }
 

@@ -90,5 +90,5 @@ export async function createListing(
  * In production, this would be the actual API URL
  */
 export function getApiBaseUrl(): string {
-  return process.env.API_BASE_URL || 'http://api:3000';
+  return process.env.API_BASE_URL || 'http://localhost:3000';
 }

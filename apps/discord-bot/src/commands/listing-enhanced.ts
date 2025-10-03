@@ -168,8 +168,11 @@ export async function handleListingCreateWithVerification(
   interaction: ChatInputCommandInteraction
 ) {
   try {
-    // Defer the reply immediately to extend the timeout to 15 minutes
-    await interaction.deferReply({ ephemeral: true });
+    // Clear any old verification cache for this user
+    const discordId = interaction.user.id;
+    verificationCache.delete(discordId);
+
+    // Check user verification status without deferring (needed for modal)
 
     // Ensure user exists in database
     const userResult = await ensureUserExists(
@@ -193,8 +196,9 @@ export async function handleListingCreateWithVerification(
         })
         .setTimestamp();
 
-      await interaction.editReply({
+      await interaction.reply({
         embeds: [errorEmbed],
+        ephemeral: true,
       });
       return;
     }
@@ -205,34 +209,52 @@ export async function handleListingCreateWithVerification(
     if (!verificationResult.isVerified) {
       const embed = new EmbedBuilder()
         .setColor(0xf59e0b)
-        .setTitle('🔒 Verification Required')
-        .setDescription('**Complete KYC to create listings**')
+        .setTitle('🔒 Account Setup Required')
+        .setDescription('**Complete account setup to create listings**')
         .setThumbnail(interaction.user.displayAvatarURL())
         .addFields(
           {
-            name: '📋 What is KYC?',
-            value: 'Identity verification for safe trading',
-            inline: true,
+            name: "📋 What's Required?",
+            value: 'Link your Roblox account',
+            inline:
+              !verificationResult.user ||
+              verificationResult.user.kycTier === 'TIER_0',
           },
           {
-            name: '⏱️ Processing',
-            value: '1-3 business days',
-            inline: true,
+            name: '⚡ Quick Setup',
+            value: 'Use `/link` to connect Roblox',
+            inline:
+              !verificationResult.user ||
+              verificationResult.user.kycTier === 'TIER_0',
           },
           {
-            name: '🌐 Get Started',
-            value: 'Visit our web app to verify',
-            inline: true,
+            name: '🔗 Need Help?',
+            value: 'Visit our web app for assistance',
+            inline:
+              !verificationResult.user ||
+              verificationResult.user.kycTier === 'TIER_0',
           }
-        )
+        );
+
+      // If TIER_0, show specific setup information
+      if (verificationResult.user?.kycTier === 'TIER_0') {
+        embed.addFields({
+          name: '🎯 Next Steps',
+          value:
+            '1. Link Roblox account with `/link`\n2. Verify asset ownership\n3. Create your listing!',
+        });
+      }
+
+      embed
         .setFooter({
-          text: 'Protects you and other traders',
+          text: 'Secure verification protects all traders',
           iconURL: interaction.user.displayAvatarURL(),
         })
         .setTimestamp();
 
-      await interaction.editReply({
+      await interaction.reply({
         embeds: [embed],
+        ephemeral: true,
       });
       return;
     }
@@ -260,8 +282,9 @@ export async function handleListingCreateWithVerification(
         })
         .setTimestamp();
 
-      await interaction.editReply({
+      await interaction.reply({
         embeds: [embed],
+        ephemeral: true,
       });
       return;
     }
@@ -286,14 +309,14 @@ export async function handleListingCreateWithVerification(
   } catch (error) {
     console.error('Error handling listing create with verification:', error);
 
-    // Try to edit the reply if it was deferred, otherwise send a follow-up
     try {
-      await interaction.editReply({
+      await interaction.reply({
         content:
           '❌ An error occurred while processing your request. Please try again later.',
+        ephemeral: true,
       });
     } catch {
-      // If edit fails, try to send a follow-up message
+      // Fallback if reply already sent
       try {
         await interaction.followUp({
           content:
@@ -360,11 +383,26 @@ export async function handleGameVerificationModalSubmit(
     // Show game details and proceed to listing creation
     const gameDetails = verificationResult.gameDetails;
     const ownershipType = verificationResult.ownershipType;
+
+    if (!gameDetails) {
+      console.error(
+        'Missing gameDetails in verification result:',
+        verificationResult
+      );
+      return interaction.editReply({
+        content: `❌ Game verification succeeded but game details are missing. Please try again.`,
+      });
+    }
+
     const embed = new EmbedBuilder()
       .setTitle('✅ Game Ownership Verified')
       .setDescription(`**${gameDetails.name}**`)
       .addFields(
-        { name: 'Ownership Type', value: ownershipType, inline: true },
+        {
+          name: 'Ownership Type',
+          value: ownershipType || 'Owner',
+          inline: true,
+        },
         {
           name: 'Player Count',
           value: `${gameDetails.playing || 0} playing`,
@@ -440,30 +478,35 @@ export async function handleCreateListingWithGameButton(
       .setCustomId('listing_create_with_game_modal')
       .setTitle('Create Game Listing');
 
-    // Title input
+    // Title input (pre-populate with game name)
     const titleInput = new TextInputBuilder()
       .setCustomId('listing_title')
       .setLabel('Listing Title')
       .setStyle(TextInputStyle.Short)
       .setPlaceholder('Enter a descriptive title for your listing')
       .setRequired(true)
-      .setMaxLength(255);
+      .setMaxLength(255)
+      .setValue(cachedData.gameDetails.name);
 
-    // Summary input
+    // Summary input (pre-populate with game description)
     const summaryInput = new TextInputBuilder()
       .setCustomId('listing_summary')
       .setLabel('Description')
       .setStyle(TextInputStyle.Paragraph)
       .setPlaceholder('Describe what you are selling in detail')
       .setRequired(true)
-      .setMaxLength(1000);
+      .setMaxLength(1000)
+      .setValue(
+        cachedData.gameDetails.description ||
+          `Listing for ${cachedData.gameDetails.name}`
+      );
 
     // Price input
     const priceInput = new TextInputBuilder()
       .setCustomId('listing_price')
-      .setLabel('Price (in cents)')
+      .setLabel('Price (in dollars)')
       .setStyle(TextInputStyle.Short)
-      .setPlaceholder('Enter price in cents (e.g., 1000 for $10.00)')
+      .setPlaceholder('Enter price in dollars (e.g., 10.00)')
       .setRequired(true);
 
     // Category input
@@ -505,21 +548,47 @@ export async function handleListingWithGameModalSubmit(
   interaction: ModalSubmitInteraction
 ) {
   try {
-    // Extract form data
-    const title = interaction.fields.getTextInputValue('listing_title');
-    const summary = interaction.fields.getTextInputValue('listing_summary');
-    const priceText = interaction.fields.getTextInputValue('listing_price');
-    const category = interaction.fields.getTextInputValue('listing_category');
+    // Get cached verification data for game details
+    const discordId = interaction.user.id;
+    const cachedData = getCacheEntry(discordId);
 
-    // Validate price
-    const price = parseInt(priceText, 10);
-    if (isNaN(price) || price <= 0) {
+    if (!cachedData) {
       await interaction.reply({
-        content: '❌ Invalid price. Please enter a positive number in cents.',
+        content:
+          '❌ Verification data not found. Please verify your game again.',
         ephemeral: true,
       });
       return;
     }
+
+    // Extract form data
+    let title = interaction.fields.getTextInputValue('listing_title');
+    let summary = interaction.fields.getTextInputValue('listing_summary');
+    const priceText = interaction.fields.getTextInputValue('listing_price');
+    const category = interaction.fields.getTextInputValue('listing_category');
+
+    // Use game details as defaults if fields are empty
+    if (!title || title.trim() === '') {
+      title = cachedData.gameDetails.name;
+    }
+    if (!summary || summary.trim() === '') {
+      summary =
+        cachedData.gameDetails.description ||
+        `Listing for ${cachedData.gameDetails.name}`;
+    }
+
+    // Validate price and convert from dollars to cents
+    const priceDollars = parseFloat(priceText);
+    if (isNaN(priceDollars) || priceDollars <= 0) {
+      await interaction.reply({
+        content: '❌ Please enter a valid price greater than $0.00.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Convert dollars to cents for storage
+    const price = Math.round(priceDollars * 100);
 
     // Get user info
     const userResult = await ensureUserExists(
@@ -534,10 +603,6 @@ export async function handleListingWithGameModalSubmit(
       });
       return;
     }
-
-    // Get cached verification data
-    const discordId = interaction.user.id;
-    const cachedData = getCacheEntry(discordId);
 
     // If cache expired, require user to re-verify to ensure correct game data
     if (!cachedData) {
@@ -647,7 +712,7 @@ export async function handleListingWithGameModalSubmit(
         },
         {
           name: '🔗 View',
-          value: `[Open Listing](${getApiBaseUrl()}/api/listings/${apiResult.data.id})`,
+          value: `[View on Website](${getApiBaseUrl()}/api/listings/${apiResult.data.id})`,
           inline: false,
         }
       )
@@ -657,9 +722,18 @@ export async function handleListingWithGameModalSubmit(
         iconURL: interaction.user.displayAvatarURL(),
       });
 
+    // Create button to open Roblox game
+    const gameButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setLabel('🎮 Open Game on Roblox')
+        .setStyle(ButtonStyle.Link)
+        .setURL(`https://www.roblox.com/games/${cachedData.gameDetails.id}`)
+    );
+
     await interaction.editReply({
       content: '',
       embeds: [embed],
+      components: [gameButton],
     });
   } catch (error) {
     console.error('Error handling listing with asset modal submission:', error);

@@ -355,11 +355,9 @@ router.post('/users/ensure', async (req, res, next) => {
         kycVerified: true,
         kycTier: true,
         accounts: {
-          where: {
-            providerId: 'discord',
-          },
           select: {
             accountId: true,
+            providerId: true,
           },
         },
       },
@@ -398,14 +396,39 @@ router.post('/users/ensure', async (req, res, next) => {
 
         return {
           ...newUser,
-          accounts: [{ accountId: discordId }],
+          accounts: [{ accountId: discordId, providerId: 'discord' }],
         };
       });
 
       user = result;
     }
 
-    res.status(200).json(user);
+    // Always re-query to get ALL accounts (including Roblox) for consistency
+    const finalUser = await prisma.user.findFirst({
+      where: {
+        accounts: {
+          some: {
+            accountId: discordId,
+            providerId: 'discord',
+          },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        kycVerified: true,
+        kycTier: true,
+        accounts: {
+          select: {
+            accountId: true,
+            providerId: true,
+          },
+        },
+      },
+    });
+
+    res.status(200).json(finalUser);
   } catch (error) {
     next(error);
   }

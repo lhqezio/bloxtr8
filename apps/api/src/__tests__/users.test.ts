@@ -338,11 +338,9 @@ describe('Users API Routes', () => {
           kycVerified: true,
           kycTier: true,
           accounts: {
-            where: {
-              providerId: 'discord',
-            },
             select: {
               accountId: true,
+              providerId: true,
             },
           },
         },
@@ -358,12 +356,22 @@ describe('Users API Routes', () => {
         kycTier: 'TIER_0',
       };
 
-      const mockTransactionResult = {
+      const _mockTransactionResult = {
         ...mockNewUser,
         accounts: [{ accountId: 'discord-123' }],
       };
 
-      mockUserFindFirst.mockResolvedValue(null);
+      const mockFinalUser = {
+        ...mockNewUser,
+        accounts: [{ accountId: 'discord-123', providerId: 'discord' }],
+      };
+
+      // Mock first call (user lookup) returns null
+      // Mock second call (final user query) returns the final user
+      mockUserFindFirst
+        .mockResolvedValueOnce(null) // First call: user lookup
+        .mockResolvedValueOnce(mockFinalUser); // Second call: final query
+
       mockTransaction.mockImplementation(async callback => {
         const mockTx = {
           user: {
@@ -376,9 +384,6 @@ describe('Users API Routes', () => {
         return callback(mockTx);
       });
 
-      // Mock the transaction to return the expected result
-      mockTransaction.mockResolvedValue(mockTransactionResult);
-
       const response = await request(app)
         .post('/api/users/ensure')
         .send({
@@ -387,8 +392,8 @@ describe('Users API Routes', () => {
         })
         .expect(200);
 
-      expect(response.body).toEqual(mockTransactionResult);
-      expect(mockUserFindFirst).toHaveBeenCalled();
+      expect(response.body).toEqual(mockFinalUser);
+      expect(mockUserFindFirst).toHaveBeenCalledTimes(2);
       expect(mockTransaction).toHaveBeenCalled();
     });
 
@@ -556,14 +561,36 @@ describe('Users API Routes', () => {
 
     it('should handle unicode characters in usernames', async () => {
       const unicodeUsername = '用户测试🚀';
-      mockUserFindFirst.mockResolvedValue(null);
-      mockTransaction.mockResolvedValue({
+      const mockFinalUser = {
         id: 'user-123',
         name: unicodeUsername,
         email: 'discord-123@discord.example',
         kycVerified: false,
         kycTier: 'TIER_0',
-        accounts: [{ accountId: 'discord-123' }],
+        accounts: [{ accountId: 'discord-123', providerId: 'discord' }],
+      };
+
+      // Mock both findFirst calls
+      mockUserFindFirst
+        .mockResolvedValueOnce(null) // First call: user lookup
+        .mockResolvedValueOnce(mockFinalUser); // Second call: final query
+
+      mockTransaction.mockImplementation(async callback => {
+        const mockTx = {
+          user: {
+            create: jest.fn().mockResolvedValue({
+              id: 'user-123',
+              name: unicodeUsername,
+              email: 'discord-123@discord.example',
+              kycVerified: false,
+              kycTier: 'TIER_0',
+            }),
+          },
+          account: {
+            create: jest.fn().mockResolvedValue({}),
+          },
+        };
+        return callback(mockTx);
       });
 
       const response = await request(app)
