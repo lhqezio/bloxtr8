@@ -355,9 +355,23 @@ Roblox OAuth callback handler.
 **Query Parameters**:
 
 - `code`: OAuth authorization code
-- `state`: State parameter for CSRF protection
+- `state`: State parameter for CSRF protection (validated against stored token)
+
+**Process**:
+1. Validates OAuth code with Roblox
+2. Verifies state parameter (prevents CSRF attacks)
+3. Links Roblox account to Discord user
+4. Upgrades user KYC tier to TIER_1
+5. Cleans up OAuth state token
+6. Redirects to success/error page
 
 **Response**: Redirects to web app with success/error
+
+**Security Features**:
+- State token validation with 10-minute expiration
+- Automatic cleanup of used tokens
+- Race condition protection
+- Memory leak prevention
 
 ### Health
 

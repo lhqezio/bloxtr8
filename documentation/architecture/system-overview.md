@@ -189,7 +189,7 @@ User (Discord) → /link command
     ↓
 Discord Bot → POST /api/oauth/roblox/url
     ↓
-API → Generate OAuth URL + state
+API → Generate OAuth URL + state (10min expiry)
     ↓
 User → Opens URL in browser (Web App)
     ↓
@@ -197,11 +197,13 @@ User authenticates with Roblox
     ↓
 Roblox → Redirects to /api/oauth/roblox/callback
     ↓
-API → Validates OAuth code
+API → Validates OAuth code + state
     ↓
 API → Links Roblox account to User
     ↓
 API → Updates KYC tier to TIER_1
+    ↓
+API → Clean up OAuth state token
     ↓
 Web App ← Success page
     ↓
@@ -391,6 +393,21 @@ Both parties ← Completion notification
   - Role-based access control
   - Resource ownership verification
 
+### OAuth Security
+
+- **State Parameter Management**:
+  - Cryptographically secure random state tokens (32 bytes)
+  - Server-side storage with 10-minute expiration
+  - Automatic cleanup after successful/unsuccessful flows
+  - Race condition protection with atomic token marking
+  - CSRF protection via state validation
+
+- **Token Lifecycle**:
+  - Generation: Random bytes + database storage
+  - Validation: Purpose, expiration, and usage checks
+  - Cleanup: Automatic deletion after use or error
+  - Memory leak prevention: Comprehensive cleanup in all scenarios
+
 ### Data Protection
 
 - **In Transit**: TLS 1.3
@@ -417,7 +434,7 @@ Both parties ← Completion notification
 - **Caching**:
   - Asset verification cache (24h)
   - API rate limit caching
-  - OAuth state caching (5min)
+  - OAuth state caching (10min with automatic cleanup)
 
 - **Async Processing**:
   - Webhook processing

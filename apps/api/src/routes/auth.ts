@@ -277,9 +277,17 @@ router.get('/roblox/callback', async (req, res, _next) => {
 
           return 'linked';
         })
-        .then(result => {
+        .then(async result => {
           if (result === null) {
-            // Account already linked
+            // Account already linked - still need to clean up OAuth state token
+            await prisma.linkToken.deleteMany({
+              where: {
+                token: state as string,
+                purpose: 'oauth_state',
+                discordId,
+              },
+            });
+            
             const webAppSuccessUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/success?${new URLSearchParams(
               {
                 message: 'Roblox account is already linked',
@@ -317,21 +325,14 @@ router.get('/roblox/callback', async (req, res, _next) => {
         userId: user.id,
       });
 
-      // Clean up only the specific OAuth state that was used (already marked as used in validateOAuthState)
-      // and any roblox_link tokens. We don't delete ALL oauth_state tokens to avoid invalidating
-      // concurrent OAuth flows for the same user.
+      // Clean up the specific OAuth state token that was used
+      // Only delete the specific oauth_state token, not all roblox_link tokens
+      // to avoid interfering with concurrent linking attempts
       await prisma.linkToken.deleteMany({
         where: {
-          OR: [
-            {
-              token: state as string,
-              purpose: 'oauth_state',
-            },
-            {
-              discordId,
-              purpose: 'roblox_link',
-            },
-          ],
+          token: state as string,
+          purpose: 'oauth_state',
+          discordId,
         },
       });
 
@@ -345,6 +346,21 @@ router.get('/roblox/callback', async (req, res, _next) => {
       res.redirect(webAppSuccessUrl);
     } catch (error) {
       console.error('Error processing OAuth in callback:', error);
+      
+      // Clean up OAuth state token even on error to prevent accumulation
+      try {
+        const { prisma } = await import('@bloxtr8/database');
+        await prisma.linkToken.deleteMany({
+          where: {
+            token: state as string,
+            purpose: 'oauth_state',
+            discordId,
+          },
+        });
+      } catch (cleanupError) {
+        console.error('Error cleaning up OAuth state token:', cleanupError);
+      }
+      
       const webAppErrorUrl = `${process.env.WEB_APP_URL || 'http://localhost:5173'}/auth/link/error?${new URLSearchParams(
         {
           error: 'callback_error',

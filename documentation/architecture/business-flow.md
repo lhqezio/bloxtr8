@@ -30,7 +30,7 @@ User → /link command
   ↓
 Bot → POST /api/oauth/roblox/url
   ↓
-API → Generate OAuth URL + state token
+API → Generate OAuth URL + state token (10min expiry)
   ↓
 User → Opens URL in browser
   ↓
@@ -38,13 +38,15 @@ Roblox → User authenticates
   ↓
 Roblox → Redirects to /api/oauth/roblox/callback?code=...&state=...
   ↓
-API → Validate OAuth code
+API → Validate OAuth code + state token
   ↓
 API → Get Roblox user ID from token
   ↓
 API → Create Account (providerId: 'roblox', accountId: robloxUserId)
   ↓
 API → Update User.kycTier = TIER_1, kycVerified = true
+  ↓
+API → Clean up OAuth state token
   ↓
 Web App → Show success page
   ↓
