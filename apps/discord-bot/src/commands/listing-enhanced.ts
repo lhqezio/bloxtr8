@@ -194,10 +194,15 @@ export function cleanupVerificationCache(): void {
 // Helper function to construct proper Roblox game URL
 function getRobloxGameUrl(placeId?: string): string {
   // Check if placeId is valid (not null, undefined, empty string, or "undefined")
-  if (placeId && placeId !== '' && placeId !== 'undefined' && placeId !== 'null') {
+  if (
+    placeId &&
+    placeId !== '' &&
+    placeId !== 'undefined' &&
+    placeId !== 'null'
+  ) {
     return `https://www.roblox.com/games/${placeId}`;
   }
-  
+
   // If no valid placeId, we cannot construct a proper Roblox URL
   // Return a generic Roblox games page since gameDetails.id is a universe ID
   return 'https://www.roblox.com/games/';
