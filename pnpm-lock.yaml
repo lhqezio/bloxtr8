@@ -142,9 +142,6 @@ importers:
       discord.js:
         specifier: ^14.14.1
         version: 14.22.1
-      express:
-        specifier: ^4.18.2
-        version: 4.21.2
       node-fetch:
         specifier: ^3.3.2
         version: 3.3.2
@@ -155,9 +152,6 @@ importers:
       '@bloxtr8/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
-      '@types/express':
-        specifier: ^4.17.21
-        version: 4.17.23
       '@types/jest':
         specifier: ^29.5.8
         version: 29.5.14
