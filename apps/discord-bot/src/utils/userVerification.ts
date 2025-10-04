@@ -214,12 +214,22 @@ export async function checkUserExists(
       };
     }
 
-    // Handle legacy array format
+    // Handle legacy array format - non-empty arrays contain valid account data
     if (Array.isArray(responseData)) {
+      // For legacy format, we can't determine KYC status, so assume not verified
+      // but the user exists (they have accounts)
       return {
         isVerified: false,
-        user: undefined,
-        error: 'User not found. Please sign up first.',
+        user: {
+          id: '', // Not available in legacy format
+          name: null,
+          email: '', // Not available in legacy format
+          kycVerified: false, // Assume not verified for legacy format
+          kycTier: 'TIER_0',
+          accounts: responseData,
+        },
+        error:
+          'Account verification required. Please complete account setup to access all features.',
       };
     }
 
