@@ -177,7 +177,7 @@ export async function checkUserExists(
   try {
     const apiBaseUrl = getApiBaseUrl();
     const response = await fetch(
-      `${apiBaseUrl}/api/users/verify/${discordId}`,
+      `${apiBaseUrl}/api/users/accounts/${discordId}`,
       {
         method: 'GET',
         headers: {
@@ -203,24 +203,37 @@ export async function checkUserExists(
       };
     }
 
-    const userData = (await response.json()) as {
-      id: string;
-      name: string;
-      email: string;
-      kycVerified: boolean;
-      kycTier: 'TIER_0' | 'TIER_1' | 'TIER_2';
-      accounts: Account[];
-    };
+    const responseData = (await response.json()) as VerifyResponse | Account[];
 
+    // Handle empty array response (no user found)
+    if (Array.isArray(responseData) && responseData.length === 0) {
+      return {
+        isVerified: false,
+        user: undefined,
+        error: 'User not found. Please sign up first.',
+      };
+    }
+
+    // Handle legacy array format
+    if (Array.isArray(responseData)) {
+      return {
+        isVerified: false,
+        user: undefined,
+        error: 'User not found. Please sign up first.',
+      };
+    }
+
+    // Handle new detailed response format
+    const userData = responseData as VerifyResponse;
     return {
-      isVerified: true,
+      isVerified: userData.user.kycVerified,
       user: {
-        id: userData.id,
-        name: userData.name,
-        email: userData.email,
-        kycVerified: userData.kycVerified,
-        kycTier: userData.kycTier,
-        accounts: userData.accounts || [],
+        id: userData.user.id,
+        name: userData.user.name,
+        email: userData.user.email,
+        kycVerified: userData.user.kycVerified,
+        kycTier: userData.user.kycTier,
+        accounts: userData.accounts,
       },
     };
   } catch (error) {
