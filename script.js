@@ -16,7 +16,7 @@ document.querySelectorAll('.nav-menu a').forEach(link => {
 });
 
 // Smooth scrolling for navigation links
-document.querySelectorAll('a[hrf^="#"]').forEach(link => {
+document.querySelectorAll('a[href^="#"]').forEach(link => {
   link.addEventListener('click', function (e) {
     e.preventDefault();
 
