@@ -1,5 +1,6 @@
 import { EmbedBuilder } from 'discord.js';
 
+import { Bloxtr8Embed, Colors, Icons } from './designSystem.js';
 import type { Account, VerifyResponse } from './userVerification.js';
 
 interface ProviderConfig {
@@ -66,60 +67,91 @@ export function buildVerificationEmbeds(data: Account[] | VerifyResponse) {
   const discordAccount = accounts.find(a => a.providerId === 'discord');
   const robloxAccount = accounts.find(a => a.providerId === 'roblox');
 
-  // Single clean embed with all information
-  const mainEmbed = new EmbedBuilder()
-    .setTitle('🔍 Account Verification')
-    .setColor(0x5865f2)
-    .setThumbnail(
-      discordUserInfo?.avatar
-        ? `https://cdn.discordapp.com/avatars/${discordUserInfo.id}/${discordUserInfo.avatar}.png?size=256`
-        : `https://cdn.discordapp.com/embed/avatars/${parseInt(discordUserInfo?.discriminator || '0') % 5}.png`
+  // Determine verification status and color (Bloxtr8 inspired)
+  let verificationStatus: string;
+  let embedColor: number;
+
+  if (user.kycTier === 'TIER_0') {
+    verificationStatus = '🔴 Setup Required';
+    embedColor = Colors.WARNING;
+  } else if (user.kycTier === 'TIER_1') {
+    verificationStatus = '🟡 Partially Verified';
+    embedColor = Colors.WARNING;
+  } else if (user.kycVerified) {
+    verificationStatus = '✅ Fully Verified';
+    embedColor = Colors.SUCCESS;
+  } else {
+    verificationStatus = '❌ Not Verified';
+    embedColor = Colors.ERROR;
+  }
+
+  // Create main embed with new design system
+  const mainEmbed = Bloxtr8Embed.info(
+    'Account Verification',
+    `Your Bloxtr8 account status`
+  )
+    .setColor(embedColor)
+    .addUserAvatar(
+      discordUserInfo?.id || '',
+      discordUserInfo?.avatar || undefined
     )
-    .addFields({
-      name: '📋 Profile Information',
-      value: `**Name:** ${user.name || 'Not set'}\n**Verification:** ${user.kycTier === 'TIER_1' ? '🟡 Partially Verified' : user.kycVerified ? '✅ Fully Verified' : '❌ Not Verified'}\n**Tier:** ${user.kycTier}`,
-      inline: false,
-    });
+    .addActionField(
+      'Profile',
+      `**Name:** ${user.name || 'Not set'}\n**Status:** ${verificationStatus}\n**Tier:** ${user.kycTier}`,
+      false
+    );
 
-  // Discord section
+  // Discord account section
   if (discordAccount && discordUserInfo) {
-    mainEmbed.addFields({
-      name: '🎮 Discord Account',
-      value: `**Username:** ${discordUserInfo.username}\n**Display Name:** ${discordUserInfo.display_name || discordUserInfo.username}\n**ID:** ${discordUserInfo.id}\n[**View Profile**](https://discord.com/users/${discordUserInfo.id})`,
-      inline: true,
-    });
+    mainEmbed.addActionField(
+      `${Icons.DISCORD} Discord Account`,
+      `**Username:** ${discordUserInfo.username}\n**Display:** ${discordUserInfo.display_name || discordUserInfo.username}\n**ID:** ${discordUserInfo.id}\n[View Profile](https://discord.com/users/${discordUserInfo.id})`,
+      true
+    );
   } else {
-    mainEmbed.addFields({
-      name: '🎮 Discord Account',
-      value: '❌ **Not Linked**\nUse `/signup` to create your account',
-      inline: true,
-    });
+    mainEmbed.addActionField(
+      `${Icons.DISCORD} Discord Account`,
+      '❌ **Not Linked**\nUse `/signup` to create your account',
+      true
+    );
   }
 
-  // Roblox section
+  // Roblox account section
   if (robloxAccount && robloxUserInfo) {
-    mainEmbed.addFields({
-      name: '🎯 Roblox Account',
-      value: `**Username:** ${robloxUserInfo.name}\n**Display Name:** ${robloxUserInfo.displayName}\n**Created:** <t:${Math.floor(new Date(robloxUserInfo.created).getTime() / 1000)}:R>\n[**View Profile**](https://www.roblox.com/users/${robloxAccount.accountId}/profile)`,
-      inline: true,
-    });
+    mainEmbed.addActionField(
+      `${Icons.ROBLOX} Roblox Account`,
+      `**Username:** ${robloxUserInfo.name}\n**Display:** ${robloxUserInfo.displayName}\n**Created:** <t:${Math.floor(new Date(robloxUserInfo.created).getTime() / 1000)}:R>\n[View Profile](https://www.roblox.com/users/${robloxAccount.accountId}/profile)`,
+      true
+    );
   } else {
-    mainEmbed.addFields({
-      name: '🎯 Roblox Account',
-      value: '❌ **Not Linked**\nUse `/link` to connect your account',
-      inline: true,
-    });
+    mainEmbed.addActionField(
+      `${Icons.ROBLOX} Roblox Account`,
+      '❌ **Not Linked**\nUse `/link` to connect your Roblox account',
+      true
+    );
   }
 
-  // Add a nice footer
+  // Add contextual footer based on account status (Bloxtr8 inspired)
   const linkedCount = [discordAccount, robloxAccount].filter(Boolean).length;
-  mainEmbed
-    .setFooter({
-      text: `${linkedCount}/2 accounts linked • Bloxtr8 Verification System`,
-      iconURL:
-        'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
-    })
-    .setTimestamp();
+  let statusMessage = '';
+  let trustIndicator = '';
+
+  if (!robloxAccount && discordAccount) {
+    statusMessage = 'Link Roblox to unlock trading features';
+    trustIndicator = '🔒 All trades protected by escrow';
+  } else if (!discordAccount) {
+    statusMessage = 'Use /signup to get started';
+    trustIndicator = '🛡️ Community protection available';
+  } else if (linkedCount === 2) {
+    statusMessage = 'Ready to trade!';
+    trustIndicator = '✅ Verified trader • 🛡️ Community protected';
+  }
+
+  mainEmbed.setFooter({
+    text: `${linkedCount}/2 accounts linked${statusMessage ? ` • ${statusMessage}` : ''}${trustIndicator ? ` • ${trustIndicator}` : ''} • Bloxtr8`,
+    iconURL:
+      'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
+  });
 
   embeds.push(mainEmbed);
 

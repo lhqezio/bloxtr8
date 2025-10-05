@@ -8,34 +8,61 @@ export const Route = createFileRoute('/')({
 })
 function App() {
   return (
-    <div className="text-center">
-      <header className="min-h-screen flex flex-col items-center justify-center bg-background text-primary-foreground text-[calc(10px+2vmin)]">
-        <Button onClick={() => toast('hello')}>Click me</Button>
-        <img
-          src={logo}
-          className="h-[40vmin] pointer-events-none animate-[spin_20s_linear_infinite]"
-          alt="logo"
-        />
-        <p>
-          Edit <code>src/routes/index.tsx</code> and save to reload.
-        </p>
-        <a
-          className="text-[#61dafb]` hover:underline"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-        <a
-          className="text-[#61dafb] hover:underline"
-          href="https://tanstack.com"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn TanStack
-        </a>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+      <main className="container mx-auto px-4 py-16">
+        {/* Hero Section */}
+        <div className="text-center space-y-8 max-w-4xl mx-auto">
+          {/* Logo */}
+          <div className="flex justify-center">
+            <img
+              src={logo}
+              className="h-24 w-24 pointer-events-none"
+              alt="Bloxtr8 Logo"
+            />
+          </div>
+
+          {/* Main Heading */}
+          <div className="space-y-4">
+            <h1 className="text-4xl md:text-6xl font-bold text-foreground">
+              Secure high-value trades in{' '}
+              <span className="text-primary">Roblox</span>
+            </h1>
+            <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+              Trusted escrow service integrated directly into Discord. We verify
+              sellers, secure payments, and protect your community.
+            </p>
+          </div>
+
+          {/* CTA Button */}
+          <div className="pt-4">
+            <Button
+              size="lg"
+              className="text-lg px-8 py-6 rounded-xl"
+              onClick={() => toast('Protect your trades')}
+            >
+              Protect Your Trades
+            </Button>
+          </div>
+
+          {/* Trust Indicators */}
+          <div className="pt-12 space-y-6">
+            <div className="flex flex-wrap justify-center gap-8 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>All trades protected by escrow</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span>Real-time verification</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                <span>Discord integration</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   )
 }
