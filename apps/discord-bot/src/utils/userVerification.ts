@@ -216,18 +216,11 @@ export async function checkUserExists(
 
     // Handle legacy array format - non-empty arrays contain valid account data
     if (Array.isArray(responseData)) {
-      // For legacy format, we can't determine KYC status, so assume not verified
-      // but the user exists (they have accounts)
+      // For legacy format, we can't determine KYC status or provide complete user data
+      // Return null for user since we don't have complete user information
       return {
         isVerified: false,
-        user: {
-          id: '', // Not available in legacy format
-          name: null,
-          email: '', // Not available in legacy format
-          kycVerified: false, // Assume not verified for legacy format
-          kycTier: 'TIER_0',
-          accounts: responseData,
-        },
+        user: undefined, // Don't return incomplete user data
         error:
           'Account verification required. Please complete account setup to access all features.',
       };
