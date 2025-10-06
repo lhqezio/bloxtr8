@@ -53,6 +53,8 @@ bloxtr8/
 
 ## Commands
 
+### Development Commands
+
 ```bash
 pnpm dev              # Start API
 pnpm test             # Run tests
@@ -61,6 +63,18 @@ pnpm build            # Build all
 pnpm db:studio        # Prisma Studio
 pnpm db:migrate       # Run migrations
 ```
+
+### Discord Bot Commands
+
+The Discord bot provides slash commands for managing listings and accounts:
+
+- `/help` - Show available commands and help information
+- `/signup` - Create your Bloxtr8 account
+- `/link` - Link your Roblox account to Bloxtr8
+- `/verify [id]` - Check account verification status
+- `/listing create` - Create a new verified game ownership listing
+- `/listing view` - View all available listings with filtering and pagination
+- `/ping` - Check bot latency
 
 ## Documentation
 

@@ -19,6 +19,11 @@ import {
   handleExperienceSelection,
   cleanupVerificationCache,
 } from './commands/listing-enhanced.js';
+import {
+  handleListingView,
+  handleListingPagination,
+  cleanupPaginationCache,
+} from './commands/listing-view.js';
 import { handlePing } from './commands/ping.js';
 import {
   handleSignup,
@@ -59,6 +64,33 @@ client.once('clientReady', async () => {
         subcommand
           .setName('create')
           .setDescription('Create a new verified game ownership listing')
+      )
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('view')
+          .setDescription('View all available listings')
+          .addStringOption(option =>
+            option
+              .setName('category')
+              .setDescription('Filter by category')
+              .setRequired(false)
+              .addChoices(
+                { name: 'Games', value: 'Games' },
+                { name: 'Assets', value: 'Assets' },
+                { name: 'Services', value: 'Services' }
+              )
+          )
+          .addStringOption(option =>
+            option
+              .setName('status')
+              .setDescription('Filter by status')
+              .setRequired(false)
+              .addChoices(
+                { name: 'Active', value: 'ACTIVE' },
+                { name: 'Sold', value: 'SOLD' },
+                { name: 'Cancelled', value: 'CANCELLED' }
+              )
+          )
       )
       .toJSON(),
     new SlashCommandBuilder()
@@ -124,6 +156,12 @@ client.on('interactionCreate', async interaction => {
     ) {
       await handleListingCreateWithVerification(interaction);
     }
+    if (
+      interaction.commandName === 'listing' &&
+      interaction.options.getSubcommand() === 'view'
+    ) {
+      await handleListingView(interaction);
+    }
     if (interaction.commandName === 'signup') {
       await handleSignup(interaction);
     }
@@ -156,6 +194,9 @@ client.on('interactionCreate', async interaction => {
     if (interaction.customId === 'cancel_listing_creation') {
       await handleCancelListingCreation(interaction);
     }
+    if (interaction.customId.startsWith('listings_prev_') || interaction.customId.startsWith('listings_next_')) {
+      await handleListingPagination(interaction);
+    }
   }
 
   // Handle string select menu interactions
@@ -172,6 +213,9 @@ async function gracefulShutdown(signal: string) {
 
   // Cleanup verification cache
   cleanupVerificationCache();
+  
+  // Cleanup pagination cache
+  cleanupPaginationCache();
 
   // Destroy Discord client
   client.destroy();

@@ -213,6 +213,58 @@ Create a new listing.
 - `401 Unauthorized`: Not authenticated
 - `403 Forbidden`: Insufficient KYC tier
 
+#### `GET /api/listings`
+
+Get all listings with pagination and filtering.
+
+**Query Parameters**:
+
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 10, max: 50)
+- `status` (optional): Filter by status (`ACTIVE`, `SOLD`, `CANCELLED`)
+- `category` (optional): Filter by category
+- `userId` (optional): Filter by user ID
+
+**Response**:
+
+```json
+{
+  "listings": [
+    {
+      "id": "listing_123",
+      "title": "Epic Roblox Game",
+      "summary": "A popular RPG game with 10M+ visits",
+      "price": 50000,
+      "category": "RPG",
+      "status": "ACTIVE",
+      "createdAt": "2025-01-02T12:00:00Z",
+      "updatedAt": "2025-01-02T12:00:00Z",
+      "userId": "user_123",
+      "guildId": "guild_456",
+      "user": {
+        "name": "John Doe",
+        "email": "john@example.com"
+      },
+      "guild": {
+        "name": "Epic Gaming Guild"
+      }
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 25,
+    "totalPages": 3,
+    "hasNext": true,
+    "hasPrev": false
+  }
+}
+```
+
+**Errors**:
+
+- `400 Bad Request`: Invalid pagination parameters
+
 #### `GET /api/listings/:id`
 
 Get listing details.
