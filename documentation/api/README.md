@@ -178,7 +178,7 @@ Get user's Roblox experiences (public games they own).
 
 #### `POST /api/listings`
 
-Create a new listing.
+Create a new listing with optional thread information.
 
 **Authentication**: Required (TIER_1+)
 
@@ -190,34 +190,116 @@ Create a new listing.
   "summary": "A popular RPG game with 10M+ visits",
   "price": 50000,
   "category": "RPG",
-  "userId": "user_123",
-  "gameId": "roblox_game_id"
+  "sellerId": "user_123",
+  "guildId": "discord_guild_id",
+  "visibility": "PUBLIC",
+  "threadId": "discord_thread_id",
+  "channelId": "discord_channel_id",
+  "priceRange": "25k-100k"
 }
 ```
+
+**Fields**:
+- `title` (required): Listing title (max 255 chars)
+- `summary` (required): Description (max 1000 chars)
+- `price` (required): Price in cents (int, e.g., 50000 = $500.00)
+- `category` (required): Category (max 100 chars)
+- `sellerId` (required): User ID of seller
+- `guildId` (optional): Discord guild ID where created
+- `visibility` (optional): `PUBLIC` (all servers) or `PRIVATE` (guild only)
+- `threadId` (optional): Discord thread ID
+- `channelId` (optional): Discord channel ID
+- `priceRange` (optional): `1k-5k`, `5k-25k`, `25k-100k`, or `100k+`
 
 **Response**: `201 Created`
 
 ```json
 {
-  "id": "listing_123",
-  "title": "Epic Roblox Game",
-  "price": 50000,
-  "status": "ACTIVE",
-  "createdAt": "2025-01-02T12:00:00Z"
+  "id": "listing_123"
 }
 ```
 
 **Errors**:
 
-- `400 Bad Request`: Invalid input
+- `400 Bad Request`: Invalid input or validation failed
 - `401 Unauthorized`: Not authenticated
 - `403 Forbidden`: Insufficient KYC tier
 
+#### `GET /api/listings`
+
+Get all listings with pagination and filters.
+
+**Query Parameters**:
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 10, max: 50)
+- `status` (optional): Filter by status (`ACTIVE`, `SOLD`, `CANCELLED`)
+- `category` (optional): Filter by category
+- `userId` (optional): Filter by seller ID
+- `visibility` (optional): Filter by visibility (`PUBLIC` or `PRIVATE`)
+- `priceRange` (optional): Filter by range (`1k-5k`, `5k-25k`, etc.)
+- `guildId` (optional): Discord guild ID for visibility filtering
+
+**Response**: `200 OK`
+
+```json
+{
+  "listings": [
+    {
+      "id": "listing_123",
+      "title": "Epic Roblox Game",
+      "summary": "A popular RPG game",
+      "price": 50000,
+      "category": "RPG",
+      "status": "ACTIVE",
+      "visibility": "PUBLIC",
+      "threadId": "thread_id",
+      "channelId": "channel_id",
+      "priceRange": "25k-100k",
+      "userId": "user_123",
+      "guildId": "guild_123",
+      "user": {
+        "name": "John Doe",
+        "kycTier": "TIER_1",
+        "kycVerified": true
+      },
+      "guild": {
+        "name": "Trading Server",
+        "discordId": "guild_123"
+      },
+      "robloxSnapshots": [
+        {
+          "gameName": "Epic Game",
+          "thumbnailUrl": "https://...",
+          "playerCount": 100,
+          "visits": 1000000,
+          "verifiedOwnership": true
+        }
+      ],
+      "createdAt": "2025-01-02T12:00:00Z",
+      "updatedAt": "2025-01-02T12:00:00Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 50,
+    "totalPages": 5,
+    "hasPrev": false,
+    "hasNext": true
+  }
+}
+```
+
+**Visibility Rules**:
+- If no `guildId`: Only `PUBLIC` listings returned
+- If `guildId` provided: `PUBLIC` + `PRIVATE` listings from that guild
+- Enables cross-guild marketplace experience
+
 #### `GET /api/listings/:id`
 
-Get listing details.
+Get listing details by ID.
 
-**Response**:
+**Response**: `200 OK`
 
 ```json
 {
@@ -227,19 +309,63 @@ Get listing details.
   "price": 50000,
   "category": "RPG",
   "status": "ACTIVE",
+  "visibility": "PUBLIC",
+  "threadId": "thread_id",
+  "channelId": "channel_id",
+  "priceRange": "25k-100k",
   "user": {
     "id": "user_123",
-    "name": "John Doe"
+    "name": "John Doe",
+    "kycTier": "TIER_1",
+    "kycVerified": true
+  },
+  "guild": {
+    "name": "Trading Server",
+    "discordId": "guild_123"
   },
   "robloxSnapshots": [
     {
-      "gameId": "123456",
       "gameName": "Epic Game",
+      "gameDescription": "An RPG",
+      "thumbnailUrl": "https://...",
+      "playerCount": 100,
+      "visits": 1000000,
       "verifiedOwnership": true
     }
-  ]
+  ],
+  "createdAt": "2025-01-02T12:00:00Z",
+  "updatedAt": "2025-01-02T12:00:00Z"
 }
 ```
+
+**Errors**:
+- `404 Not Found`: Listing not found
+
+#### `PATCH /api/listings/:id/thread`
+
+Update listing thread information.
+
+**Request Body**:
+
+```json
+{
+  "threadId": "discord_thread_id",
+  "channelId": "discord_channel_id",
+  "priceRange": "25k-100k"
+}
+```
+
+**Response**: `200 OK`
+
+```json
+{
+  "success": true
+}
+```
+
+**Errors**:
+- `404 Not Found`: Listing not found
+- `400 Bad Request`: Invalid thread data
 
 ### Offers
 

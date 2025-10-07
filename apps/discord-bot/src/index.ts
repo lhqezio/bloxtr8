@@ -5,6 +5,7 @@ import {
   REST,
   Routes,
   SlashCommandBuilder,
+  PermissionFlagsBits,
 } from 'discord.js';
 
 // Command handlers
@@ -26,6 +27,15 @@ import {
   handleConsentDecline,
 } from './commands/signup.js';
 import { handleVerify } from './commands/verify.js';
+import { execute as handleMarketplaceSetup } from './commands/marketplace-setup.js';
+import { execute as handleMarketplaceTest } from './commands/marketplace-test.js';
+
+// Marketplace utilities
+import {
+  setupMarketplaceChannels,
+  cleanupMarketplaceChannels,
+} from './utils/marketplace.js';
+import { syncPublicListingsToGuild } from './utils/listingSync.js';
 
 // Load environment variables
 config();
@@ -79,6 +89,20 @@ client.once('clientReady', async () => {
       .setName('link')
       .setDescription('Link your Roblox account to Bloxtr8')
       .toJSON(),
+    new SlashCommandBuilder()
+      .setName('marketplace-setup')
+      .setDescription('Manually set up marketplace channels for this server')
+      .addBooleanOption(option =>
+        option
+          .setName('force')
+          .setDescription('Force setup even without admin permissions (for testing)')
+          .setRequired(false)
+      )
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('marketplace-test')
+      .setDescription('Test marketplace setup command')
+      .toJSON(),
   ];
 
   const token = process.env.DISCORD_BOT_TOKEN;
@@ -130,6 +154,34 @@ client.on('interactionCreate', async interaction => {
     if (interaction.commandName === 'link') {
       await handleLinkRoblox(interaction);
     }
+    if (interaction.commandName === 'marketplace-setup') {
+      console.log(`Handling marketplace-setup command for guild ${interaction.guild?.id}`);
+      try {
+        await handleMarketplaceSetup(interaction);
+      } catch (error) {
+        console.error(`Error in marketplace-setup command:`, error);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: 'An error occurred while setting up the marketplace. Please try again.',
+            ephemeral: true,
+          });
+        }
+      }
+    }
+    if (interaction.commandName === 'marketplace-test') {
+      console.log(`Handling marketplace-test command for guild ${interaction.guild?.id}`);
+      try {
+        await handleMarketplaceTest(interaction);
+      } catch (error) {
+        console.error(`Error in marketplace-test command:`, error);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: 'Test command failed.',
+            ephemeral: true,
+          });
+        }
+      }
+    }
   }
 
   // Handle modal submissions
@@ -163,6 +215,43 @@ client.on('interactionCreate', async interaction => {
     if (interaction.customId === 'experience_selection') {
       await handleExperienceSelection(interaction);
     }
+  }
+});
+
+// Guild join event - setup marketplace
+client.on('guildCreate', async (guild) => {
+  console.log(`Bot joined guild: ${guild.name} (${guild.id})`);
+
+  try {
+    // Setup marketplace channels
+    await setupMarketplaceChannels(guild);
+
+    // Sync existing public listings to this guild
+    // Run in background to avoid blocking
+    syncPublicListingsToGuild(guild).catch((error) => {
+      console.error(`Background sync failed for guild ${guild.id}:`, error);
+    });
+
+    console.log(`Successfully set up marketplace for guild ${guild.name}`);
+    console.log(`Started background sync of public listings for guild ${guild.name}`);
+  } catch (error) {
+    console.error(`Failed to setup marketplace for guild ${guild.id}:`, error);
+  }
+});
+
+// Guild leave event - cleanup
+client.on('guildDelete', async (guild) => {
+  console.log(`Bot left guild: ${guild.name} (${guild.id})`);
+
+  try {
+    // Archive threads before leaving
+    await cleanupMarketplaceChannels(guild);
+
+    // TODO: Update database to mark guild as inactive
+
+    console.log(`Successfully cleaned up marketplace for guild ${guild.name}`);
+  } catch (error) {
+    console.error(`Failed to cleanup marketplace for guild ${guild.id}:`, error);
   }
 });
 

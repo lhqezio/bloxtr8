@@ -14,10 +14,12 @@ import {
   type StringSelectMenuInteraction,
 } from 'discord.js';
 
-import { createListing } from '../utils/apiClient.js';
+import { createListing, updateListingThread, fetchListings } from '../utils/apiClient.js';
 import { getApiBaseUrl } from '../utils/apiClient.js';
 import { verifyUserForListing } from '../utils/userVerification.js';
 import { checkUserExists } from '../utils/userVerification.js';
+import { createListingThread, type ListingData } from '../utils/threadManager.js';
+import { getPriceRangeForPrice } from '../utils/marketplace.js';
 
 // ✅ In-memory cache with TTL, size limits, and cleanup
 // FEATURES:
@@ -910,6 +912,13 @@ export async function handleListingWithGameModalSubmit(
 
     await interaction.deferReply({ ephemeral: true });
 
+    // Determine visibility (PUBLIC by default for now)
+    // TODO: Add visibility selection UI in future update
+    const visibility = 'PUBLIC';
+
+    // Determine price range for channel routing
+    const priceRange = getPriceRangeForPrice(price);
+
     // Create listing via API
     const apiResult = await createListing({
       title,
@@ -918,6 +927,8 @@ export async function handleListingWithGameModalSubmit(
       category,
       sellerId: userResult.user.id,
       guildId: interaction.guildId || undefined,
+      visibility,
+      priceRange: priceRange.range,
     });
 
     if (!apiResult.success) {
@@ -949,14 +960,71 @@ export async function handleListingWithGameModalSubmit(
       // Continue anyway - listing was created successfully
     }
 
+    // Create Discord thread for the listing
+    let threadId: string | undefined;
+    let channelId: string | undefined;
+    
+    if (interaction.guild) {
+      try {
+        const listingData: ListingData = {
+          id: apiResult.data.id,
+          title,
+          summary,
+          price,
+          category,
+          status: 'ACTIVE',
+          visibility,
+          userId: userResult.user.id,
+          guildId: interaction.guildId || undefined,
+          user: {
+            name: interaction.user.username,
+            kycTier: userResult.user.kycTier,
+            kycVerified: userResult.user.kycVerified,
+          },
+          robloxSnapshots: [{
+            gameName: cachedData.gameDetails.name,
+            gameDescription: cachedData.gameDetails.description,
+            thumbnailUrl: cachedData.gameDetails.thumbnailUrl,
+            playerCount: cachedData.gameDetails.playing,
+            visits: cachedData.gameDetails.visits,
+            verifiedOwnership: true,
+          }],
+          createdAt: new Date(),
+        };
+
+        const thread = await createListingThread(listingData, interaction.guild);
+        
+        if (thread) {
+          threadId = thread.id;
+          channelId = thread.parentId || undefined;
+
+          // Update listing with thread information
+          await updateListingThread(apiResult.data.id, {
+            threadId,
+            channelId,
+            priceRange: priceRange.range,
+          });
+
+          console.log(`Created thread ${threadId} for listing ${apiResult.data.id}`);
+        }
+      } catch (error) {
+        console.error('Failed to create listing thread:', error);
+        // Continue anyway - listing was created successfully
+      }
+    }
+
     // Clear cached data
     verificationCache.delete(discordId);
 
     // Success - show listing created message
+    const embedDescription = threadId
+      ? '**Your verified asset listing is now live with a dedicated thread!**'
+      : '**Your verified asset listing is now live!**';
+
     const embed = new EmbedBuilder()
       .setColor(0x00d4aa)
       .setTitle('🎉 Verified Asset Listing Created!')
-      .setDescription('**Your verified asset listing is now live!**')
+      .setDescription(embedDescription)
       .setThumbnail(interaction.user.displayAvatarURL())
       .addFields(
         {
@@ -975,24 +1043,59 @@ export async function handleListingWithGameModalSubmit(
           inline: true,
         },
         {
+          name: '🌐 Visibility',
+          value: visibility === 'PUBLIC' ? '🌍 All Servers' : '🔒 This Server Only',
+          inline: true,
+        },
+        {
+          name: '💰 Price Range',
+          value: `${priceRange.emoji} ${priceRange.description}`,
+          inline: true,
+        },
+        {
           name: '🎮 Game',
           value: `[Open on Roblox](${getRobloxGameUrl(cachedData.placeId)})`,
           inline: false,
         }
-      )
+      );
+
+    // Add thread link if available
+    if (threadId && channelId) {
+      embed.addFields({
+        name: '💬 Discussion Thread',
+        value: `<#${channelId}> • [Jump to Thread](https://discord.com/channels/${interaction.guildId}/${channelId}/${threadId})`,
+        inline: false,
+      });
+    }
+
+    embed
       .setTimestamp()
       .setFooter({
         text: `Created by ${interaction.user.username}`,
         iconURL: interaction.user.displayAvatarURL(),
       });
 
-    // Create button to open Roblox game
-    const gameButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    // Create buttons
+    const buttons = new ActionRowBuilder<ButtonBuilder>();
+    
+    buttons.addComponents(
       new ButtonBuilder()
         .setLabel('🎮 Open Game on Roblox')
         .setStyle(ButtonStyle.Link)
         .setURL(getRobloxGameUrl(cachedData.placeId))
     );
+
+    // Add thread link button if available
+    if (threadId && channelId && interaction.guildId) {
+      buttons.addComponents(
+        new ButtonBuilder()
+          .setLabel('💬 View Thread')
+          .setStyle(ButtonStyle.Link)
+          .setURL(`https://discord.com/channels/${interaction.guildId}/${channelId}/${threadId}`)
+      );
+    }
+
+    const gameButton = buttons;
 
     await interaction.editReply({
       content: '',

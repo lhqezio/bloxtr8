@@ -23,6 +23,10 @@ export const createListingSchema = z.object({
     .max(100, 'Category must be less than 100 characters'),
   sellerId: z.string().min(1, 'Seller ID is required'),
   guildId: z.string().optional(),
+  visibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
+  threadId: z.string().optional(),
+  channelId: z.string().optional(),
+  priceRange: z.string().optional(),
 });
 
 // Offer validation schemas
