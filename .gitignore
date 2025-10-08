@@ -106,7 +106,7 @@ ehthumbs.db
 Thumbs.db
 
 # Prisma
-prisma/migrations/
+**/prisma/migrations/
 packages/database/src/generated/
 
 # Turborepo
