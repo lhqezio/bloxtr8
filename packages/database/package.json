@@ -12,7 +12,7 @@
     "studio": "prisma studio",
     "reset": "prisma migrate reset",
     "format": "prisma format",
-    "build": "tsc",
+    "build": "tsc --build",
     "test": "jest --passWithNoTests",
     "lint": "eslint src --ext .ts,.tsx",
     "seed": "tsc -p tsconfig.json && node dist/seed.js",
