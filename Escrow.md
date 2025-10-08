@@ -6,9 +6,10 @@
 
 ## 1. Goals & constraints
 
-* Hold buyer payment securely until the seller has delivered the Roblox asset (game transfer, ownership proof or other agreed deliverable).
-* Support two rails: **Stripe (fiat card payments)** and **USDC on Base/Solana** (stablecoin). Rails already represented in schema (`Escrow.rail`, `StripeEscrow`, `StablecoinEscrow`).
+* Platform acts as a neutral escrow agent for Roblox game and asset trades. Hold buyer payment securely until the seller has delivered the Roblox asset (game transfer, ownership proof or other agreed deliverable).
+* Support two rails: **Stripe Connect (fiat card payments)** and **USDC on Base/Solana** (stablecoin). Rails already represented in schema (`Escrow.rail`, `StripeEscrow`, `StablecoinEscrow`).
 * Support milestone-based releases (partial releases) - schema supports `MilestoneEscrow`.
+* Allow dual-fee structure (charge both buyer and seller).
 * Provide clear dispute and audit trails (`Dispute`, `AuditLog`).
 * Comply with KYC tiers (use `User.kycTier` & `kycVerified`) to gate high-value trades.
 
@@ -88,7 +89,7 @@ These are optional but helpful for operations and debugging.
 ### Public buyer/seller flows
 
 * `POST /offers/:id/accept` — seller accepts offer => creates `Escrow` (AWAIT_FUNDS) and returns `clientPaymentInfo`.
-* `POST /escrows` — internal endpoint to create an escrow (rail chosen). Idempotent (idempotency-key supported).
+* `POST /escrow/create/:rail` — internal endpoint to create an escrow (rail chosen). Idempotent (idempotency-key supported).
 * `GET /escrows/:id` — returns escrow state, linked contract/offer and delivery info.
 * `POST /escrows/:id/confirm-payment` — (optional) manually notify platform that buyer paid off-band (for custodial fiat wires).
 * `POST /escrows/:id/delivery` — seller uploads delivery proof; creates `Delivery` record.
@@ -103,32 +104,191 @@ These are optional but helpful for operations and debugging.
 
 ### Webhook endpoints
 
-* `POST /webhooks/stripe` — handle PaymentIntent, Charge, Payout, Refund events.
+* `POST /webhooks/stripe` — handle PaymentIntent, Charge, Payout, Refund events. Verify webhook signatures with stripe.webhooks.constructEvent
 * `POST /webhooks/custodian` — handle on-chain deposit notifications & release confirmations.
 
 Security: validate provider signatures, dedupe events by `webhook_events.eventId`.
-
+- Use idempotency-key for create/release/refund calls
+- Always verify sellerAccountId belongs to your platform’s connected accounts
+- Log every transition to AuditLog
+- Use DB transactions for state transitions (see Section 15 in the doc)
 ---
 
 ## 6. Implementation details per rail
 
-### Stripe (card) — recommended flow
+### Stripe (Stripe Connect) — recommended flow
+[Why Stripe Connect and not Stripe](https://www.preczn.com/blog/stripe-vs-stripeconnect-everything-you-need-to-know)
+#### Recommended Settings
+- Use Express or Custom Connect accounts for sellers ([Stripe Connect Account Types](https://docs.stripe.com/connect/accounts))
+- Enable manual payouts to contorl when sellers can withdraw funds
+- Enable KYC verification for connected accounts.
+- Use test mode and test cards during integration
+#### Step-by-Step Flow
 
-1. Create PaymentIntent with `amount` & `metadata: { escrowId, offerId, contractId }`.
-2. Save `StripeEscrow.paymentIntentId`.
-3. Wait for `payment_intent.succeeded` → set `Escrow.status = FUNDS_HELD` and create `AuditLog`.
-4. On release:
+1. **Buyer initiates trade**: Creates an Offer → Seller accepts → Escrow record created with `status = AWAIT_FUNDS`.
+2. **Payment Intent created (Stripe Connect)**:
+   - Platform creates a `PaymentIntent` with `application_fee_amount` (buyer fee).
+   - Funds are collected into platform’s balance, pending transfer.
+3. **Buyer pays** via Stripe Checkout or client SDK → `payment_intent.succeeded` event triggers.
+4. **Platform marks escrow FUNDS_HELD** and waits for delivery.
+5. **Seller delivers asset** → buyer confirms or timeout auto-releases funds.
+6. **Platform releases funds** to the seller’s connected account via `stripe.transfers.create()` minus seller fee.
+7. **If dispute occurs**, freeze escrow → mark `DISPUTED` until resolved.
+8. **Refunds** are handled through `stripe.refunds.create()` when applicable.
+####  Stripe Docs References
+- [Design a Connect Integration](https://docs.stripe.com/connect/design-an-integration)
+- [Separate Charges and Transfers](https://docs.stripe.com/connect/separate-charges-and-transfers)
+- [Application Fees](https://docs.stripe.com/connect/direct-charges#collect-fees)
+- [Manual Payouts / Delayed Transfers](https://docs.stripe.com/connect/manual-payouts)
+#### Sample Code
+```ts
+import express from "express";
+import Stripe from "stripe";
+import bodyParser from "body-parser";
 
-   * If using Connect: create a `Transfer` to the seller's connected Stripe account, or create a payout if custodian holds funds.
-   * If not using Connect: platform pays out to seller via external transfer (e.g., bank), record `transferId`.
-5. On refund: call Stripe Refund API, save `refundId`, set `Escrow.status = REFUNDED`.
+const app = express();
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+app.use(bodyParser.json());
 
-Important notes:
+/**
+ * 1️⃣ Buyer initiates purchase — funds held in platform account
+ * Buyer is charged total amount including platform fee
+ */
+app.post("/api/escrow/create/stripe", async (req, res) => {
+  try {
+    const { amount, currency, buyerEmail, sellerAccountId, buyerFee } = req.body;
+    // create Escrow object in prisma
+    // await prisma.Escrow.create(); -> Escrow.status=AWAIT_FUNDS
 
-* Use Stripe Connect if you want sellers to receive funds directly. Connect reduces your custodial regulatory burden but requires onboarded accounts.
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount, // total buyer payment (e.g., price + buyer fee)
+      currency,
+      receipt_email: buyerEmail,
+      application_fee_amount: buyerFee, // bloxtr8 fee from buyer
+      transfer_data: {
+        destination: sellerAccountId, // funds route to seller later
+      },
+      metadata: { escrow: true },
+    });
+
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+      escrowId: paymentIntent.id,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+// to learn more https://docs.stripe.com/api/include_dependent_response_values?api-version=2025-09-30.preview
+
+/**
+ * 2️⃣ Platform releases funds — minus seller fee (bloxtr8's fee)
+ */
+app.post("/api/escrow/release/stripe", async (req, res) => {
+  try {
+    const { escrowId, sellerAccountId, releaseAmount, sellerFee } = req.body;
+
+    const pi = await stripe.paymentIntents.retrieve(escrowId);
+    if (pi.status !== "succeeded") {
+      return res.status(400).json({ error: "Payment not completed yet." });
+    }
+
+    // Transfer amount to seller minus seller fee
+    const netAmount = releaseAmount - sellerFee;
+    const transfer = await stripe.transfers.create({
+      amount: netAmount,
+      currency: pi.currency,
+      destination: sellerAccountId,
+      source_transaction: pi.charges.data[0].id,
+      metadata: { escrowId, sellerFee },
+    });
+
+    // Log release & update escrow DB status
+    // prisma.escrow.update({ where: { id: escrowId }, data: { status: 'RELEASED' } });
+
+    res.json({ success: true, transfer });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * 3️⃣ Refund buyer — if dispute or failure
+ */
+app.post("/api/escrow/refund/stripe", async (req, res) => {
+  try {
+    const { escrowId, refundAmount } = req.body;
+
+    const pi = await stripe.paymentIntents.retrieve(escrowId);
+    const chargeId = pi.charges.data[0].id;
+
+    const refund = await stripe.refunds.create({
+      charge: chargeId,
+      amount: refundAmount,
+    });
+    // update escrow DB -> REFUNDED
+    res.json({ success: true, refund });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * 4️⃣ Optional: Listen for Stripe webhooks (payment confirmation)
+ */
+app.post("/api/webhooks/stripe", bodyParser.raw({ type: "application/json" }), (req, res) => {
+  const sig = req.headers["stripe-signature"];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error("Webhook signature failed:", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === "payment_intent.succeeded") {
+    const paymentIntent = event.data.object;
+    console.log(`Payment ${paymentIntent.id} succeeded. Funds held in platform.`);
+    // update escrow DB -> FUNDS_HELD
+  }
+
+  res.json({ received: true });
+});
+
+app.listen(3001, () => console.log("Server running on port 3001"));
+```
+
+#### Important notes:
+
+* Using Stripe Connect if you want sellers to receive funds directly. Connect reduces your custodial regulatory burden but requires onboarded accounts.
+* The fund can only be hold for 90 days in Stripe Connect Custodial account.
 * Use idempotency keys for PaymentIntent/Transfer creation.
 * Store webhook events to `WebhookEvent` table to avoid double-processing.
-
+* Stripe Connect automatically handle platform(bloxtr8) fee.
+```ts
+const paymentIntent = await stripe.paymentIntents.create({
+  amount: 10000, // $100.00 total
+  currency: "usd",
+  transfer_data: {
+    destination: sellerAccountId, // Seller’s connected account
+  },
+  application_fee_amount: 500, // $5.00 platform fee
+});
+//Stripe will:
+//Charge the buyer $100.00
+//Transfer $95.00 to the seller (minus Stripe’s 2.9% + $0.30)
+//Deposit your $5.00 into bloxtr8 platform Stripe balance
+```
+#### Stripe Docs to Read
+1. [Stripe Connect Overview](https://stripe.com/docs/connect)
+2. [Seperate Charges and Transfers](https://stripe.com/docs/connect/separate-charges-and-transfers)
+3. [Application Fees](https://stripe.com/docs/connect/direct-charges#collect-fees)
+4. [Transfers to connected accounts](https://stripe.com/docs/connect/payouts)
+5. [Charging connected accounts](https://stripe.com/docs/connect/charges-on-behalf-of)
 ### USDC (Base) — recommended flow
 
 1. Generate a deposit address (or custodian subaddress) and save to `StablecoinEscrow.depositAddr`.
