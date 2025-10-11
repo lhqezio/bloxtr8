@@ -168,16 +168,21 @@ export async function fetchListings(
     if (filters.status) queryParams.append('status', filters.status);
     if (filters.category) queryParams.append('category', filters.category);
     if (filters.userId) queryParams.append('userId', filters.userId);
-    if (filters.visibility) queryParams.append('visibility', filters.visibility);
-    if (filters.priceRange) queryParams.append('priceRange', filters.priceRange);
+    if (filters.visibility)
+      queryParams.append('visibility', filters.visibility);
+    if (filters.priceRange)
+      queryParams.append('priceRange', filters.priceRange);
 
-    const response = await fetch(`${apiBaseUrl}/api/listings?${queryParams.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      signal: AbortSignal.timeout(10000),
-    });
+    const response = await fetch(
+      `${apiBaseUrl}/api/listings?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
 
     if (!response.ok) {
       return {
@@ -214,14 +219,17 @@ export async function updateListingThread(
   apiBaseUrl: string = getApiBaseUrl()
 ): Promise<{ success: true } | { success: false; error: ApiError }> {
   try {
-    const response = await fetch(`${apiBaseUrl}/api/listings/${listingId}/thread`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(threadData),
-      signal: AbortSignal.timeout(10000),
-    });
+    const response = await fetch(
+      `${apiBaseUrl}/api/listings/${listingId}/thread`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(threadData),
+        signal: AbortSignal.timeout(10000),
+      }
+    );
 
     if (!response.ok) {
       const errorData = (await response.json()) as ApiError;

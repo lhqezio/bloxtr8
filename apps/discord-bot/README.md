@@ -5,6 +5,7 @@ Discord bot for the Bloxtr8 marketplace with thread-based listing management.
 ## Features
 
 ### 🎮 Thread-Based Marketplace
+
 - **Dedicated threads** for each listing with rich embeds
 - **Smart organization** by price range ($1k-5k, $5k-25k, $25k-100k, $100k+)
 - **Cross-guild visibility** for PUBLIC listings
@@ -15,13 +16,14 @@ Discord bot for the Bloxtr8 marketplace with thread-based listing management.
 The bot automatically creates and manages 4 marketplace channels:
 
 - **📈 marketplace-1k-5k**: $1,000 - $5,000 deals
-- **💰 marketplace-5k-25k**: $5,000 - $25,000 deals  
+- **💰 marketplace-5k-25k**: $5,000 - $25,000 deals
 - **💎 marketplace-25k-100k**: $25,000 - $100,000 deals
 - **👑 marketplace-100k+**: $100,000+ premium deals
 
 ### ✅ Listing Features
 
 Each listing thread includes:
+
 - 🎮 Game thumbnail and details
 - 💰 Price and category
 - ✅ Seller verification badge (KYC tier)
@@ -32,32 +34,40 @@ Each listing thread includes:
 ## Commands
 
 ### `/listing create`
+
 Create a new verified game ownership listing.
 
 **Requirements:**
+
 - Account created (`/signup`)
 - Roblox account linked (`/link`)
 - KYC tier TIER_1+ (Roblox linked)
 
 **Flow:**
+
 1. Verify game ownership
 2. Fill listing details (title, price, category)
 3. Thread automatically created in price-range channel
 4. If PUBLIC: Synced to all guilds bot is in
 
 ### `/listing view` (Coming Soon)
+
 Browse listings with filters and thread links.
 
 ### `/signup`
+
 Create a Bloxtr8 account.
 
 ### `/link`
+
 Link your Roblox account for verification.
 
 ### `/verify`
+
 Check account verification status.
 
 ### `/help`
+
 Show available commands and information.
 
 ## Guild Setup
@@ -83,12 +93,12 @@ When the bot joins a server:
 ### Thread Creation Flow
 
 ```
-User creates listing → 
-  API stores in DB → 
-  Bot determines price range → 
-  Creates thread in correct channel → 
-  Posts rich embed + buttons → 
-  Updates DB with thread ID → 
+User creates listing →
+  API stores in DB →
+  Bot determines price range →
+  Creates thread in correct channel →
+  Posts rich embed + buttons →
+  Updates DB with thread ID →
   If PUBLIC: Syncs to all guilds
 ```
 
@@ -105,6 +115,7 @@ PUBLIC listings automatically appear in all servers:
 ### Rate Limiting
 
 To respect Discord API limits:
+
 - **2 seconds** between thread creations
 - **1 second** between page fetches
 - **5 seconds** between guild syncs
@@ -149,6 +160,7 @@ pnpm start
 ### Bot Permissions
 
 Required Discord permissions:
+
 - `MANAGE_CHANNELS` - Create marketplace channels
 - `MANAGE_THREADS` - Create and manage threads
 - `SEND_MESSAGES` - Post in channels/threads
@@ -188,12 +200,14 @@ apps/discord-bot/
 ## Key Utilities
 
 ### `marketplace.ts`
+
 - `setupMarketplaceChannels()` - Create channels on guild join
 - `getPriceRangeChannel()` - Get channel for price
 - `cleanupMarketplaceChannels()` - Cleanup on guild leave
 - `PRICE_RANGES` - Price range configuration
 
 ### `threadManager.ts`
+
 - `createListingThread()` - Create thread with embed
 - `updateListingThread()` - Update existing thread
 - `archiveListingThread()` - Archive thread
@@ -201,11 +215,13 @@ apps/discord-bot/
 - `createListingEmbed()` - Rich embed builder
 
 ### `listingSync.ts`
+
 - `syncPublicListingsToGuild()` - Sync all listings to one guild
 - `syncPublicListingsToAllGuilds()` - Sync across all guilds
 - `syncListingToAllGuilds()` - Sync one listing to all
 
 ### `apiClient.ts`
+
 - `createListing()` - Create listing via API
 - `fetchListings()` - Get listings with filters
 - `updateListingThread()` - Update thread data
@@ -247,16 +263,19 @@ CMD ["pnpm", "start"]
 ## Troubleshooting
 
 ### Bot not creating threads
+
 - Check bot has `MANAGE_THREADS` permission
 - Verify channels exist in guild
 - Check rate limits in logs
 
 ### Cross-guild sync not working
+
 - Ensure listings are set to `PUBLIC`
 - Check API_BASE_URL is correct
 - Verify bot is in multiple guilds
 
 ### Thread creation fails
+
 - Check Discord API rate limits
 - Verify channel still exists
 - Check bot permissions in channel
@@ -274,4 +293,3 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md)
 ## License
 
 ISC
-
