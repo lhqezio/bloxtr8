@@ -200,6 +200,7 @@ Create a new listing with optional thread information.
 ```
 
 **Fields**:
+
 - `title` (required): Listing title (max 255 chars)
 - `summary` (required): Description (max 1000 chars)
 - `price` (required): Price in cents (int, e.g., 50000 = $500.00)
@@ -230,6 +231,7 @@ Create a new listing with optional thread information.
 Get all listings with pagination and filters.
 
 **Query Parameters**:
+
 - `page` (optional): Page number (default: 1)
 - `limit` (optional): Items per page (default: 10, max: 50)
 - `status` (optional): Filter by status (`ACTIVE`, `SOLD`, `CANCELLED`)
@@ -291,6 +293,7 @@ Get all listings with pagination and filters.
 ```
 
 **Visibility Rules**:
+
 - If no `guildId`: Only `PUBLIC` listings returned
 - If `guildId` provided: `PUBLIC` + `PRIVATE` listings from that guild
 - Enables cross-guild marketplace experience
@@ -339,6 +342,7 @@ Get listing details by ID.
 ```
 
 **Errors**:
+
 - `404 Not Found`: Listing not found
 
 #### `PATCH /api/listings/:id/thread`
@@ -364,6 +368,7 @@ Update listing thread information.
 ```
 
 **Errors**:
+
 - `404 Not Found`: Listing not found
 - `400 Bad Request`: Invalid thread data
 

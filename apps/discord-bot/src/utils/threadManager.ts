@@ -1,3 +1,5 @@
+import { setTimeout } from 'timers';
+
 import {
   type Guild,
   type TextChannel,
@@ -9,7 +11,12 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from 'discord.js';
-import { getPriceRangeChannel, formatPrice } from './marketplace.js';
+
+import {
+  getPriceRangeChannel,
+  formatPrice,
+  validateBotPermissions,
+} from './marketplace.js';
 
 /**
  * Listing data structure for thread creation
@@ -45,16 +52,46 @@ export interface ListingData {
  */
 export function generateThreadName(listing: ListingData): string {
   const price = formatPrice(listing.price);
-  const statusEmoji = listing.status === 'ACTIVE' ? '🟢' : listing.status === 'SOLD' ? '🔴' : '⚪';
+  const statusEmoji =
+    listing.status === 'ACTIVE'
+      ? '🟢'
+      : listing.status === 'SOLD'
+        ? '🔴'
+        : '⚪';
   const verifiedEmoji = listing.user.kycVerified ? '✅' : '⚠️';
 
-  // Truncate title if too long (Discord thread name limit is 100 chars)
+  // Discord thread name limit is 50 characters (not 100!)
+  const maxLength = 50;
+
+  // Calculate space needed for fixed elements
+  // Format: "🟢 Title - $Price | ✅" (emojis + formatting)
+  const statusEmojiLength = statusEmoji.length; // 2
+  const verifiedEmojiLength = verifiedEmoji.length; // 2
+  const separatorLength = ' - $ | '.length; // 6
+  const priceLength = price.length; // variable, e.g., "15.00" = 5, "1.5k" = 4, "150k" = 4
+
+  // Reserve space for all fixed elements
+  const reservedSpace =
+    statusEmojiLength + verifiedEmojiLength + separatorLength + priceLength;
+
+  // Available space for title (leave 3 chars for "..." if needed)
+  const maxTitleLength = maxLength - reservedSpace - 3;
+
   let title = listing.title;
-  if (title.length > 40) {
-    title = title.substring(0, 37) + '...';
+  if (title.length > maxTitleLength) {
+    title = `${title.substring(0, maxTitleLength - 3)}...`;
   }
 
-  return `${statusEmoji} ${title} - $${price} | ${verifiedEmoji}`;
+  const threadName = `${statusEmoji}${title} - $${price}|${verifiedEmoji}`;
+
+  // Final safety check - ensure we never exceed 50 chars
+  if (threadName.length > 50) {
+    const overBy = threadName.length - 50;
+    title = `${title.substring(0, title.length - overBy - 3)}...`;
+    return `${statusEmoji}${title} - $${price}|${verifiedEmoji}`;
+  }
+
+  return threadName;
 }
 
 /**
@@ -78,7 +115,7 @@ export function createListingEmbed(listing: ListingData): EmbedBuilder {
       },
       {
         name: '📊 Status',
-        value: getStatusEmoji(listing.status) + ' ' + listing.status,
+        value: `${getStatusEmoji(listing.status)} ${listing.status}`,
         inline: true,
       },
       {
@@ -88,12 +125,18 @@ export function createListingEmbed(listing: ListingData): EmbedBuilder {
       },
       {
         name: '✅ Verification',
-        value: getVerificationBadge(listing.user.kycTier, listing.user.kycVerified),
+        value: getVerificationBadge(
+          listing.user.kycTier,
+          listing.user.kycVerified
+        ),
         inline: true,
       },
       {
         name: '🌐 Visibility',
-        value: listing.visibility === 'PUBLIC' ? '🌍 All Servers' : '🔒 This Server Only',
+        value:
+          listing.visibility === 'PUBLIC'
+            ? '🌍 All Servers'
+            : '🔒 This Server Only',
         inline: true,
       }
     )
@@ -102,7 +145,7 @@ export function createListingEmbed(listing: ListingData): EmbedBuilder {
   // Add Roblox game data if available
   if (listing.robloxSnapshots && listing.robloxSnapshots.length > 0) {
     const snapshot = listing.robloxSnapshots[0];
-    
+
     if (snapshot && snapshot.thumbnailUrl) {
       embed.setThumbnail(snapshot.thumbnailUrl);
     }
@@ -110,11 +153,10 @@ export function createListingEmbed(listing: ListingData): EmbedBuilder {
     if (snapshot && snapshot.gameName) {
       embed.addFields({
         name: '🎮 Game Information',
-        value:
-          `**Name:** ${snapshot.gameName}\n` +
-          `**Ownership:** ${snapshot.verifiedOwnership ? '✅ Verified' : '❌ Not Verified'}\n` +
-          (snapshot.playerCount ? `**Players:** ${snapshot.playerCount.toLocaleString()}\n` : '') +
-          (snapshot.visits ? `**Visits:** ${snapshot.visits.toLocaleString()}\n` : ''),
+        value: `**Name:** ${snapshot.gameName}
+**Ownership:** ${snapshot.verifiedOwnership ? '✅ Verified' : '❌ Not Verified'}
+${snapshot.playerCount ? `**Players:** ${snapshot.playerCount.toLocaleString()}` : ''}
+${snapshot.visits ? `**Visits:** ${snapshot.visits.toLocaleString()}` : ''}`,
         inline: false,
       });
     }
@@ -130,7 +172,9 @@ export function createListingEmbed(listing: ListingData): EmbedBuilder {
 /**
  * Create action buttons for listing thread
  */
-export function createListingButtons(listingId: string): ActionRowBuilder<ButtonBuilder> {
+export function createListingButtons(
+  listingId: string
+): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`make_offer_${listingId}`)
@@ -156,62 +200,97 @@ export function createListingButtons(listingId: string): ActionRowBuilder<Button
  */
 export async function createListingThread(
   listing: ListingData,
-  guild: Guild
+  guild: Guild,
+  maxRetries: number = 3
 ): Promise<PublicThreadChannel<boolean> | null> {
-  try {
-    // Get the appropriate channel for this price range
-    const channel = await getPriceRangeChannel(listing.price, guild);
+  let lastError: Error | null = null;
 
-    if (!channel) {
-      console.error(
-        `No price range channel found for price ${listing.price} in guild ${guild.id}`
-      );
-      return null;
-    }
-
-    // Create the thread
-    const threadName = generateThreadName(listing);
-    const createdThread = await channel.threads.create({
-      name: threadName,
-      type: ChannelType.PublicThread,
-      autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
-      reason: `New listing: ${listing.title}`,
-    });
-
-    // Type guard to ensure we have a public thread
-    if (createdThread.type !== ChannelType.PublicThread) {
-      console.error(`Created thread is not a public thread: ${createdThread.type}`);
-      return null;
-    }
-
-    const thread = createdThread as PublicThreadChannel<boolean>;
-
-    console.log(
-      `Created thread ${thread.id} for listing ${listing.id} in channel ${channel.name}`
+  // Validate bot permissions first
+  const permissions = validateBotPermissions(guild);
+  if (!permissions.hasThreadCreate) {
+    console.error(
+      `Bot lacks thread creation permissions in guild ${guild.id}: ${permissions.missingPermissions.join(', ')}`
     );
-
-    // Post the listing embed
-    const embed = createListingEmbed(listing);
-    const buttons = createListingButtons(listing.id);
-
-    await thread.send({
-      content: `**New ${listing.visibility === 'PUBLIC' ? 'Global' : 'Private'} Listing**`,
-      embeds: [embed],
-      components: [buttons],
-    });
-
-    // Pin the first message
-    const messages = await thread.messages.fetch({ limit: 1 });
-    const firstMessage = messages.first();
-    if (firstMessage) {
-      await firstMessage.pin();
-    }
-
-    return thread;
-  } catch (error) {
-    console.error(`Failed to create listing thread for ${listing.id}:`, error);
     return null;
   }
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Get the appropriate channel for this price range
+      const channel = await getPriceRangeChannel(listing.price, guild);
+
+      if (!channel) {
+        console.error(
+          `No price range channel found for price ${listing.price} in guild ${guild.id}`
+        );
+        return null;
+      }
+
+      // Create the thread
+      const threadName = generateThreadName(listing);
+      const createdThread = await channel.threads.create({
+        name: threadName,
+        type: ChannelType.PublicThread,
+        autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
+        reason: `New listing: ${listing.title}`,
+      });
+
+      // Type guard to ensure we have a public thread
+      if (createdThread.type !== ChannelType.PublicThread) {
+        console.error(
+          `Created thread is not a public thread: ${createdThread.type}`
+        );
+        return null;
+      }
+
+      const thread = createdThread as PublicThreadChannel<boolean>;
+
+      console.log(
+        `Created thread ${thread.id} for listing ${listing.id} in channel ${channel.name} (attempt ${attempt}/${maxRetries})`
+      );
+
+      // Post the listing embed
+      const embed = createListingEmbed(listing);
+      const buttons = createListingButtons(listing.id);
+
+      await thread.send({
+        content: `**New ${listing.visibility === 'PUBLIC' ? 'Global' : 'Private'} Listing**`,
+        embeds: [embed],
+        components: [buttons],
+      });
+
+      // Pin the first message
+      const messages = await thread.messages.fetch({ limit: 1 });
+      const firstMessage = messages.first();
+      if (firstMessage) {
+        await firstMessage.pin();
+      }
+
+      return thread;
+    } catch (error) {
+      lastError = error as Error;
+      console.error(
+        `Failed to create listing thread for ${listing.id} (attempt ${attempt}/${maxRetries}):`,
+        error
+      );
+
+      // Check if it's a rate limit error - wait longer before retry
+      if (error instanceof Error && error.message.includes('rate limit')) {
+        const retryDelay = Math.min(5000 * attempt, 30000); // Max 30 seconds
+        console.log(`Rate limited, waiting ${retryDelay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      } else if (attempt < maxRetries) {
+        // For other errors, wait 1 second before retry
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+  }
+
+  console.error(
+    `Failed to create listing thread for ${listing.id} after ${maxRetries} attempts. Last error:`,
+    lastError
+  );
+  return null;
 }
 
 /**
@@ -225,7 +304,7 @@ export async function updateListingThread(
   try {
     // Find the thread
     const allChannels = guild.channels.cache.filter(
-      (ch) => ch.type === ChannelType.GuildText
+      ch => ch.type === ChannelType.GuildText
     );
 
     let thread: PublicThreadChannel<boolean> | null = null;
@@ -265,7 +344,7 @@ export async function updateListingThread(
         },
         {
           name: '📊 Status',
-          value: getStatusEmoji(listing.status) + ' ' + listing.status,
+          value: `${getStatusEmoji(listing.status)} ${listing.status}`,
           inline: true,
         }
       )
@@ -292,7 +371,7 @@ export async function archiveListingThread(
 ): Promise<void> {
   try {
     const allChannels = guild.channels.cache.filter(
-      (ch) => ch.type === ChannelType.GuildText
+      ch => ch.type === ChannelType.GuildText
     );
 
     for (const [, channel] of allChannels) {
@@ -345,7 +424,7 @@ function getVerificationBadge(kycTier?: string, kycVerified?: boolean): string {
   if (kycVerified) {
     return '✅ Verified Seller';
   }
-  
+
   switch (kycTier) {
     case 'TIER_2':
       return '✅ Premium Verified';
@@ -356,4 +435,3 @@ function getVerificationBadge(kycTier?: string, kycVerified?: boolean): string {
       return '⚠️ Unverified';
   }
 }
-

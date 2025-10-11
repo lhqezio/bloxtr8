@@ -42,7 +42,7 @@ flowchart TD
     Y --> Z[Update listing with thread ID]
     Z --> AA[Show success with thread link]
     AA --> AB{Visibility PUBLIC?}
-    
+
     AB -->|YES| AC[Sync to all guilds]
     AB -->|NO| AD[End]
     AC --> AD
@@ -59,22 +59,22 @@ flowchart TD
     D --> F[💰 5k-25k]
     D --> G[💎 25k-100k]
     D --> H[👑 100k+]
-    
+
     E --> I[Post welcome msgs]
     F --> I
     G --> I
     H --> I
-    
+
     I --> J[Start background sync]
     J --> K[Fetch PUBLIC listings]
     K --> L{More listings?}
-    
+
     L -->|YES| M[Get next page]
     M --> N[Create threads]
     N --> O[Update with thread IDs]
     O --> P[Wait 2s rate limit]
     P --> L
-    
+
     L -->|NO| Q[Sync complete]
 ```
 
@@ -85,19 +85,19 @@ flowchart TD
     A[PUBLIC listing created] --> B[Thread in origin guild]
     B --> C[Get all guilds]
     C --> D{More guilds?}
-    
+
     D -->|YES| E[Next guild]
     E --> F{Origin guild?}
-    
+
     F -->|YES| D
     F -->|NO| G[Get price channel]
-    
+
     G --> H[Create thread]
     H --> I[Post embed]
     I --> J[Add buttons]
     J --> K[Wait 2s]
     K --> D
-    
+
     D -->|NO| L[Complete]
 ```
 
@@ -135,11 +135,13 @@ Each listing gets a dedicated thread with:
 ### Visibility System
 
 **PUBLIC Listings:**
+
 - Created as threads in ALL guilds bot is in
 - Synced automatically on guild join
 - Cross-server marketplace experience
 
 **PRIVATE Listings:**
+
 - Only visible in origin guild
 - Perfect for guild-exclusive deals
 - Full marketplace features
@@ -147,28 +149,33 @@ Each listing gets a dedicated thread with:
 ## Components
 
 ### 1. User Verification
+
 - Ensures user exists in database
 - Checks KYC tier (must be TIER_1+)
 - Verifies Roblox account linked
 
 ### 2. Game Ownership Verification
+
 - Validates user owns/admin of game
 - Creates verification record
 - Stores game metadata
 
 ### 3. Thread Creation
+
 - Determines price range from listing price
 - Creates thread in appropriate channel
 - Posts rich embed with all details
 - Adds interactive buttons
 
 ### 4. Cross-Guild Sync
+
 - Background process for PUBLIC listings
 - Rate-limited (2s between threads)
 - Updates database with thread IDs
 - Handles errors gracefully
 
 ### 5. Guild Setup
+
 - Auto-creates marketplace category
 - Creates 4 price-range channels
 - Sets proper permissions
@@ -196,6 +203,7 @@ To respect Discord API limits:
 ## Database Updates
 
 ### Listing Model
+
 ```prisma
 model Listing {
   // ... existing fields
@@ -207,11 +215,12 @@ model Listing {
 ```
 
 ### New Models
+
 ```prisma
 model MarketplaceChannel {
   id             String
   guildId        String
-  channelId      String  
+  channelId      String
   priceRange     String
   activeListings Int
 }
@@ -220,6 +229,7 @@ model MarketplaceChannel {
 ## API Endpoints
 
 ### Enhanced Endpoints
+
 - `POST /api/listings` - Now accepts `visibility`, `threadId`, `priceRange`
 - `GET /api/listings` - Filters by visibility and cross-guild
 - `PATCH /api/listings/:id/thread` - Updates thread information

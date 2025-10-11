@@ -1,5 +1,12 @@
+import { setTimeout } from 'timers';
+
 import type { Guild, Client } from 'discord.js';
-import { fetchListings, updateListingThread, type ListingResponse } from './apiClient.js';
+
+import {
+  fetchListings,
+  updateListingThread,
+  type ListingResponse,
+} from './apiClient.js';
 import { createListingThread, type ListingData } from './threadManager.js';
 
 /**
@@ -58,8 +65,8 @@ export async function syncPublicListingsToGuild(guild: Guild): Promise<void> {
             createdAt: new Date(listing.createdAt),
           };
 
-          // Create thread for this listing
-          const thread = await createListingThread(listingData, guild);
+          // Create thread for this listing (with retry mechanism)
+          const thread = await createListingThread(listingData, guild, 2);
 
           if (thread) {
             threadsCreated++;
@@ -76,10 +83,10 @@ export async function syncPublicListingsToGuild(guild: Guild): Promise<void> {
             );
           }
 
-          // Rate limiting: wait 2 seconds between thread creation
-          // Discord allows 50 threads per 10 minutes = ~1 per 12 seconds
-          // We'll be more conservative with 2 seconds
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+          // Rate limiting: wait 1 second between thread creation
+          // Discord allows 50 threads per 10 minutes per channel = 1 per 12 seconds per channel
+          // Since we're creating in different price-range channels, 1 second is safe
+          await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (error) {
           console.error(`Failed to sync listing ${listing.id}:`, error);
           // Continue with next listing
@@ -96,7 +103,7 @@ export async function syncPublicListingsToGuild(guild: Guild): Promise<void> {
 
       // Rate limiting between pages
       if (hasMore) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
 
@@ -113,7 +120,9 @@ export async function syncPublicListingsToGuild(guild: Guild): Promise<void> {
  * Sync all public listings across all guilds the bot is in
  * Useful for initial setup or after system maintenance
  */
-export async function syncPublicListingsToAllGuilds(client: Client): Promise<void> {
+export async function syncPublicListingsToAllGuilds(
+  client: Client
+): Promise<void> {
   console.log('Starting global listing sync across all guilds');
 
   const guilds = client.guilds.cache;
@@ -124,7 +133,9 @@ export async function syncPublicListingsToAllGuilds(client: Client): Promise<voi
 
   for (const [guildId, guild] of guilds) {
     try {
-      console.log(`\nSyncing guild ${successCount + failCount + 1}/${guilds.size}: ${guild.name}`);
+      console.log(
+        `\nSyncing guild ${successCount + failCount + 1}/${guilds.size}: ${guild.name}`
+      );
       await syncPublicListingsToGuild(guild);
       successCount++;
     } catch (error) {
@@ -133,7 +144,7 @@ export async function syncPublicListingsToAllGuilds(client: Client): Promise<voi
     }
 
     // Wait between guilds to avoid rate limits
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    await new Promise(resolve => setTimeout(resolve, 5000));
   }
 
   console.log(
@@ -183,15 +194,16 @@ export async function syncListingToAllGuilds(
         continue;
       }
 
-      const thread = await createListingThread(listingData, guild);
+      const thread = await createListingThread(listingData, guild, 2);
 
       if (thread) {
         successCount++;
         console.log(`Created thread in guild ${guildId}: ${thread.id}`);
       }
 
-      // Rate limiting
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Rate limiting: wait 1 second between cross-guild thread creation
+      // Discord allows 50 threads per 10 minutes per channel globally
+      await new Promise(resolve => setTimeout(resolve, 1000));
     } catch (error) {
       console.error(`Failed to create thread in guild ${guildId}:`, error);
       failCount++;
@@ -212,16 +224,7 @@ export async function cleanupListingThreads(
 ): Promise<void> {
   console.log(`Cleaning up threads for listing ${listingId}`);
 
-  // Fetch the listing to get thread information
-  const result = await fetchListings({
-    page: 1,
-    limit: 1,
-    // Note: This would need an endpoint to fetch by listing ID
-    // For now, we'll handle this differently
-  });
-
   // TODO: Implement thread cleanup across guilds
   // This would require tracking which guilds have threads for each listing
   console.log('Thread cleanup not yet fully implemented');
 }
-

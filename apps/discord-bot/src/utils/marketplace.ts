@@ -7,6 +7,53 @@ import {
 } from 'discord.js';
 
 /**
+ * Validate that the bot has required permissions for marketplace operations
+ */
+export function validateBotPermissions(guild: Guild): {
+  hasChannelCreate: boolean;
+  hasThreadCreate: boolean;
+  hasChannelManage: boolean;
+  missingPermissions: string[];
+} {
+  const botMember = guild.members.me;
+  if (!botMember) {
+    return {
+      hasChannelCreate: false,
+      hasThreadCreate: false,
+      hasChannelManage: false,
+      missingPermissions: ['Bot is not in guild'],
+    };
+  }
+
+  const permissions = botMember.permissions;
+  const missingPermissions: string[] = [];
+
+  const hasChannelCreate = permissions.has(PermissionFlagsBits.ManageChannels);
+  if (!hasChannelCreate) {
+    missingPermissions.push('Manage Channels (to create marketplace channels)');
+  }
+
+  const hasThreadCreate =
+    permissions.has(PermissionFlagsBits.CreatePublicThreads) ||
+    permissions.has(PermissionFlagsBits.CreatePrivateThreads);
+  if (!hasThreadCreate) {
+    missingPermissions.push(
+      'Create Public/Private Threads (to create listing threads)'
+    );
+  }
+
+  const hasChannelManage = permissions.has(PermissionFlagsBits.ManageChannels);
+  // This is the same as hasChannelCreate, but keeping for clarity
+
+  return {
+    hasChannelCreate,
+    hasThreadCreate,
+    hasChannelManage,
+    missingPermissions,
+  };
+}
+
+/**
  * Price range configuration for marketplace channels
  */
 export interface PriceRange {
@@ -87,13 +134,22 @@ export async function setupMarketplaceChannels(
 ): Promise<Map<string, TextChannel>> {
   console.log(`Setting up marketplace for guild: ${guild.name} (${guild.id})`);
 
+  // Validate bot permissions first
+  const permissions = validateBotPermissions(guild);
+  if (!permissions.hasChannelCreate) {
+    const errorMsg = `Bot lacks required permissions for marketplace setup: ${permissions.missingPermissions.join(', ')}`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+
   const channels = new Map<string, TextChannel>();
 
   try {
     // Create or find marketplace category
     let category: CategoryChannel | null = null;
     const existingCategory = guild.channels.cache.find(
-      (ch) => ch.type === ChannelType.GuildCategory && ch.name === '🏪 MARKETPLACE'
+      ch =>
+        ch.type === ChannelType.GuildCategory && ch.name === '🏪 MARKETPLACE'
     ) as CategoryChannel | undefined;
 
     if (existingCategory) {
@@ -107,7 +163,10 @@ export async function setupMarketplaceChannels(
         permissionOverwrites: [
           {
             id: guild.id,
-            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+            allow: [
+              PermissionFlagsBits.ViewChannel,
+              PermissionFlagsBits.ReadMessageHistory,
+            ],
             deny: [PermissionFlagsBits.SendMessages], // Only bot can create threads
           },
         ],
@@ -121,7 +180,7 @@ export async function setupMarketplaceChannels(
 
       // Check if channel already exists
       const existingChannel = guild.channels.cache.find(
-        (ch) => ch.type === ChannelType.GuildText && ch.name === channelName
+        ch => ch.type === ChannelType.GuildText && ch.name === channelName
       ) as TextChannel | undefined;
 
       if (existingChannel) {
@@ -141,8 +200,14 @@ export async function setupMarketplaceChannels(
         permissionOverwrites: [
           {
             id: guild.id,
-            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
-            deny: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.CreatePublicThreads],
+            allow: [
+              PermissionFlagsBits.ViewChannel,
+              PermissionFlagsBits.ReadMessageHistory,
+            ],
+            deny: [
+              PermissionFlagsBits.SendMessages,
+              PermissionFlagsBits.CreatePublicThreads,
+            ],
           },
         ],
       });
@@ -181,7 +246,10 @@ export async function setupMarketplaceChannels(
     );
     return channels;
   } catch (error) {
-    console.error(`Failed to setup marketplace channels for guild ${guild.id}:`, error);
+    console.error(
+      `Failed to setup marketplace channels for guild ${guild.id}:`,
+      error
+    );
     throw error;
   }
 }
@@ -196,9 +264,37 @@ export async function getPriceRangeChannel(
   const priceRange = getPriceRangeForPrice(priceInCents);
   const channelName = `${priceRange.emoji}-marketplace-${priceRange.range}`;
 
-  const channel = guild.channels.cache.find(
-    (ch) => ch.type === ChannelType.GuildText && ch.name === channelName
+  // First try to find in cache
+  let channel = guild.channels.cache.find(
+    ch => ch.type === ChannelType.GuildText && ch.name === channelName
   ) as TextChannel | undefined;
+
+  // If not found in cache, fetch from Discord API
+  if (!channel) {
+    try {
+      console.log(
+        `Channel ${channelName} not in cache, fetching from Discord API...`
+      );
+      await guild.channels.fetch();
+
+      // Try again after fetching
+      channel = guild.channels.cache.find(
+        ch => ch.type === ChannelType.GuildText && ch.name === channelName
+      ) as TextChannel | undefined;
+
+      if (channel) {
+        console.log(`Found channel ${channelName} after API fetch`);
+      } else {
+        console.warn(`Channel ${channelName} not found even after API fetch`);
+      }
+    } catch (error) {
+      console.error(
+        `Failed to fetch channels from Discord API for guild ${guild.id}:`,
+        error
+      );
+      // Continue with null return
+    }
+  }
 
   return channel || null;
 }
@@ -212,7 +308,8 @@ export async function cleanupMarketplaceChannels(guild: Guild): Promise<void> {
   try {
     // Find marketplace category
     const category = guild.channels.cache.find(
-      (ch) => ch.type === ChannelType.GuildCategory && ch.name === '🏪 MARKETPLACE'
+      ch =>
+        ch.type === ChannelType.GuildCategory && ch.name === '🏪 MARKETPLACE'
     ) as CategoryChannel | undefined;
 
     if (!category) {
@@ -222,7 +319,7 @@ export async function cleanupMarketplaceChannels(guild: Guild): Promise<void> {
 
     // Archive all threads in marketplace channels
     const marketplaceChannels = guild.channels.cache.filter(
-      (ch) => ch.type === ChannelType.GuildText && ch.parentId === category.id
+      ch => ch.type === ChannelType.GuildText && ch.parentId === category.id
     );
 
     for (const [, channel] of marketplaceChannels) {
@@ -237,7 +334,10 @@ export async function cleanupMarketplaceChannels(guild: Guild): Promise<void> {
 
     console.log(`Successfully cleaned up marketplace for guild ${guild.name}`);
   } catch (error) {
-    console.error(`Failed to cleanup marketplace for guild ${guild.id}:`, error);
+    console.error(
+      `Failed to cleanup marketplace for guild ${guild.id}:`,
+      error
+    );
   }
 }
 
@@ -249,7 +349,7 @@ export async function updateChannelListingCount(
   count: number
 ): Promise<void> {
   try {
-    const priceRange = PRICE_RANGES.find((r) => channel.name.includes(r.range));
+    const priceRange = PRICE_RANGES.find(r => channel.name.includes(r.range));
     if (!priceRange) return;
 
     const newName = `${priceRange.emoji}-marketplace-${priceRange.range}-${count}`;
@@ -263,4 +363,3 @@ export async function updateChannelListingCount(
     console.error(`Failed to update channel listing count:`, error);
   }
 }
-
