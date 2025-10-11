@@ -155,8 +155,7 @@ export async function setupMarketplaceChannels(
     // Create or find bloxtr8 category
     let category: CategoryChannel | null = null;
     const existingCategory = guild.channels.cache.find(
-      ch =>
-        ch.type === ChannelType.GuildCategory && ch.name === '🏪 BLOXTR8'
+      ch => ch.type === ChannelType.GuildCategory && ch.name === '🏪 BLOXTR8'
     ) as CategoryChannel | undefined;
 
     if (existingCategory) {
@@ -191,7 +190,9 @@ export async function setupMarketplaceChannels(
         // Check exact match first
         if (ch.name === channelName) return true;
         // Check if it matches the range pattern (handles Discord's name sanitization)
-        return ch.name.includes(`bloxtr8-${priceRange.range.replace(/\+/g, '')}`);
+        return ch.name.includes(
+          `bloxtr8-${priceRange.range.replace(/\+/g, '')}`
+        );
       }) as TextChannel | undefined;
 
       if (existingChannel) {
@@ -293,11 +294,15 @@ export async function getPriceRangeChannel(
         // Check exact match first
         if (ch.name === channelName) return true;
         // Check if it matches the range pattern (handles Discord's name sanitization)
-        return ch.name.includes(`bloxtr8-${priceRange.range.replace(/\+/g, '')}`);
+        return ch.name.includes(
+          `bloxtr8-${priceRange.range.replace(/\+/g, '')}`
+        );
       }) as TextChannel | undefined;
 
       if (!channel) {
-        console.warn(`Channel ${channelName} not found for price ${priceInCents}`);
+        console.warn(
+          `Channel ${channelName} not found for price ${priceInCents}`
+        );
       }
     } catch (error) {
       console.error(
@@ -320,8 +325,7 @@ export async function cleanupMarketplaceChannels(guild: Guild): Promise<void> {
   try {
     // Find bloxtr8 category
     const category = guild.channels.cache.find(
-      ch =>
-        ch.type === ChannelType.GuildCategory && ch.name === '🏪 BLOXTR8'
+      ch => ch.type === ChannelType.GuildCategory && ch.name === '🏪 BLOXTR8'
     ) as CategoryChannel | undefined;
 
     if (!category) {
@@ -344,10 +348,7 @@ export async function cleanupMarketplaceChannels(guild: Guild): Promise<void> {
 
     console.log(`Successfully cleaned up bloxtr8 for guild ${guild.name}`);
   } catch (error) {
-    console.error(
-      `Failed to cleanup bloxtr8 for guild ${guild.id}:`,
-      error
-    );
+    console.error(`Failed to cleanup bloxtr8 for guild ${guild.id}:`, error);
   }
 }
 

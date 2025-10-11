@@ -61,13 +61,21 @@ client.once('ready', async () => {
   console.log(`Logged in as ${client.user?.tag}`);
   console.log(`Bot is in ${client.guilds.cache.size} guild(s):`);
   client.guilds.cache.forEach(guild => {
-    console.log(`  - ${guild.name} (${guild.id}) - ${guild.memberCount} members`);
+    console.log(
+      `  - ${guild.name} (${guild.id}) - ${guild.memberCount} members`
+    );
   });
 
   if (client.guilds.cache.size === 0) {
-    console.warn('⚠️  WARNING: Bot is not in any guilds! Please invite the bot to a server.');
-    console.warn('⚠️  Use this invite link (replace CLIENT_ID with your bot\'s client ID):');
-    console.warn(`⚠️  https://discord.com/api/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID}&permissions=8&scope=bot%20applications.commands`);
+    console.warn(
+      '⚠️  WARNING: Bot is not in any guilds! Please invite the bot to a server.'
+    );
+    console.warn(
+      "⚠️  Use this invite link (replace CLIENT_ID with your bot's client ID):"
+    );
+    console.warn(
+      `⚠️  https://discord.com/api/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID}&permissions=8&scope=bot%20applications.commands`
+    );
   }
 
   // Register guild slash commands on startup
@@ -109,12 +117,16 @@ client.once('ready', async () => {
       .toJSON(),
     new SlashCommandBuilder()
       .setName('marketplace-setup')
-      .setDescription('Set up Bloxtr8 marketplace channels for this server (Admin only)')
+      .setDescription(
+        'Set up Bloxtr8 marketplace channels for this server (Admin only)'
+      )
       .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
       .toJSON(),
     new SlashCommandBuilder()
       .setName('sync-listings')
-      .setDescription('Manually sync all public listings to this server (Admin only)')
+      .setDescription(
+        'Manually sync all public listings to this server (Admin only)'
+      )
       .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
       .toJSON(),
     new SlashCommandBuilder()
@@ -203,7 +215,8 @@ client.on('interactionCreate', async interaction => {
         if (!interaction.replied && !interaction.deferred) {
           try {
             await interaction.reply({
-              content: 'An error occurred while syncing listings. Please try again.',
+              content:
+                'An error occurred while syncing listings. Please try again.',
               ephemeral: true,
             });
           } catch (replyError) {

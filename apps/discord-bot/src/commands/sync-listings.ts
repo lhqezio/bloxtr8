@@ -9,7 +9,9 @@ import { syncPublicListingsToGuild } from '../utils/listingSync.js';
 
 export const data = new SlashCommandBuilder()
   .setName('sync-listings')
-  .setDescription('Manually sync all public listings to this server (Admin only)')
+  .setDescription(
+    'Manually sync all public listings to this server (Admin only)'
+  )
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
 export async function execute(interaction: ChatInputCommandInteraction) {
@@ -41,8 +43,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     // Handle missing guild object
     if (!guild && interaction.guildId) {
       try {
-        const cachedGuild = interaction.client.guilds.cache.get(interaction.guildId);
-        
+        const cachedGuild = interaction.client.guilds.cache.get(
+          interaction.guildId
+        );
+
         if (cachedGuild) {
           guild = cachedGuild;
         } else {
@@ -66,7 +70,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       .setTitle('🔄 Syncing Listings...')
       .setDescription(
         `Starting sync of all public listings to **${guild.name}**...\n\n` +
-        `This may take a moment depending on the number of listings.`
+          `This may take a moment depending on the number of listings.`
       )
       .setColor('#ffaa00')
       .setTimestamp();
@@ -81,7 +85,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         .setTitle('✅ Sync Complete!')
         .setDescription(
           `Successfully synced all public listings to **${guild.name}**!\n\n` +
-          `All listings have been created or updated in their respective channels.`
+            `All listings have been created or updated in their respective channels.`
         )
         .setColor('#00ff00')
         .setTimestamp();
@@ -102,7 +106,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       .setTitle('❌ Sync Failed')
       .setDescription(
         `Failed to sync listings. Please check the bot's permissions and try again.\n\n` +
-        `**Error:** ${error instanceof Error ? error.message : 'Unknown error'}`
+          `**Error:** ${error instanceof Error ? error.message : 'Unknown error'}`
       )
       .setColor('#ff0000')
       .setTimestamp();
@@ -114,4 +118,3 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
   }
 }
-

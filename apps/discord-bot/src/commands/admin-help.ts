@@ -12,11 +12,10 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   // Check if user has admin permissions
-  if (
-    !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)
-  ) {
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
     return interaction.reply({
-      content: '❌ You need administrator permissions to view this information!',
+      content:
+        '❌ You need administrator permissions to view this information!',
       ephemeral: true,
     });
   }
@@ -38,7 +37,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           '• Sets proper permissions\n' +
           '• Posts welcome messages\n' +
           '• Auto-syncs existing public listings\n\n' +
-          '**Note:** Running multiple times is safe - it won\'t create duplicates',
+          "**Note:** Running multiple times is safe - it won't create duplicates",
         inline: false,
       },
       {
@@ -51,7 +50,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
           '• If listings appear missing\n' +
           '• To fix any sync issues\n' +
           '• To refresh listing threads\n\n' +
-          '**Note:** This will create threads for all public listings that don\'t already exist',
+          "**Note:** This will create threads for all public listings that don't already exist",
         inline: false,
       },
       {
@@ -102,4 +101,3 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
   await interaction.reply({ embeds: [embed], ephemeral: true });
 }
-

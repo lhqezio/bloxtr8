@@ -311,7 +311,9 @@ export async function updateListingThread(
     }
 
     // Fetch the thread
-    const thread = await (channel as TextChannel).threads.fetch(threadId).catch(() => null);
+    const thread = await (channel as TextChannel).threads
+      .fetch(threadId)
+      .catch(() => null);
     if (!thread) {
       console.warn(`Thread ${threadId} not found in channel ${channelId}`);
       return false;
@@ -326,7 +328,9 @@ export async function updateListingThread(
     // Archive thread if listing is no longer active
     if (listing.status !== 'ACTIVE' && !thread.archived) {
       await thread.setArchived(true, `Listing ${listing.status.toLowerCase()}`);
-      console.log(`Archived thread ${threadId} for ${listing.status} listing ${listing.id}`);
+      console.log(
+        `Archived thread ${threadId} for ${listing.status} listing ${listing.id}`
+      );
       return true;
     }
 
@@ -368,7 +372,9 @@ export async function archiveListingThread(
       return false;
     }
 
-    const thread = await (channel as TextChannel).threads.fetch(threadId).catch(() => null);
+    const thread = await (channel as TextChannel).threads
+      .fetch(threadId)
+      .catch(() => null);
     if (!thread) {
       return false;
     }

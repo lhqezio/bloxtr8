@@ -10,7 +10,9 @@ import { setupMarketplaceChannels } from '../utils/marketplace.js';
 
 export const data = new SlashCommandBuilder()
   .setName('marketplace-setup')
-  .setDescription('Set up Bloxtr8 marketplace channels for this server (Admin only)')
+  .setDescription(
+    'Set up Bloxtr8 marketplace channels for this server (Admin only)'
+  )
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
 
 export async function execute(interaction: ChatInputCommandInteraction) {
@@ -43,8 +45,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     if (!guild && interaction.guildId) {
       try {
         // Try to get from cache first
-        const cachedGuild = interaction.client.guilds.cache.get(interaction.guildId);
-        
+        const cachedGuild = interaction.client.guilds.cache.get(
+          interaction.guildId
+        );
+
         if (cachedGuild) {
           guild = cachedGuild;
         } else {
@@ -54,9 +58,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       } catch {
         throw new Error(
           `Could not access guild information. Please ensure:\n` +
-          `1. The bot is properly invited to this server\n` +
-          `2. The bot has been restarted since being invited\n` +
-          `3. The bot has the necessary permissions (Manage Channels, Manage Threads)`
+            `1. The bot is properly invited to this server\n` +
+            `2. The bot has been restarted since being invited\n` +
+            `3. The bot has the necessary permissions (Manage Channels, Manage Threads)`
         );
       }
     }

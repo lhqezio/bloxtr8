@@ -161,8 +161,8 @@ export async function syncPublicListingsToGuild(guild: Guild): Promise<void> {
 
       console.log(
         `Synced page ${pagination.page}/${pagination.totalPages} ` +
-        `(${totalSynced}/${pagination.total} listings, ` +
-        `${threadsCreated} created, ${threadsUpdated} updated, ${threadsArchived} archived)`
+          `(${totalSynced}/${pagination.total} listings, ` +
+          `${threadsCreated} created, ${threadsUpdated} updated, ${threadsArchived} archived)`
       );
 
       // Rate limiting between pages
@@ -173,7 +173,7 @@ export async function syncPublicListingsToGuild(guild: Guild): Promise<void> {
 
     console.log(
       `Listing sync complete for guild ${guild.name}: ` +
-      `${threadsCreated} created, ${threadsUpdated} updated, ${threadsArchived} archived out of ${totalSynced} listings`
+        `${threadsCreated} created, ${threadsUpdated} updated, ${threadsArchived} archived out of ${totalSynced} listings`
     );
   } catch (error) {
     console.error(`Failed to sync listings to guild ${guild.id}:`, error);
