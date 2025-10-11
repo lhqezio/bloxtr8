@@ -16,7 +16,11 @@ export const createListingSchema = z.object({
     .string()
     .min(1, 'Summary is required')
     .max(1000, 'Summary must be less than 1000 characters'),
-  price: z.number().int().positive('Price must be a positive integer'),
+  price: z
+    .number()
+    .int()
+    .positive('Price must be a positive integer')
+    .max(2147483647, 'Price exceeds maximum allowed value ($21,474,836.47)'),
   category: z
     .string()
     .min(1, 'Category is required')
@@ -33,7 +37,11 @@ export const createListingSchema = z.object({
 export const createOfferSchema = z.object({
   listingId: z.string().min(1, 'Listing ID is required'),
   buyerId: z.string().min(1, 'Buyer ID is required'),
-  amount: z.number().int().positive('Amount must be a positive integer'),
+  amount: z
+    .number()
+    .int()
+    .positive('Amount must be a positive integer')
+    .max(2147483647, 'Amount exceeds maximum allowed value ($21,474,836.47)'),
   conditions: z.string().optional(),
   expiry: z.string().datetime().optional(), // ISO datetime string
 });

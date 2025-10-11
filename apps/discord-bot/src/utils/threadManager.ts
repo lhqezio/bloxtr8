@@ -298,66 +298,58 @@ export async function createListingThread(
  */
 export async function updateListingThread(
   threadId: string,
-  listing: ListingData,
-  guild: Guild
-): Promise<void> {
+  channelId: string,
+  guild: Guild,
+  listing: ListingData
+): Promise<boolean> {
   try {
-    // Find the thread
-    const allChannels = guild.channels.cache.filter(
-      ch => ch.type === ChannelType.GuildText
-    );
-
-    let thread: PublicThreadChannel<boolean> | null = null;
-
-    for (const [, channel] of allChannels) {
-      const textChannel = channel as TextChannel;
-      const threads = await textChannel.threads.fetchActive();
-      const foundThread = threads.threads.get(threadId);
-
-      if (foundThread && foundThread.type === ChannelType.PublicThread) {
-        thread = foundThread as PublicThreadChannel<boolean>;
-        break;
-      }
+    // Fetch the channel
+    const channel = await guild.channels.fetch(channelId).catch(() => null);
+    if (!channel || !('threads' in channel)) {
+      console.warn(`Channel ${channelId} not found or doesn't support threads`);
+      return false;
     }
 
+    // Fetch the thread
+    const thread = await (channel as TextChannel).threads.fetch(threadId).catch(() => null);
     if (!thread) {
-      console.error(`Thread ${threadId} not found in guild ${guild.id}`);
-      return;
+      console.warn(`Thread ${threadId} not found in channel ${channelId}`);
+      return false;
     }
 
-    // Update thread name
-    const newName = generateThreadName(listing);
-    if (thread.name !== newName) {
-      await thread.setName(newName);
+    // Update thread name if listing changed
+    const newThreadName = generateThreadName(listing);
+    if (thread.name !== newThreadName) {
+      await thread.setName(newThreadName);
     }
 
-    // Post update message
-    const updateEmbed = new EmbedBuilder()
-      .setTitle('📢 Listing Updated')
-      .setDescription('This listing has been updated. See details below.')
-      .setColor(0xffa500)
-      .addFields(
-        {
-          name: '💰 Current Price',
-          value: `$${(listing.price / 100).toFixed(2)}`,
-          inline: true,
-        },
-        {
-          name: '📊 Status',
-          value: `${getStatusEmoji(listing.status)} ${listing.status}`,
-          inline: true,
-        }
-      )
-      .setTimestamp();
-
-    await thread.send({ embeds: [updateEmbed] });
-
-    // Archive thread if listing is sold or cancelled
-    if (listing.status === 'SOLD' || listing.status === 'CANCELLED') {
+    // Archive thread if listing is no longer active
+    if (listing.status !== 'ACTIVE' && !thread.archived) {
       await thread.setArchived(true, `Listing ${listing.status.toLowerCase()}`);
+      console.log(`Archived thread ${threadId} for ${listing.status} listing ${listing.id}`);
+      return true;
     }
+
+    // Update the thread's first message (embed)
+    const messages = await thread.messages.fetch({ limit: 1 });
+    const firstMessage = messages.first();
+
+    if (firstMessage && firstMessage.author.id === guild.client.user?.id) {
+      const embed = createListingEmbed(listing);
+      const buttons = createListingButtons(listing.id);
+
+      await firstMessage.edit({
+        embeds: [embed],
+        components: [buttons],
+      });
+
+      console.log(`Updated thread ${threadId} for listing ${listing.id}`);
+    }
+
+    return true;
   } catch (error) {
     console.error(`Failed to update thread ${threadId}:`, error);
+    return false;
   }
 }
 
@@ -366,27 +358,30 @@ export async function updateListingThread(
  */
 export async function archiveListingThread(
   threadId: string,
+  channelId: string,
   guild: Guild,
   reason: string
-): Promise<void> {
+): Promise<boolean> {
   try {
-    const allChannels = guild.channels.cache.filter(
-      ch => ch.type === ChannelType.GuildText
-    );
-
-    for (const [, channel] of allChannels) {
-      const textChannel = channel as TextChannel;
-      const threads = await textChannel.threads.fetchActive();
-      const thread = threads.threads.get(threadId);
-
-      if (thread) {
-        await thread.setArchived(true, reason);
-        console.log(`Archived thread ${threadId}: ${reason}`);
-        return;
-      }
+    const channel = await guild.channels.fetch(channelId).catch(() => null);
+    if (!channel || !('threads' in channel)) {
+      return false;
     }
+
+    const thread = await (channel as TextChannel).threads.fetch(threadId).catch(() => null);
+    if (!thread) {
+      return false;
+    }
+
+    if (!thread.archived) {
+      await thread.setArchived(true, reason);
+      console.log(`Archived thread ${threadId}: ${reason}`);
+    }
+
+    return true;
   } catch (error) {
     console.error(`Failed to archive thread ${threadId}:`, error);
+    return false;
   }
 }
 

@@ -155,7 +155,7 @@ model Listing {
   id        String        @id @default(cuid())
   title     String
   summary   String
-  price     Int // Price in cents
+  price     BigInt // Price in cents (BigInt to support large prices)
   category  String
   status    ListingStatus @default(ACTIVE)
   createdAt DateTime      @default(now())

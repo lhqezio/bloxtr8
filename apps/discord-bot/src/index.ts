@@ -10,6 +10,7 @@ import {
 } from 'discord.js';
 
 // Command handlers
+import { execute as handleAdminHelp } from './commands/admin-help.js';
 import { handleHelp } from './commands/help.js';
 import { handleLinkRoblox } from './commands/linkRoblox.js';
 import {
@@ -29,6 +30,7 @@ import {
   handleConsentAccept,
   handleConsentDecline,
 } from './commands/signup.js';
+import { execute as handleSyncListings } from './commands/sync-listings.js';
 import { handleVerify } from './commands/verify.js';
 // Marketplace utilities
 import { syncPublicListingsToGuild } from './utils/listingSync.js';
@@ -107,15 +109,18 @@ client.once('ready', async () => {
       .toJSON(),
     new SlashCommandBuilder()
       .setName('marketplace-setup')
-      .setDescription('Manually set up marketplace channels for this server')
-      .addBooleanOption(option =>
-        option
-          .setName('force')
-          .setDescription(
-            'Force setup even without admin permissions (for testing)'
-          )
-          .setRequired(false)
-      )
+      .setDescription('Set up Bloxtr8 marketplace channels for this server (Admin only)')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('sync-listings')
+      .setDescription('Manually sync all public listings to this server (Admin only)')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('admin-help')
+      .setDescription('Show admin commands and their usage (Admin only)')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
       .toJSON(),
     new SlashCommandBuilder()
       .setName('marketplace-test')
@@ -173,14 +178,10 @@ client.on('interactionCreate', async interaction => {
       await handleLinkRoblox(interaction);
     }
     if (interaction.commandName === 'marketplace-setup') {
-      console.log(
-        `Handling marketplace-setup command for guild ${interaction.guild?.id}`
-      );
       try {
         await handleMarketplaceSetup(interaction);
       } catch (error) {
         console.error(`Error in marketplace-setup command:`, error);
-        // Don't try to reply if already replied or deferred
         if (!interaction.replied && !interaction.deferred) {
           try {
             await interaction.reply({
@@ -194,10 +195,37 @@ client.on('interactionCreate', async interaction => {
         }
       }
     }
+    if (interaction.commandName === 'sync-listings') {
+      try {
+        await handleSyncListings(interaction);
+      } catch (error) {
+        console.error(`Error in sync-listings command:`, error);
+        if (!interaction.replied && !interaction.deferred) {
+          try {
+            await interaction.reply({
+              content: 'An error occurred while syncing listings. Please try again.',
+              ephemeral: true,
+            });
+          } catch (replyError) {
+            console.error('Failed to send error reply:', replyError);
+          }
+        }
+      }
+    }
+    if (interaction.commandName === 'admin-help') {
+      try {
+        await handleAdminHelp(interaction);
+      } catch (error) {
+        console.error(`Error in admin-help command:`, error);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: 'An error occurred while showing help. Please try again.',
+            ephemeral: true,
+          });
+        }
+      }
+    }
     if (interaction.commandName === 'marketplace-test') {
-      console.log(
-        `Handling marketplace-test command for guild ${interaction.guild?.id}`
-      );
       try {
         await handleMarketplaceTest(interaction);
       } catch (error) {

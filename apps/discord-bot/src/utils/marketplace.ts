@@ -66,25 +66,25 @@ export interface PriceRange {
 
 export const PRICE_RANGES: PriceRange[] = [
   {
-    range: '1k-5k',
-    min: 100000, // $1,000 in cents
+    range: 'under-5k',
+    min: 0, // $0 in cents
     max: 500000, // $5,000 in cents
-    emoji: '📈',
-    description: '$1,000 - $5,000 deals',
+    emoji: '💚',
+    description: 'Under $5,000 deals',
   },
   {
-    range: '5k-25k',
+    range: '5k-20k',
     min: 500000, // $5,000 in cents
-    max: 2500000, // $25,000 in cents
+    max: 2000000, // $20,000 in cents
     emoji: '💰',
-    description: '$5,000 - $25,000 deals',
+    description: '$5,000 - $20,000 deals',
   },
   {
-    range: '25k-100k',
-    min: 2500000, // $25,000 in cents
+    range: '20k-100k',
+    min: 2000000, // $20,000 in cents
     max: 10000000, // $100,000 in cents
     emoji: '💎',
-    description: '$25,000 - $100,000 deals',
+    description: '$20,000 - $100,000 deals',
   },
   {
     range: '100k+',
@@ -104,7 +104,14 @@ export function getPriceRangeForPrice(priceInCents: number): PriceRange {
       return range;
     }
   }
-  // Default to highest range
+  // Default to lowest range for prices below minimum, highest for prices above maximum
+  const firstRange = PRICE_RANGES[0];
+  if (!firstRange) {
+    throw new Error('No price ranges defined');
+  }
+  if (priceInCents < firstRange.min) {
+    return firstRange;
+  }
   const lastRange = PRICE_RANGES[PRICE_RANGES.length - 1];
   if (!lastRange) {
     throw new Error('No price ranges defined');
@@ -132,12 +139,12 @@ export function formatPrice(priceInCents: number): string {
 export async function setupMarketplaceChannels(
   guild: Guild
 ): Promise<Map<string, TextChannel>> {
-  console.log(`Setting up marketplace for guild: ${guild.name} (${guild.id})`);
+  console.log(`Setting up bloxtr8 for guild: ${guild.name} (${guild.id})`);
 
   // Validate bot permissions first
   const permissions = validateBotPermissions(guild);
   if (!permissions.hasChannelCreate) {
-    const errorMsg = `Bot lacks required permissions for marketplace setup: ${permissions.missingPermissions.join(', ')}`;
+    const errorMsg = `Bot lacks required permissions for bloxtr8 setup: ${permissions.missingPermissions.join(', ')}`;
     console.error(errorMsg);
     throw new Error(errorMsg);
   }
@@ -145,19 +152,18 @@ export async function setupMarketplaceChannels(
   const channels = new Map<string, TextChannel>();
 
   try {
-    // Create or find marketplace category
+    // Create or find bloxtr8 category
     let category: CategoryChannel | null = null;
     const existingCategory = guild.channels.cache.find(
       ch =>
-        ch.type === ChannelType.GuildCategory && ch.name === '🏪 MARKETPLACE'
+        ch.type === ChannelType.GuildCategory && ch.name === '🏪 BLOXTR8'
     ) as CategoryChannel | undefined;
 
     if (existingCategory) {
       category = existingCategory;
-      console.log(`Found existing marketplace category: ${category.id}`);
     } else {
       category = await guild.channels.create({
-        name: '🏪 MARKETPLACE',
+        name: '🏪 BLOXTR8',
         type: ChannelType.GuildCategory,
         position: 0,
         permissionOverwrites: [
@@ -171,23 +177,25 @@ export async function setupMarketplaceChannels(
           },
         ],
       });
-      console.log(`Created marketplace category: ${category.id}`);
     }
 
     // Create price range channels
     for (const priceRange of PRICE_RANGES) {
-      const channelName = `${priceRange.emoji}-marketplace-${priceRange.range}`;
+      const channelName = `${priceRange.emoji}-bloxtr8-${priceRange.range}`;
 
       // Check if channel already exists
-      const existingChannel = guild.channels.cache.find(
-        ch => ch.type === ChannelType.GuildText && ch.name === channelName
-      ) as TextChannel | undefined;
+      // Note: Discord sanitizes channel names, so we need to check with both the original
+      // and the sanitized version (e.g., "100k+" becomes "100k")
+      const existingChannel = guild.channels.cache.find(ch => {
+        if (ch.type !== ChannelType.GuildText) return false;
+        // Check exact match first
+        if (ch.name === channelName) return true;
+        // Check if it matches the range pattern (handles Discord's name sanitization)
+        return ch.name.includes(`bloxtr8-${priceRange.range.replace(/\+/g, '')}`);
+      }) as TextChannel | undefined;
 
       if (existingChannel) {
         channels.set(priceRange.range, existingChannel);
-        console.log(
-          `Found existing channel for ${priceRange.range}: ${existingChannel.id}`
-        );
         continue;
       }
 
@@ -213,7 +221,6 @@ export async function setupMarketplaceChannels(
       });
 
       channels.set(priceRange.range, channel);
-      console.log(`Created channel for ${priceRange.range}: ${channel.id}`);
 
       // Add a welcome message
       await channel.send({
@@ -242,12 +249,12 @@ export async function setupMarketplaceChannels(
     }
 
     console.log(
-      `Successfully set up ${channels.size} marketplace channels for guild ${guild.name}`
+      `Successfully set up ${channels.size} bloxtr8 channels for guild ${guild.name}`
     );
     return channels;
   } catch (error) {
     console.error(
-      `Failed to setup marketplace channels for guild ${guild.id}:`,
+      `Failed to setup bloxtr8 channels for guild ${guild.id}:`,
       error
     );
     throw error;
@@ -262,30 +269,35 @@ export async function getPriceRangeChannel(
   guild: Guild
 ): Promise<TextChannel | null> {
   const priceRange = getPriceRangeForPrice(priceInCents);
-  const channelName = `${priceRange.emoji}-marketplace-${priceRange.range}`;
+  const channelName = `${priceRange.emoji}-bloxtr8-${priceRange.range}`;
 
   // First try to find in cache
-  let channel = guild.channels.cache.find(
-    ch => ch.type === ChannelType.GuildText && ch.name === channelName
-  ) as TextChannel | undefined;
+  // Note: Discord sanitizes channel names, so we need to check with both the original
+  // and the sanitized version (e.g., "100k+" becomes "100k")
+  let channel = guild.channels.cache.find(ch => {
+    if (ch.type !== ChannelType.GuildText) return false;
+    // Check exact match first
+    if (ch.name === channelName) return true;
+    // Check if it matches the range pattern (handles Discord's name sanitization)
+    return ch.name.includes(`bloxtr8-${priceRange.range.replace(/\+/g, '')}`);
+  }) as TextChannel | undefined;
 
   // If not found in cache, fetch from Discord API
   if (!channel) {
     try {
-      console.log(
-        `Channel ${channelName} not in cache, fetching from Discord API...`
-      );
       await guild.channels.fetch();
 
-      // Try again after fetching
-      channel = guild.channels.cache.find(
-        ch => ch.type === ChannelType.GuildText && ch.name === channelName
-      ) as TextChannel | undefined;
+      // Try again after fetching with sanitization check
+      channel = guild.channels.cache.find(ch => {
+        if (ch.type !== ChannelType.GuildText) return false;
+        // Check exact match first
+        if (ch.name === channelName) return true;
+        // Check if it matches the range pattern (handles Discord's name sanitization)
+        return ch.name.includes(`bloxtr8-${priceRange.range.replace(/\+/g, '')}`);
+      }) as TextChannel | undefined;
 
-      if (channel) {
-        console.log(`Found channel ${channelName} after API fetch`);
-      } else {
-        console.warn(`Channel ${channelName} not found even after API fetch`);
+      if (!channel) {
+        console.warn(`Channel ${channelName} not found for price ${priceInCents}`);
       }
     } catch (error) {
       console.error(
@@ -303,39 +315,37 @@ export async function getPriceRangeChannel(
  * Clean up marketplace channels when bot leaves guild
  */
 export async function cleanupMarketplaceChannels(guild: Guild): Promise<void> {
-  console.log(`Cleaning up marketplace for guild: ${guild.name} (${guild.id})`);
+  console.log(`Cleaning up bloxtr8 for guild: ${guild.name} (${guild.id})`);
 
   try {
-    // Find marketplace category
+    // Find bloxtr8 category
     const category = guild.channels.cache.find(
       ch =>
-        ch.type === ChannelType.GuildCategory && ch.name === '🏪 MARKETPLACE'
+        ch.type === ChannelType.GuildCategory && ch.name === '🏪 BLOXTR8'
     ) as CategoryChannel | undefined;
 
     if (!category) {
-      console.log('No marketplace category found, nothing to clean up');
       return;
     }
 
-    // Archive all threads in marketplace channels
-    const marketplaceChannels = guild.channels.cache.filter(
+    // Archive all threads in bloxtr8 channels
+    const bloxtr8Channels = guild.channels.cache.filter(
       ch => ch.type === ChannelType.GuildText && ch.parentId === category.id
     );
 
-    for (const [, channel] of marketplaceChannels) {
+    for (const [, channel] of bloxtr8Channels) {
       const textChannel = channel as TextChannel;
       const threads = await textChannel.threads.fetchActive();
 
       for (const [, thread] of threads.threads) {
         await thread.setArchived(true, 'Bot leaving guild');
-        console.log(`Archived thread: ${thread.name}`);
       }
     }
 
-    console.log(`Successfully cleaned up marketplace for guild ${guild.name}`);
+    console.log(`Successfully cleaned up bloxtr8 for guild ${guild.name}`);
   } catch (error) {
     console.error(
-      `Failed to cleanup marketplace for guild ${guild.id}:`,
+      `Failed to cleanup bloxtr8 for guild ${guild.id}:`,
       error
     );
   }
@@ -357,7 +367,6 @@ export async function updateChannelListingCount(
     // Only update if name changed
     if (channel.name !== newName) {
       await channel.setName(newName);
-      console.log(`Updated channel name to ${newName}`);
     }
   } catch (error) {
     console.error(`Failed to update channel listing count:`, error);
