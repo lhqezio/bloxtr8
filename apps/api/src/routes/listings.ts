@@ -3,6 +3,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 
 import { AppError } from '../middleware/errorHandler.js';
 import { createListingSchema } from '../schemas/index.js';
+import { serializeBigInt } from '../utils/bigint.js';
 
 const router: ExpressRouter = Router();
 
@@ -200,18 +201,20 @@ router.get('/listings', async (req, res, next) => {
     const hasPrev = page > 1;
     const hasNext = page < totalPages;
 
-    // Return paginated results
-    res.status(200).json({
-      listings,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasPrev,
-        hasNext,
-      },
-    });
+    // Return paginated results with BigInt serialization
+    res.status(200).json(
+      serializeBigInt({
+        listings,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasPrev,
+          hasNext,
+        },
+      })
+    );
   } catch (error) {
     next(error);
   }
@@ -279,8 +282,8 @@ router.get('/listings/:id', async (req, res, next) => {
       throw new AppError('Listing not found', 404);
     }
 
-    // Return listing data
-    res.status(200).json(listing);
+    // Return listing data with BigInt serialization
+    res.status(200).json(serializeBigInt(listing));
   } catch (error) {
     next(error);
   }

@@ -17,7 +17,7 @@ export interface Listing {
   id: string;
   title: string;
   summary: string;
-  price: number; // in cents
+  price: string; // in cents (stored as BigInt, serialized as string)
   category: string;
   status: 'ACTIVE' | 'INACTIVE' | 'SOLD';
   userId: string;

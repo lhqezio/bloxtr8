@@ -17,10 +17,18 @@ export const createListingSchema = z.object({
     .min(1, 'Summary is required')
     .max(1000, 'Summary must be less than 1000 characters'),
   price: z
-    .number()
-    .int()
-    .positive('Price must be a positive integer')
-    .max(2147483647, 'Price exceeds maximum allowed value ($21,474,836.47)'),
+    .union([z.string(), z.number()])
+    .refine(
+      val => {
+        const num = typeof val === 'string' ? BigInt(val) : BigInt(val);
+        return num > 0n;
+      },
+      { message: 'Price must be a positive integer' }
+    )
+    .transform(val => {
+      // Convert to BigInt for database storage
+      return typeof val === 'string' ? BigInt(val) : BigInt(val);
+    }),
   category: z
     .string()
     .min(1, 'Category is required')

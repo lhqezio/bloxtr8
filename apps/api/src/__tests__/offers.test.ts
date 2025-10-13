@@ -39,7 +39,7 @@ describe('Offers API Routes', () => {
     const mockActiveListing = {
       id: 'test-listing-id',
       status: 'ACTIVE',
-      price: 10000,
+      price: BigInt(10000), // BigInt to match Prisma schema
       userId: 'test-seller-id',
     };
 

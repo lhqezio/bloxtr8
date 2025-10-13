@@ -6,7 +6,7 @@ const mockCreate = jest.fn().mockResolvedValue({
   id: 'test-listing-id',
   title: 'Test Listing',
   summary: 'Test summary',
-  price: 10000,
+  price: BigInt(10000), // BigInt to match Prisma schema
   category: 'Test Category',
   userId: 'test-seller-id',
   guildId: null,
@@ -144,7 +144,7 @@ describe('Listings API Routes', () => {
       id: 'test-listing-id',
       title: 'Test Listing',
       summary: 'Test summary for the listing',
-      price: 10000,
+      price: BigInt(10000), // BigInt to match Prisma schema
       category: 'Test Category',
       status: 'ACTIVE',
       userId: 'test-seller-id',
@@ -208,14 +208,14 @@ describe('Listings API Routes', () => {
         .expect(200);
 
       expect(response.headers['content-type']).toMatch(/application\/json/);
-      expect(response.body).toEqual(mockListing);
+      // Note: price is now serialized as string due to BigInt
       expect(response.body).toHaveProperty('id', 'test-listing-id');
       expect(response.body).toHaveProperty('title', 'Test Listing');
       expect(response.body).toHaveProperty(
         'summary',
         'Test summary for the listing'
       );
-      expect(response.body).toHaveProperty('price', 10000);
+      expect(response.body).toHaveProperty('price', '10000'); // BigInt serialized as string
       expect(response.body).toHaveProperty('category', 'Test Category');
       expect(response.body).toHaveProperty('status', 'ACTIVE');
       expect(response.body).toHaveProperty('userId', 'test-seller-id');
@@ -237,7 +237,8 @@ describe('Listings API Routes', () => {
         .expect(200);
 
       expect(response.headers['content-type']).toMatch(/application\/json/);
-      expect(response.body).toEqual(listingWithGuild);
+      // Note: price is now serialized as string due to BigInt
+      expect(response.body).toHaveProperty('price', '10000'); // BigInt serialized as string
       expect(response.body).toHaveProperty('guildId', 'test-guild-id');
     });
 

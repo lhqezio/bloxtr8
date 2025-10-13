@@ -98,9 +98,15 @@ export const PRICE_RANGES: PriceRange[] = [
 /**
  * Get the appropriate price range for a listing price
  */
-export function getPriceRangeForPrice(priceInCents: number): PriceRange {
+export function getPriceRangeForPrice(
+  priceInCents: number | string
+): PriceRange {
+  // Convert string to number for comparison
+  const price =
+    typeof priceInCents === 'string' ? Number(priceInCents) : priceInCents;
+
   for (const range of PRICE_RANGES) {
-    if (priceInCents >= range.min && priceInCents < range.max) {
+    if (price >= range.min && price < range.max) {
       return range;
     }
   }
@@ -109,7 +115,7 @@ export function getPriceRangeForPrice(priceInCents: number): PriceRange {
   if (!firstRange) {
     throw new Error('No price ranges defined');
   }
-  if (priceInCents < firstRange.min) {
+  if (price < firstRange.min) {
     return firstRange;
   }
   const lastRange = PRICE_RANGES[PRICE_RANGES.length - 1];
@@ -122,8 +128,11 @@ export function getPriceRangeForPrice(priceInCents: number): PriceRange {
 /**
  * Format price in dollars
  */
-export function formatPrice(priceInCents: number): string {
-  const dollars = priceInCents / 100;
+export function formatPrice(priceInCents: number | string): string {
+  // Convert string to number for formatting
+  const price =
+    typeof priceInCents === 'string' ? Number(priceInCents) : priceInCents;
+  const dollars = price / 100;
   if (dollars >= 1000000) {
     return `${(dollars / 1000000).toFixed(2)}M`;
   } else if (dollars >= 1000) {
@@ -266,7 +275,7 @@ export async function setupMarketplaceChannels(
  * Get the channel for a specific price range in a guild
  */
 export async function getPriceRangeChannel(
-  priceInCents: number,
+  priceInCents: number | string,
   guild: Guild
 ): Promise<TextChannel | null> {
   const priceRange = getPriceRangeForPrice(priceInCents);

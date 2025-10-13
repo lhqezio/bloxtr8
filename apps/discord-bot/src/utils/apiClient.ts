@@ -9,7 +9,7 @@ const ApiResponseSchema = z.object({
 export interface CreateListingRequest {
   title: string;
   summary: string;
-  price: number;
+  price: number | string; // Accept both number and string (will be converted to BigInt)
   category: string;
   sellerId: string;
   guildId?: string;
@@ -43,7 +43,7 @@ export interface ListingResponse {
   id: string;
   title: string;
   summary: string;
-  price: number;
+  price: string; // BigInt serialized as string
   category: string;
   status: string;
   visibility: string;

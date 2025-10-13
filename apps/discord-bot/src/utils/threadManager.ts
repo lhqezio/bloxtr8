@@ -25,7 +25,7 @@ export interface ListingData {
   id: string;
   title: string;
   summary: string;
-  price: number;
+  price: string; // BigInt serialized as string
   category: string;
   status: string;
   visibility: string;
@@ -64,10 +64,10 @@ export function generateThreadName(listing: ListingData): string {
   const maxLength = 50;
 
   // Calculate space needed for fixed elements
-  // Format: "🟢 Title - $Price | ✅" (emojis + formatting)
+  // Format: "🟢Title - $Price|✅" (emojis + formatting)
   const statusEmojiLength = statusEmoji.length; // 2
   const verifiedEmojiLength = verifiedEmoji.length; // 2
-  const separatorLength = ' - $ | '.length; // 6
+  const separatorLength = ' - $'.length + '|'.length; // 5 (not 7!)
   const priceLength = price.length; // variable, e.g., "15.00" = 5, "1.5k" = 4, "150k" = 4
 
   // Reserve space for all fixed elements
@@ -105,7 +105,7 @@ export function createListingEmbed(listing: ListingData): EmbedBuilder {
     .addFields(
       {
         name: '💰 Price',
-        value: `$${(listing.price / 100).toFixed(2)}`,
+        value: `$${(Number(listing.price) / 100).toFixed(2)}`,
         inline: true,
       },
       {
