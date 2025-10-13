@@ -146,16 +146,32 @@ export function formatPrice(priceInCents: number | string | bigint): string {
       ? priceInCents
       : BigInt(priceInCents.toString());
 
-  // Convert to dollars (divide by 100) using BigInt arithmetic
-  const dollars = Number(priceBigInt) / 100;
+  // Use BigInt arithmetic to get dollars and cents
+  const dollarsBigInt = priceBigInt / 100n;
+  const centsBigInt = priceBigInt % 100n;
+
+  // Define thresholds as BigInt (in dollars)
+  const oneMillionDollars = 1000000n;
+  const oneThousandDollars = 1000n;
 
   // Format based on magnitude
-  if (dollars >= 1000000) {
-    return `${(dollars / 1000000).toFixed(2)}M`;
-  } else if (dollars >= 1000) {
-    return `${(dollars / 1000).toFixed(0)}k`;
+  if (dollarsBigInt >= oneMillionDollars) {
+    // For millions: calculate using BigInt arithmetic to preserve precision
+    const millions = dollarsBigInt / oneMillionDollars;
+    const remainder = dollarsBigInt % oneMillionDollars;
+    // Calculate decimal part: (remainder * 100) / 1M gives us 2 decimal places
+    const decimalPart = (remainder * 100n) / oneMillionDollars;
+    return `${millions}.${decimalPart.toString().padStart(2, '0')}M`;
+  } else if (dollarsBigInt >= oneThousandDollars) {
+    // For thousands: format with 0 decimals
+    const thousands = dollarsBigInt / oneThousandDollars;
+    return `${thousands}k`;
   }
-  return dollars.toFixed(2);
+
+  // For smaller amounts (< $1000), safe to convert to Number for formatting
+  const dollars = Number(dollarsBigInt);
+  const cents = Number(centsBigInt);
+  return `${dollars}.${cents.toString().padStart(2, '0')}`;
 }
 
 /**
