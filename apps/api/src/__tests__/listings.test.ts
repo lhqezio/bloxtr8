@@ -255,10 +255,37 @@ describe('Listings API Routes', () => {
           price: true,
           category: true,
           status: true,
+          visibility: true,
+          threadId: true,
+          channelId: true,
+          priceRange: true,
           createdAt: true,
           updatedAt: true,
           userId: true,
           guildId: true,
+          user: {
+            select: {
+              name: true,
+              kycTier: true,
+              kycVerified: true,
+            },
+          },
+          guild: {
+            select: {
+              name: true,
+              discordId: true,
+            },
+          },
+          robloxSnapshots: {
+            select: {
+              gameName: true,
+              gameDescription: true,
+              thumbnailUrl: true,
+              playerCount: true,
+              visits: true,
+              verifiedOwnership: true,
+            },
+          },
         },
       });
     });
