@@ -69,6 +69,30 @@ export const contractIdSchema = z.object({
   id: z.string().min(1, 'Contract ID is required'),
 });
 
+// Offer action schemas
+export const counterOfferSchema = z.object({
+  amount: z
+    .union([z.string(), z.number()])
+    .refine(
+      val => {
+        try {
+          const num = BigInt(val);
+          return num > 0n;
+        } catch {
+          return false;
+        }
+      },
+      { message: 'Amount must be a positive integer' }
+    )
+    .transform(val => BigInt(val)),
+  conditions: z.string().optional(),
+  expiry: z.string().datetime().optional(), // ISO datetime string
+});
+
+export const offerActionSchema = z.object({
+  userId: z.string().min(1, 'User ID is required'), // For authorization
+});
+
 // Common validation schemas
 export const discordIdSchema = z.object({
   discordId: z.string().min(1, 'Discord ID is required'),

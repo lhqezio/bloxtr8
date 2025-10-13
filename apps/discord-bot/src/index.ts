@@ -38,6 +38,8 @@ import {
   setupMarketplaceChannels,
   cleanupMarketplaceChannels,
 } from './utils/marketplace.js';
+// Offer notification service
+import { OfferNotificationService } from './services/offerNotifications.js';
 
 // Load environment variables
 config();
@@ -56,6 +58,9 @@ const client = new Client({
     Partials.GuildMember, // Required for proper guild member data in threads
   ],
 });
+
+// Initialize offer notification service
+let offerNotificationService: OfferNotificationService | null = null;
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user?.tag}`);
@@ -77,6 +82,13 @@ client.once('ready', async () => {
       `⚠️  https://discord.com/api/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID}&permissions=8&scope=bot%20applications.commands`
     );
   }
+
+  // Start offer notification service
+  const apiBaseUrl =
+    process.env.API_BASE_URL || 'http://localhost:3000';
+  offerNotificationService = new OfferNotificationService(client, apiBaseUrl);
+  offerNotificationService.start(30000); // Poll every 30 seconds
+  console.log('✅ Offer notification service started');
 
   // Register guild slash commands on startup
   const commands = [
@@ -334,6 +346,11 @@ client.on('guildDelete', async guild => {
 // Graceful shutdown handlers
 async function gracefulShutdown(signal: string) {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
+
+  // Stop offer notification service
+  if (offerNotificationService) {
+    offerNotificationService.stop();
+  }
 
   // Cleanup verification cache
   cleanupVerificationCache();
