@@ -74,11 +74,12 @@ export function generateThreadName(listing: ListingData): string {
   const reservedSpace =
     statusEmojiLength + verifiedEmojiLength + separatorLength + priceLength;
 
-  // Available space for title (leave 3 chars for "..." if needed)
-  const maxTitleLength = maxLength - reservedSpace - 3;
+  // Available space for title
+  const maxTitleLength = maxLength - reservedSpace;
 
   let title = listing.title;
   if (title.length > maxTitleLength) {
+    // Need ellipsis: use (maxTitleLength - 3) chars + "..."
     title = `${title.substring(0, maxTitleLength - 3)}...`;
   }
 
@@ -87,7 +88,10 @@ export function generateThreadName(listing: ListingData): string {
   // Final safety check - ensure we never exceed 50 chars
   if (threadName.length > 50) {
     const overBy = threadName.length - 50;
-    title = `${title.substring(0, title.length - overBy - 3)}...`;
+    // Remove existing ellipsis if present, shorten by overBy, add ellipsis back
+    const hasEllipsis = title.endsWith('...');
+    const baseTitle = hasEllipsis ? title.slice(0, -3) : title;
+    title = `${baseTitle.substring(0, baseTitle.length - overBy)}...`;
     return `${statusEmoji}${title} - $${price}|${verifiedEmoji}`;
   }
 
