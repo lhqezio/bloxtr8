@@ -148,7 +148,7 @@ export function buildOfferDeclinedEmbed(
         inline: true,
       },
       {
-        name: '💡 What\'s Next?',
+        name: "💡 What's Next?",
         value: 'You can make a new offer or browse other listings.',
       }
     )
@@ -222,4 +222,3 @@ export function buildCounterOfferEmbed(
 
   return embed;
 }
-

@@ -85,7 +85,9 @@ describe('Offer Negotiation API Routes', () => {
         .send({ userId: 'wrong-user-id' })
         .expect(403);
 
-      expect(response.body.detail).toContain('Only the seller can accept offers');
+      expect(response.body.detail).toContain(
+        'Only the seller can accept offers'
+      );
     });
 
     it('should return 400 when offer is already processed', async () => {
@@ -100,7 +102,9 @@ describe('Offer Negotiation API Routes', () => {
         .send({ userId: 'test-seller-id' })
         .expect(400);
 
-      expect(response.body.detail).toContain('Cannot accept offer with status: ACCEPTED');
+      expect(response.body.detail).toContain(
+        'Cannot accept offer with status: ACCEPTED'
+      );
     });
 
     it('should return 400 when offer has expired', async () => {
@@ -136,7 +140,9 @@ describe('Offer Negotiation API Routes', () => {
         .expect(400);
 
       expect(response.body.detail).toContain('Seller no longer owns the asset');
-      expect(mockReverifyAssetOwnership).toHaveBeenCalledWith('test-listing-id');
+      expect(mockReverifyAssetOwnership).toHaveBeenCalledWith(
+        'test-listing-id'
+      );
     });
 
     it('should successfully accept offer with valid verification', async () => {
@@ -208,7 +214,9 @@ describe('Offer Negotiation API Routes', () => {
         .send({ userId: 'test-seller-id' })
         .expect(400);
 
-      expect(response.body.detail).toContain('Cannot decline offer with status: DECLINED');
+      expect(response.body.detail).toContain(
+        'Cannot decline offer with status: DECLINED'
+      );
     });
 
     it('should return 403 when user is not the seller', async () => {
@@ -219,7 +227,9 @@ describe('Offer Negotiation API Routes', () => {
         .send({ userId: 'wrong-user-id' })
         .expect(403);
 
-      expect(response.body.detail).toContain('Only the seller can decline offers');
+      expect(response.body.detail).toContain(
+        'Only the seller can decline offers'
+      );
     });
 
     it('should successfully decline offer', async () => {
@@ -305,7 +315,9 @@ describe('Offer Negotiation API Routes', () => {
         .send({ userId: 'test-seller-id', amount: 7000 })
         .expect(400);
 
-      expect(response.body.detail).toContain('Cannot counter offer with status: COUNTERED');
+      expect(response.body.detail).toContain(
+        'Cannot counter offer with status: COUNTERED'
+      );
     });
 
     it('should return 403 when user is not the seller', async () => {
@@ -319,7 +331,9 @@ describe('Offer Negotiation API Routes', () => {
         })
         .expect(403);
 
-      expect(response.body.detail).toContain('Only the seller can counter offers');
+      expect(response.body.detail).toContain(
+        'Only the seller can counter offers'
+      );
     });
 
     it('should return 400 when original offer has expired', async () => {
@@ -470,4 +484,3 @@ describe('Offer Negotiation API Routes', () => {
     });
   });
 });
-

@@ -419,7 +419,7 @@ export class GameVerificationService {
       }
 
       const snapshot = listing.robloxSnapshots[0];
-      
+
       if (!snapshot) {
         return {
           verified: false,
@@ -487,7 +487,8 @@ export class GameVerificationService {
       console.error('Asset re-verification error:', error);
       return {
         verified: false,
-        error: error instanceof Error ? error.message : 'Re-verification failed',
+        error:
+          error instanceof Error ? error.message : 'Re-verification failed',
       };
     }
   }

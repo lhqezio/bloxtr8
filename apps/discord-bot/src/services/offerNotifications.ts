@@ -1,4 +1,4 @@
-import { Client } from 'discord.js';
+import { type Client, type EmbedBuilder } from 'discord.js';
 
 import {
   buildCounterOfferEmbed,
@@ -33,7 +33,8 @@ export class OfferNotificationService {
   private client: Client;
   private apiBaseUrl: string;
   private lastPollTime: Date;
-  private pollingInterval: NodeJS.Timeout | null = null;
+  // eslint-disable-next-line no-undef
+  private pollingInterval: ReturnType<typeof setInterval> | null = null;
   private processedOffers: Set<string> = new Set();
 
   constructor(client: Client, apiBaseUrl: string) {
@@ -55,13 +56,16 @@ export class OfferNotificationService {
     });
 
     // Set up interval polling
+    // eslint-disable-next-line no-undef
     this.pollingInterval = setInterval(() => {
       this.pollOfferEvents().catch(error => {
         console.error('Offer poll failed:', error);
       });
     }, intervalMs);
 
-    console.log(`Offer notifications polling every ${intervalMs / 1000} seconds`);
+    console.log(
+      `Offer notifications polling every ${intervalMs / 1000} seconds`
+    );
   }
 
   /**
@@ -69,6 +73,7 @@ export class OfferNotificationService {
    */
   stop(): void {
     if (this.pollingInterval) {
+      // eslint-disable-next-line no-undef
       clearInterval(this.pollingInterval);
       this.pollingInterval = null;
       console.log('Offer notification service stopped');
@@ -352,7 +357,7 @@ export class OfferNotificationService {
    */
   private async sendToThread(
     threadId: string,
-    embed: any
+    embed: EmbedBuilder
   ): Promise<void> {
     try {
       const thread = await this.client.channels.fetch(threadId);
@@ -369,7 +374,7 @@ export class OfferNotificationService {
    */
   private async sendDM(
     discordId: string,
-    embed: any,
+    embed: EmbedBuilder,
     fallbackText: string
   ): Promise<void> {
     try {
@@ -382,4 +387,3 @@ export class OfferNotificationService {
     }
   }
 }
-

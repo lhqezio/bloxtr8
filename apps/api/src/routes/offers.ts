@@ -562,9 +562,9 @@ router.patch('/offers/:id/counter', async (req, res, next) => {
 router.get('/offers/events/recent', async (req, res, next) => {
   try {
     const { since } = req.query;
-    
+
     // Default to events from last 5 minutes if not specified
-    const sinceDate = since 
+    const sinceDate = since
       ? new Date(since as string)
       : new Date(Date.now() - 5 * 60 * 1000);
 

@@ -32,14 +32,14 @@ import {
 } from './commands/signup.js';
 import { execute as handleSyncListings } from './commands/sync-listings.js';
 import { handleVerify } from './commands/verify.js';
+// Offer notification service
+import { OfferNotificationService } from './services/offerNotifications.js';
 // Marketplace utilities
 import { syncPublicListingsToGuild } from './utils/listingSync.js';
 import {
   setupMarketplaceChannels,
   cleanupMarketplaceChannels,
 } from './utils/marketplace.js';
-// Offer notification service
-import { OfferNotificationService } from './services/offerNotifications.js';
 
 // Load environment variables
 config();
@@ -84,8 +84,7 @@ client.once('ready', async () => {
   }
 
   // Start offer notification service
-  const apiBaseUrl =
-    process.env.API_BASE_URL || 'http://localhost:3000';
+  const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
   offerNotificationService = new OfferNotificationService(client, apiBaseUrl);
   offerNotificationService.start(30000); // Poll every 30 seconds
   console.log('✅ Offer notification service started');

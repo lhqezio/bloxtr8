@@ -37,4 +37,3 @@ export function onOfferEvent(
 ): void {
   offerEvents.on(type, listener);
 }
-

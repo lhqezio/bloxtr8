@@ -221,8 +221,14 @@ describe('Offers API Routes', () => {
 
     it('should return 400 when offer amount exceeds listing price', async () => {
       mockListingFindUnique.mockResolvedValue(mockActiveListing);
-      mockRobloxSnapshotFindFirst.mockResolvedValue({ id: 'snapshot-id', verifiedOwnership: true });
-      mockUserFindUnique.mockResolvedValue({ id: 'test-buyer-id', kycTier: 'TIER_1' });
+      mockRobloxSnapshotFindFirst.mockResolvedValue({
+        id: 'snapshot-id',
+        verifiedOwnership: true,
+      });
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-buyer-id',
+        kycTier: 'TIER_1',
+      });
 
       const response = await request(app)
         .post('/api/offers')
@@ -245,8 +251,14 @@ describe('Offers API Routes', () => {
 
     it('should return 201 with offer id for valid payload', async () => {
       mockListingFindUnique.mockResolvedValue(mockActiveListing);
-      mockRobloxSnapshotFindFirst.mockResolvedValue({ id: 'snapshot-id', verifiedOwnership: true });
-      mockUserFindUnique.mockResolvedValue({ id: 'test-buyer-id', kycTier: 'TIER_1' });
+      mockRobloxSnapshotFindFirst.mockResolvedValue({
+        id: 'snapshot-id',
+        verifiedOwnership: true,
+      });
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-buyer-id',
+        kycTier: 'TIER_1',
+      });
 
       const response = await request(app)
         .post('/api/offers')
@@ -265,8 +277,14 @@ describe('Offers API Routes', () => {
 
     it('should return 201 with offer id for valid payload with optional fields', async () => {
       mockListingFindUnique.mockResolvedValue(mockActiveListing);
-      mockRobloxSnapshotFindFirst.mockResolvedValue({ id: 'snapshot-id', verifiedOwnership: true });
-      mockUserFindUnique.mockResolvedValue({ id: 'test-buyer-id', kycTier: 'TIER_1' });
+      mockRobloxSnapshotFindFirst.mockResolvedValue({
+        id: 'snapshot-id',
+        verifiedOwnership: true,
+      });
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-buyer-id',
+        kycTier: 'TIER_1',
+      });
 
       const response = await request(app)
         .post('/api/offers')
@@ -287,8 +305,14 @@ describe('Offers API Routes', () => {
 
     it('should call prisma with correct parameters for listing lookup', async () => {
       mockListingFindUnique.mockResolvedValue(mockActiveListing);
-      mockRobloxSnapshotFindFirst.mockResolvedValue({ id: 'snapshot-id', verifiedOwnership: true });
-      mockUserFindUnique.mockResolvedValue({ id: 'test-buyer-id', kycTier: 'TIER_1' });
+      mockRobloxSnapshotFindFirst.mockResolvedValue({
+        id: 'snapshot-id',
+        verifiedOwnership: true,
+      });
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-buyer-id',
+        kycTier: 'TIER_1',
+      });
 
       await request(app)
         .post('/api/offers')
@@ -312,8 +336,14 @@ describe('Offers API Routes', () => {
 
     it('should call prisma with correct parameters for offer creation', async () => {
       mockListingFindUnique.mockResolvedValue(mockActiveListing);
-      mockRobloxSnapshotFindFirst.mockResolvedValue({ id: 'snapshot-id', verifiedOwnership: true });
-      mockUserFindUnique.mockResolvedValue({ id: 'test-buyer-id', kycTier: 'TIER_1' });
+      mockRobloxSnapshotFindFirst.mockResolvedValue({
+        id: 'snapshot-id',
+        verifiedOwnership: true,
+      });
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-buyer-id',
+        kycTier: 'TIER_1',
+      });
 
       await request(app)
         .post('/api/offers')
@@ -340,8 +370,14 @@ describe('Offers API Routes', () => {
 
     it('should set default expiry to 7 days from now when not provided', async () => {
       mockListingFindUnique.mockResolvedValue(mockActiveListing);
-      mockRobloxSnapshotFindFirst.mockResolvedValue({ id: 'snapshot-id', verifiedOwnership: true });
-      mockUserFindUnique.mockResolvedValue({ id: 'test-buyer-id', kycTier: 'TIER_1' });
+      mockRobloxSnapshotFindFirst.mockResolvedValue({
+        id: 'snapshot-id',
+        verifiedOwnership: true,
+      });
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-buyer-id',
+        kycTier: 'TIER_1',
+      });
 
       const beforeRequest = new Date();
 
@@ -379,8 +415,14 @@ describe('Offers API Routes', () => {
 
     it('should use provided expiry when given', async () => {
       mockListingFindUnique.mockResolvedValue(mockActiveListing);
-      mockRobloxSnapshotFindFirst.mockResolvedValue({ id: 'snapshot-id', verifiedOwnership: true });
-      mockUserFindUnique.mockResolvedValue({ id: 'test-buyer-id', kycTier: 'TIER_1' });
+      mockRobloxSnapshotFindFirst.mockResolvedValue({
+        id: 'snapshot-id',
+        verifiedOwnership: true,
+      });
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-buyer-id',
+        kycTier: 'TIER_1',
+      });
 
       const customExpiry = '2024-12-31T23:59:59.000Z';
 
@@ -403,8 +445,14 @@ describe('Offers API Routes', () => {
 
     it('should handle null conditions when not provided', async () => {
       mockListingFindUnique.mockResolvedValue(mockActiveListing);
-      mockRobloxSnapshotFindFirst.mockResolvedValue({ id: 'snapshot-id', verifiedOwnership: true });
-      mockUserFindUnique.mockResolvedValue({ id: 'test-buyer-id', kycTier: 'TIER_1' });
+      mockRobloxSnapshotFindFirst.mockResolvedValue({
+        id: 'snapshot-id',
+        verifiedOwnership: true,
+      });
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-buyer-id',
+        kycTier: 'TIER_1',
+      });
 
       await request(app)
         .post('/api/offers')
@@ -493,16 +541,36 @@ describe('Offers API Routes', () => {
           id: 'offer-1',
           amount: BigInt(5000),
           status: 'PENDING',
-          buyer: { id: 'buyer-1', name: 'Buyer 1', kycTier: 'TIER_1', kycVerified: true },
-          seller: { id: 'seller-1', name: 'Seller 1', kycTier: 'TIER_1', kycVerified: true },
+          buyer: {
+            id: 'buyer-1',
+            name: 'Buyer 1',
+            kycTier: 'TIER_1',
+            kycVerified: true,
+          },
+          seller: {
+            id: 'seller-1',
+            name: 'Seller 1',
+            kycTier: 'TIER_1',
+            kycVerified: true,
+          },
           parent: null,
         },
         {
           id: 'offer-2',
           amount: BigInt(7000),
           status: 'COUNTERED',
-          buyer: { id: 'buyer-2', name: 'Buyer 2', kycTier: 'TIER_2', kycVerified: true },
-          seller: { id: 'seller-2', name: 'Seller 2', kycTier: 'TIER_1', kycVerified: true },
+          buyer: {
+            id: 'buyer-2',
+            name: 'Buyer 2',
+            kycTier: 'TIER_2',
+            kycVerified: true,
+          },
+          seller: {
+            id: 'seller-2',
+            name: 'Seller 2',
+            kycTier: 'TIER_1',
+            kycVerified: true,
+          },
           parent: { id: 'offer-1', amount: BigInt(5000), status: 'PENDING' },
         },
       ];
@@ -527,8 +595,18 @@ describe('Offers API Routes', () => {
           id: 'offer-1',
           amount: BigInt(5000),
           status: 'PENDING',
-          buyer: { id: 'buyer-1', name: 'Buyer 1', kycTier: 'TIER_1', kycVerified: true },
-          seller: { id: 'seller-1', name: 'Seller 1', kycTier: 'TIER_1', kycVerified: true },
+          buyer: {
+            id: 'buyer-1',
+            name: 'Buyer 1',
+            kycTier: 'TIER_1',
+            kycVerified: true,
+          },
+          seller: {
+            id: 'seller-1',
+            name: 'Seller 1',
+            kycTier: 'TIER_1',
+            kycVerified: true,
+          },
           parent: null,
         },
       ];
@@ -630,15 +708,15 @@ describe('Offers API Routes', () => {
       mockOfferFindMany.mockResolvedValue([]);
 
       const beforeRequest = new Date();
-      await request(app)
-        .get('/api/offers/events/recent')
-        .expect(200);
+      await request(app).get('/api/offers/events/recent').expect(200);
 
       const callArgs = mockOfferFindMany.mock.calls[0][0];
       const sinceDate = callArgs.where.updatedAt.gte;
       const expectedMinTime = new Date(beforeRequest.getTime() - 5 * 60 * 1000);
-      
-      expect(sinceDate.getTime()).toBeGreaterThanOrEqual(expectedMinTime.getTime() - 1000);
+
+      expect(sinceDate.getTime()).toBeGreaterThanOrEqual(
+        expectedMinTime.getTime() - 1000
+      );
       expect(sinceDate.getTime()).toBeLessThanOrEqual(new Date().getTime());
     });
   });
