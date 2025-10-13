@@ -191,7 +191,7 @@ model Listing {
 
 model Offer {
   id         String      @id @default(cuid())
-  amount     Int // Amount in cents
+  amount     BigInt // Amount in cents (BigInt to support large offers)
   currency   Currency    @default(USD)
   conditions String?
   expiry     DateTime
@@ -261,7 +261,7 @@ model Signature {
 model Escrow {
   id        String       @id @default(cuid())
   rail      EscrowRail
-  amount    Int // Amount in cents
+  amount    BigInt // Amount in cents (BigInt to support large escrows)
   currency  Currency     @default(USD)
   status    EscrowStatus @default(AWAIT_FUNDS)
   createdAt DateTime     @default(now())

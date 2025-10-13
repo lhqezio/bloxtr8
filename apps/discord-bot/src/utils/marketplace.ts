@@ -96,26 +96,37 @@ export const PRICE_RANGES: PriceRange[] = [
 ];
 
 /**
- * Get the appropriate price range for a listing price
+ * Get the appropriate price range for a listing price (handles BigInt)
  */
 export function getPriceRangeForPrice(
-  priceInCents: number | string
+  priceInCents: number | string | bigint
 ): PriceRange {
-  // Convert string to number for comparison
-  const price =
-    typeof priceInCents === 'string' ? Number(priceInCents) : priceInCents;
+  // Convert to BigInt for safe comparison
+  const priceBigInt =
+    typeof priceInCents === 'bigint'
+      ? priceInCents
+      : BigInt(priceInCents.toString());
 
   for (const range of PRICE_RANGES) {
-    if (price >= range.min && price < range.max) {
+    const minBigInt = BigInt(range.min);
+    const maxBigInt = range.max === Infinity ? null : BigInt(range.max);
+
+    if (maxBigInt === null) {
+      // Infinity case - check if >= min
+      if (priceBigInt >= minBigInt) {
+        return range;
+      }
+    } else if (priceBigInt >= minBigInt && priceBigInt < maxBigInt) {
       return range;
     }
   }
+
   // Default to lowest range for prices below minimum, highest for prices above maximum
   const firstRange = PRICE_RANGES[0];
   if (!firstRange) {
     throw new Error('No price ranges defined');
   }
-  if (price < firstRange.min) {
+  if (priceBigInt < BigInt(firstRange.min)) {
     return firstRange;
   }
   const lastRange = PRICE_RANGES[PRICE_RANGES.length - 1];
@@ -126,13 +137,19 @@ export function getPriceRangeForPrice(
 }
 
 /**
- * Format price in dollars
+ * Format price in dollars (handles BigInt for precision)
  */
-export function formatPrice(priceInCents: number | string): string {
-  // Convert string to number for formatting
-  const price =
-    typeof priceInCents === 'string' ? Number(priceInCents) : priceInCents;
-  const dollars = price / 100;
+export function formatPrice(priceInCents: number | string | bigint): string {
+  // Convert to BigInt for safe handling of large numbers
+  const priceBigInt =
+    typeof priceInCents === 'bigint'
+      ? priceInCents
+      : BigInt(priceInCents.toString());
+
+  // Convert to dollars (divide by 100) using BigInt arithmetic
+  const dollars = Number(priceBigInt) / 100;
+
+  // Format based on magnitude
   if (dollars >= 1000000) {
     return `${(dollars / 1000000).toFixed(2)}M`;
   } else if (dollars >= 1000) {
@@ -275,7 +292,7 @@ export async function setupMarketplaceChannels(
  * Get the channel for a specific price range in a guild
  */
 export async function getPriceRangeChannel(
-  priceInCents: number | string,
+  priceInCents: number | string | bigint,
   guild: Guild
 ): Promise<TextChannel | null> {
   const priceRange = getPriceRangeForPrice(priceInCents);

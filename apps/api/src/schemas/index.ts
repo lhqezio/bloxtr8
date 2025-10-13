@@ -47,10 +47,19 @@ export const createOfferSchema = z.object({
   listingId: z.string().min(1, 'Listing ID is required'),
   buyerId: z.string().min(1, 'Buyer ID is required'),
   amount: z
-    .number()
-    .int()
-    .positive('Amount must be a positive integer')
-    .max(2147483647, 'Amount exceeds maximum allowed value ($21,474,836.47)'),
+    .union([z.string(), z.number()])
+    .refine(
+      val => {
+        try {
+          const num = BigInt(val);
+          return num > 0n;
+        } catch {
+          return false;
+        }
+      },
+      { message: 'Amount must be a positive integer' }
+    )
+    .transform(val => BigInt(val)),
   conditions: z.string().optional(),
   expiry: z.string().datetime().optional(), // ISO datetime string
 });

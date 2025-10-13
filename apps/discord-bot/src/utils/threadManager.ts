@@ -105,7 +105,7 @@ export function createListingEmbed(listing: ListingData): EmbedBuilder {
     .addFields(
       {
         name: '💰 Price',
-        value: `$${(Number(listing.price) / 100).toFixed(2)}`,
+        value: `$${formatPrice(listing.price)}`,
         inline: true,
       },
       {

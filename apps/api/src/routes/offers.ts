@@ -55,10 +55,10 @@ router.post('/offers', async (req, res, next) => {
     // Validate offer amount <= listing price
     // Note: This prevents offers above asking price. Remove this check if you want to allow
     // buyers to offer more than the listing price (e.g., in competitive bidding scenarios)
-    // Convert listing.price (BigInt) to number for comparison, or compare as BigInt
-    const listingPriceNum =
-      typeof listing.price === 'bigint' ? Number(listing.price) : listing.price;
-    if (amount > listingPriceNum) {
+    // Compare as BigInt to avoid precision loss
+    const listingPriceBigInt =
+      typeof listing.price === 'bigint' ? listing.price : BigInt(listing.price);
+    if (amount > listingPriceBigInt) {
       throw new AppError('Offer amount cannot exceed listing price', 400);
     }
 
