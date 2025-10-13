@@ -20,15 +20,16 @@ export const createListingSchema = z.object({
     .union([z.string(), z.number()])
     .refine(
       val => {
-        const num = typeof val === 'string' ? BigInt(val) : BigInt(val);
-        return num > 0n;
+        try {
+          const num = BigInt(val);
+          return num > 0n;
+        } catch {
+          return false;
+        }
       },
       { message: 'Price must be a positive integer' }
     )
-    .transform(val => {
-      // Convert to BigInt for database storage
-      return typeof val === 'string' ? BigInt(val) : BigInt(val);
-    }),
+    .transform(val => BigInt(val)),
   category: z
     .string()
     .min(1, 'Category is required')
