@@ -1,0 +1,295 @@
+import { setTimeout } from 'timers';
+
+import type { Guild, Client } from 'discord.js';
+
+import {
+  fetchListings,
+  updateListingThread as updateListingThreadAPI,
+  type ListingResponse,
+} from './apiClient.js';
+import {
+  createListingThread,
+  updateListingThread,
+  archiveListingThread,
+  type ListingData,
+} from './threadManager.js';
+
+/**
+ * Sync all public listings to a guild
+ * Creates threads for listings that don't have one yet
+ */
+export async function syncPublicListingsToGuild(guild: Guild): Promise<void> {
+  console.log(`Starting listing sync for guild: ${guild.name} (${guild.id})`);
+
+  try {
+    let page = 1;
+    let hasMore = true;
+    let totalSynced = 0;
+    let threadsCreated = 0;
+    let threadsUpdated = 0;
+    let threadsArchived = 0;
+
+    while (hasMore) {
+      // Fetch ALL public listings (including inactive ones for cleanup)
+      const result = await fetchListings({
+        page,
+        limit: 50,
+        visibility: 'PUBLIC',
+      });
+
+      if (!result.success) {
+        console.error('Failed to fetch listings:', result.error);
+        break;
+      }
+
+      const { listings, pagination } = result.data;
+
+      // Process each listing
+      for (const listing of listings) {
+        try {
+          // Convert API listing to ListingData format
+          const listingData: ListingData = {
+            id: listing.id,
+            title: listing.title,
+            summary: listing.summary,
+            price: listing.price,
+            category: listing.category,
+            status: listing.status,
+            visibility: listing.visibility,
+            userId: listing.userId,
+            guildId: listing.guildId,
+            user: listing.user,
+            robloxSnapshots: listing.robloxSnapshots,
+            createdAt: new Date(listing.createdAt),
+          };
+
+          // Check if thread exists in Discord (not just in database)
+          let threadExists = false;
+          if (listing.threadId && listing.channelId) {
+            try {
+              // Try to fetch the thread to verify it exists
+              const channel = await guild.channels
+                .fetch(listing.channelId)
+                .catch(() => null);
+
+              if (channel && 'threads' in channel) {
+                const thread = await channel.threads
+                  .fetch(listing.threadId)
+                  .catch(() => null);
+                threadExists = !!thread;
+              }
+            } catch {
+              // Thread doesn't exist or can't be fetched
+              threadExists = false;
+            }
+          }
+
+          // Handle inactive listings with existing threads
+          if (
+            listing.status !== 'ACTIVE' &&
+            listing.threadId &&
+            listing.channelId &&
+            threadExists
+          ) {
+            // Archive the thread
+            await archiveListingThread(
+              listing.threadId,
+              listing.channelId,
+              guild,
+              `Listing ${listing.status.toLowerCase()}`
+            );
+            threadsArchived++;
+            continue;
+          }
+
+          // Skip active listings that already have valid threads
+          if (listing.status === 'ACTIVE' && listing.threadId && threadExists) {
+            // Optionally update the thread content
+            await updateListingThread(
+              listing.threadId,
+              listing.channelId!,
+              guild,
+              listingData
+            );
+            threadsUpdated++;
+            continue;
+          }
+
+          // Skip non-active listings without threads (no need to create)
+          if (listing.status !== 'ACTIVE') {
+            continue;
+          }
+
+          // If threadId exists but thread doesn't, log that we're recreating it
+          if (listing.threadId && !threadExists) {
+            console.log(
+              `Thread ${listing.threadId} for listing ${listing.id} no longer exists, recreating...`
+            );
+          }
+
+          // Create thread for this active listing (with retry mechanism)
+          const thread = await createListingThread(listingData, guild, 2);
+
+          if (thread) {
+            threadsCreated++;
+
+            // Update listing with thread information
+            await updateListingThreadAPI(listing.id, {
+              threadId: thread.id,
+              channelId: thread.parentId || undefined,
+              priceRange: listing.priceRange || undefined,
+            });
+
+            console.log(
+              `Created thread ${thread.id} for listing ${listing.id} in guild ${guild.id}`
+            );
+          }
+
+          // Rate limiting: wait 1 second between thread creation
+          // Discord allows 50 threads per 10 minutes per channel = 1 per 12 seconds per channel
+          // Since we're creating in different price-range channels, 1 second is safe
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (error) {
+          console.error(`Failed to sync listing ${listing.id}:`, error);
+          // Continue with next listing
+        }
+      }
+
+      totalSynced += listings.length;
+      hasMore = pagination.hasNext;
+      page++;
+
+      console.log(
+        `Synced page ${pagination.page}/${pagination.totalPages} ` +
+          `(${totalSynced}/${pagination.total} listings, ` +
+          `${threadsCreated} created, ${threadsUpdated} updated, ${threadsArchived} archived)`
+      );
+
+      // Rate limiting between pages
+      if (hasMore) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+
+    console.log(
+      `Listing sync complete for guild ${guild.name}: ` +
+        `${threadsCreated} created, ${threadsUpdated} updated, ${threadsArchived} archived out of ${totalSynced} listings`
+    );
+  } catch (error) {
+    console.error(`Failed to sync listings to guild ${guild.id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Sync all public listings across all guilds the bot is in
+ * Useful for initial setup or after system maintenance
+ */
+export async function syncPublicListingsToAllGuilds(
+  client: Client
+): Promise<void> {
+  console.log('Starting global listing sync across all guilds');
+
+  const guilds = client.guilds.cache;
+  console.log(`Found ${guilds.size} guilds to sync`);
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const [guildId, guild] of guilds) {
+    try {
+      console.log(
+        `\nSyncing guild ${successCount + failCount + 1}/${guilds.size}: ${guild.name}`
+      );
+      await syncPublicListingsToGuild(guild);
+      successCount++;
+    } catch (error) {
+      console.error(`Failed to sync guild ${guildId} (${guild.name}):`, error);
+      failCount++;
+    }
+
+    // Wait between guilds to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 5000));
+  }
+
+  console.log(
+    `\nGlobal listing sync complete: ${successCount} guilds synced, ${failCount} failed`
+  );
+}
+
+/**
+ * Sync a specific listing to all guilds (when a new public listing is created)
+ */
+export async function syncListingToAllGuilds(
+  client: Client,
+  listing: ListingResponse
+): Promise<void> {
+  // Only sync public listings
+  if (listing.visibility !== 'PUBLIC') {
+    console.log(`Listing ${listing.id} is private, skipping cross-guild sync`);
+    return;
+  }
+
+  console.log(`Syncing listing ${listing.id} to all guilds`);
+
+  const guilds = client.guilds.cache;
+  const listingData: ListingData = {
+    id: listing.id,
+    title: listing.title,
+    summary: listing.summary,
+    price: listing.price,
+    category: listing.category,
+    status: listing.status,
+    visibility: listing.visibility,
+    userId: listing.userId,
+    guildId: listing.guildId,
+    user: listing.user,
+    robloxSnapshots: listing.robloxSnapshots,
+    createdAt: new Date(listing.createdAt),
+  };
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const [guildId, guild] of guilds) {
+    try {
+      // Skip the guild where the listing was created (thread already exists there)
+      if (listing.threadId && listing.guildId && guildId === listing.guildId) {
+        console.log(`Skipping origin guild ${guildId}`);
+        continue;
+      }
+
+      const thread = await createListingThread(listingData, guild, 2);
+
+      if (thread) {
+        successCount++;
+        console.log(`Created thread in guild ${guildId}: ${thread.id}`);
+      }
+
+      // Rate limiting: wait 1 second between cross-guild thread creation
+      // Discord allows 50 threads per 10 minutes per channel globally
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (error) {
+      console.error(`Failed to create thread in guild ${guildId}:`, error);
+      failCount++;
+    }
+  }
+
+  console.log(
+    `Listing ${listing.id} synced to ${successCount} guilds, ${failCount} failed`
+  );
+}
+
+/**
+ * Clean up threads for a deleted or cancelled listing across all guilds
+ */
+export async function cleanupListingThreads(
+  client: Client,
+  listingId: string
+): Promise<void> {
+  console.log(`Cleaning up threads for listing ${listingId}`);
+
+  // TODO: Implement thread cleanup across guilds
+  // This would require tracking which guilds have threads for each listing
+  console.log('Thread cleanup not yet fully implemented');
+}

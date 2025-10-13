@@ -2,12 +2,15 @@ import { config } from '@dotenvx/dotenvx';
 import {
   Client,
   GatewayIntentBits,
+  Partials,
   REST,
   Routes,
   SlashCommandBuilder,
+  PermissionFlagsBits,
 } from 'discord.js';
 
 // Command handlers
+import { execute as handleAdminHelp } from './commands/admin-help.js';
 import { handleHelp } from './commands/help.js';
 import { handleLinkRoblox } from './commands/linkRoblox.js';
 import {
@@ -19,13 +22,22 @@ import {
   handleExperienceSelection,
   cleanupVerificationCache,
 } from './commands/listing-enhanced.js';
+import { execute as handleMarketplaceSetup } from './commands/marketplace-setup.js';
+import { execute as handleMarketplaceTest } from './commands/marketplace-test.js';
 import { handlePing } from './commands/ping.js';
 import {
   handleSignup,
   handleConsentAccept,
   handleConsentDecline,
 } from './commands/signup.js';
+import { execute as handleSyncListings } from './commands/sync-listings.js';
 import { handleVerify } from './commands/verify.js';
+// Marketplace utilities
+import { syncPublicListingsToGuild } from './utils/listingSync.js';
+import {
+  setupMarketplaceChannels,
+  cleanupMarketplaceChannels,
+} from './utils/marketplace.js';
 
 // Load environment variables
 config();
@@ -33,14 +45,38 @@ config();
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers, // Required for guild member information
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildPresences, // May be needed for guild information
+  ],
+  partials: [
+    Partials.Channel, // Required for thread support - allows bot to receive events from threads
+    Partials.GuildMember, // Required for proper guild member data in threads
   ],
 });
 
-client.once('clientReady', async () => {
+client.once('ready', async () => {
   console.log(`Logged in as ${client.user?.tag}`);
+  console.log(`Bot is in ${client.guilds.cache.size} guild(s):`);
+  client.guilds.cache.forEach(guild => {
+    console.log(
+      `  - ${guild.name} (${guild.id}) - ${guild.memberCount} members`
+    );
+  });
+
+  if (client.guilds.cache.size === 0) {
+    console.warn(
+      '⚠️  WARNING: Bot is not in any guilds! Please invite the bot to a server.'
+    );
+    console.warn(
+      "⚠️  Use this invite link (replace CLIENT_ID with your bot's client ID):"
+    );
+    console.warn(
+      `⚠️  https://discord.com/api/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID}&permissions=8&scope=bot%20applications.commands`
+    );
+  }
 
   // Register guild slash commands on startup
   const commands = [
@@ -78,6 +114,29 @@ client.once('clientReady', async () => {
     new SlashCommandBuilder()
       .setName('link')
       .setDescription('Link your Roblox account to Bloxtr8')
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('marketplace-setup')
+      .setDescription(
+        'Set up Bloxtr8 marketplace channels for this server (Admin only)'
+      )
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('sync-listings')
+      .setDescription(
+        'Manually sync all public listings to this server (Admin only)'
+      )
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('admin-help')
+      .setDescription('Show admin commands and their usage (Admin only)')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+      .toJSON(),
+    new SlashCommandBuilder()
+      .setName('marketplace-test')
+      .setDescription('Test marketplace setup command')
       .toJSON(),
   ];
 
@@ -130,6 +189,68 @@ client.on('interactionCreate', async interaction => {
     if (interaction.commandName === 'link') {
       await handleLinkRoblox(interaction);
     }
+    if (interaction.commandName === 'marketplace-setup') {
+      try {
+        await handleMarketplaceSetup(interaction);
+      } catch (error) {
+        console.error(`Error in marketplace-setup command:`, error);
+        if (!interaction.replied && !interaction.deferred) {
+          try {
+            await interaction.reply({
+              content:
+                'An error occurred while setting up the marketplace. Please try again.',
+              ephemeral: true,
+            });
+          } catch (replyError) {
+            console.error('Failed to send error reply:', replyError);
+          }
+        }
+      }
+    }
+    if (interaction.commandName === 'sync-listings') {
+      try {
+        await handleSyncListings(interaction);
+      } catch (error) {
+        console.error(`Error in sync-listings command:`, error);
+        if (!interaction.replied && !interaction.deferred) {
+          try {
+            await interaction.reply({
+              content:
+                'An error occurred while syncing listings. Please try again.',
+              ephemeral: true,
+            });
+          } catch (replyError) {
+            console.error('Failed to send error reply:', replyError);
+          }
+        }
+      }
+    }
+    if (interaction.commandName === 'admin-help') {
+      try {
+        await handleAdminHelp(interaction);
+      } catch (error) {
+        console.error(`Error in admin-help command:`, error);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: 'An error occurred while showing help. Please try again.',
+            ephemeral: true,
+          });
+        }
+      }
+    }
+    if (interaction.commandName === 'marketplace-test') {
+      try {
+        await handleMarketplaceTest(interaction);
+      } catch (error) {
+        console.error(`Error in marketplace-test command:`, error);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: 'Test command failed.',
+            ephemeral: true,
+          });
+        }
+      }
+    }
   }
 
   // Handle modal submissions
@@ -163,6 +284,50 @@ client.on('interactionCreate', async interaction => {
     if (interaction.customId === 'experience_selection') {
       await handleExperienceSelection(interaction);
     }
+  }
+});
+
+// Guild join event - setup marketplace
+client.on('guildCreate', async guild => {
+  console.log(`✅ Bot joined guild: ${guild.name} (${guild.id})`);
+  console.log(`   Guild member count: ${guild.memberCount}`);
+  console.log(`   Total guilds now: ${guild.client.guilds.cache.size}`);
+
+  try {
+    // Setup marketplace channels
+    await setupMarketplaceChannels(guild);
+
+    // Sync existing public listings to this guild
+    // Run in background to avoid blocking
+    syncPublicListingsToGuild(guild).catch(error => {
+      console.error(`Background sync failed for guild ${guild.id}:`, error);
+    });
+
+    console.log(`Successfully set up marketplace for guild ${guild.name}`);
+    console.log(
+      `Started background sync of public listings for guild ${guild.name}`
+    );
+  } catch (error) {
+    console.error(`Failed to setup marketplace for guild ${guild.id}:`, error);
+  }
+});
+
+// Guild leave event - cleanup
+client.on('guildDelete', async guild => {
+  console.log(`Bot left guild: ${guild.name} (${guild.id})`);
+
+  try {
+    // Archive threads before leaving
+    await cleanupMarketplaceChannels(guild);
+
+    // TODO: Update database to mark guild as inactive
+
+    console.log(`Successfully cleaned up marketplace for guild ${guild.name}`);
+  } catch (error) {
+    console.error(
+      `Failed to cleanup marketplace for guild ${guild.id}:`,
+      error
+    );
   }
 });
 

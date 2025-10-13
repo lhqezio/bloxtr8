@@ -7,7 +7,7 @@ const mockOfferCreate = jest.fn().mockResolvedValue({
   listingId: 'test-listing-id',
   buyerId: 'test-buyer-id',
   sellerId: 'test-seller-id',
-  amount: 5000,
+  amount: 5000n,
   conditions: null,
   expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   status: 'PENDING',
@@ -39,7 +39,7 @@ describe('Offers API Routes', () => {
     const mockActiveListing = {
       id: 'test-listing-id',
       status: 'ACTIVE',
-      price: 10000,
+      price: BigInt(10000), // BigInt to match Prisma schema
       userId: 'test-seller-id',
     };
 
@@ -302,7 +302,7 @@ describe('Offers API Routes', () => {
           listingId: 'test-listing-id',
           buyerId: 'test-buyer-id',
           sellerId: 'test-seller-id',
-          amount: 5000,
+          amount: 5000n,
           conditions: 'Test conditions',
           expiry: expect.any(Date),
           status: 'PENDING',

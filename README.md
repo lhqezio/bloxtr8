@@ -8,12 +8,15 @@ Addresses the $300M+ Roblox trading market on Discord with enterprise-grade escr
 
 **Features**:
 
-- Secure escrow (Stripe ≤$10k, USDC on Base >$10k)
-- Roblox game ownership verification
-- Digital contracts (DocuSign)
-- Wallet screening (TRM Labs, Chainalysis)
-- Discord slash commands and interactions
-- 3-tier KYC system
+- **Thread-Based Marketplace**: Dedicated Discord threads for each listing with rich embeds
+- **Smart Organization**: Automatic price-range channels (under $5k, $5k-$20k, $20k-$100k, $100k+)
+- **Cross-Guild Visibility**: PUBLIC listings appear in all servers automatically
+- **Secure Escrow**: Stripe ≤$10k, USDC on Base >$10k
+- **Roblox Game Verification**: Automated ownership verification
+- **Digital Contracts**: DocuSign integration
+- **Wallet Screening**: TRM Labs, Chainalysis
+- **Discord Native**: Slash commands, threads, rich interactions
+- **3-Tier KYC System**: TIER_0 → TIER_1 → TIER_2
 
 ## Quick Start
 
@@ -69,6 +72,7 @@ pnpm db:migrate       # Run migrations
 - [API Reference](documentation/api/README.md)
 - [System Architecture](documentation/architecture/system-overview.md)
 - [Database Schema](documentation/architecture/database-schema.md)
+- [Discord Bot Flow](apps/discord-bot/FLOW_DIAGRAM.md)
 
 ## Tech Stack
 
