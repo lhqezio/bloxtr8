@@ -465,7 +465,7 @@ model MarketplaceChannel {
   guildId        String
   guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
   channelId      String // Discord channel ID
-  priceRange     String // e.g., "1k-5k", "5k-25k", etc.
+  priceRange     String // e.g., "under-5k", "5k-20k", "20k-100k", "100k+"
   activeListings Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

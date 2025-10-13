@@ -195,7 +195,7 @@ Create a new listing with optional thread information.
   "visibility": "PUBLIC",
   "threadId": "discord_thread_id",
   "channelId": "discord_channel_id",
-  "priceRange": "25k-100k"
+  "priceRange": "20k-100k"
 }
 ```
 
@@ -210,7 +210,7 @@ Create a new listing with optional thread information.
 - `visibility` (optional): `PUBLIC` (all servers) or `PRIVATE` (guild only)
 - `threadId` (optional): Discord thread ID
 - `channelId` (optional): Discord channel ID
-- `priceRange` (optional): `1k-5k`, `5k-25k`, `25k-100k`, or `100k+`
+- `priceRange` (optional): `under-5k`, `5k-20k`, `20k-100k`, or `100k+`
 
 **Response**: `201 Created`
 
@@ -238,7 +238,7 @@ Get all listings with pagination and filters.
 - `category` (optional): Filter by category
 - `userId` (optional): Filter by seller ID
 - `visibility` (optional): Filter by visibility (`PUBLIC` or `PRIVATE`)
-- `priceRange` (optional): Filter by range (`1k-5k`, `5k-25k`, etc.)
+- `priceRange` (optional): Filter by range (`under-5k`, `5k-20k`, `20k-100k`, `100k+`)
 - `guildId` (optional): Discord guild ID for visibility filtering
 
 **Response**: `200 OK`
@@ -256,7 +256,7 @@ Get all listings with pagination and filters.
       "visibility": "PUBLIC",
       "threadId": "thread_id",
       "channelId": "channel_id",
-      "priceRange": "25k-100k",
+      "priceRange": "20k-100k",
       "userId": "user_123",
       "guildId": "guild_123",
       "user": {
@@ -315,7 +315,7 @@ Get listing details by ID.
   "visibility": "PUBLIC",
   "threadId": "thread_id",
   "channelId": "channel_id",
-  "priceRange": "25k-100k",
+  "priceRange": "20k-100k",
   "user": {
     "id": "user_123",
     "name": "John Doe",
@@ -355,7 +355,7 @@ Update listing thread information.
 {
   "threadId": "discord_thread_id",
   "channelId": "discord_channel_id",
-  "priceRange": "25k-100k"
+  "priceRange": "20k-100k"
 }
 ```
 

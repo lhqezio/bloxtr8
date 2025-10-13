@@ -9,7 +9,7 @@ Addresses the $300M+ Roblox trading market on Discord with enterprise-grade escr
 **Features**:
 
 - **Thread-Based Marketplace**: Dedicated Discord threads for each listing with rich embeds
-- **Smart Organization**: Automatic price-range channels ($1k-5k, $5k-25k, $25k-100k, $100k+)
+- **Smart Organization**: Automatic price-range channels (under $5k, $5k-$20k, $20k-$100k, $100k+)
 - **Cross-Guild Visibility**: PUBLIC listings appear in all servers automatically
 - **Secure Escrow**: Stripe ≤$10k, USDC on Base >$10k
 - **Roblox Game Verification**: Automated ownership verification

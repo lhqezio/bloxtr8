@@ -7,7 +7,7 @@ Discord bot for the Bloxtr8 marketplace with thread-based listing management.
 ### 🎮 Thread-Based Marketplace
 
 - **Dedicated threads** for each listing with rich embeds
-- **Smart organization** by price range ($1k-5k, $5k-25k, $25k-100k, $100k+)
+- **Smart organization** by price range (under $5k, $5k-$20k, $20k-$100k, $100k+)
 - **Cross-guild visibility** for PUBLIC listings
 - **Auto-setup** on guild join
 
@@ -15,10 +15,10 @@ Discord bot for the Bloxtr8 marketplace with thread-based listing management.
 
 The bot automatically creates and manages 4 marketplace channels:
 
-- **📈 marketplace-1k-5k**: $1,000 - $5,000 deals
-- **💰 marketplace-5k-25k**: $5,000 - $25,000 deals
-- **💎 marketplace-25k-100k**: $25,000 - $100,000 deals
-- **👑 marketplace-100k+**: $100,000+ premium deals
+- **💚 bloxtr8-under-5k**: Under $5,000 deals
+- **💰 bloxtr8-5k-20k**: $5,000 - $20,000 deals
+- **💎 bloxtr8-20k-100k**: $20,000 - $100,000 deals
+- **👑 bloxtr8-100k+**: $100,000+ premium deals
 
 ### ✅ Listing Features
 

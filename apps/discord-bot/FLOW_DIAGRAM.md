@@ -55,9 +55,9 @@ flowchart TD
     A[Bot joins guild] --> B[guildCreate event]
     B --> C[Create marketplace category]
     C --> D[Create price channels]
-    D --> E[📈 1k-5k]
-    D --> F[💰 5k-25k]
-    D --> G[💎 25k-100k]
+    D --> E[💚 under-5k]
+    D --> F[💰 5k-20k]
+    D --> G[💎 20k-100k]
     D --> H[👑 100k+]
 
     E --> I[Post welcome msgs]
@@ -107,10 +107,10 @@ flowchart TD
 
 The bot automatically creates 4 channels based on listing price:
 
-- **📈 marketplace-1k-5k**: $1,000 - $5,000 deals
-- **💰 marketplace-5k-25k**: $5,000 - $25,000 deals
-- **💎 marketplace-25k-100k**: $25,000 - $100,000 deals
-- **👑 marketplace-100k+**: $100,000+ premium deals
+- **💚 bloxtr8-under-5k**: Under $5,000 deals
+- **💰 bloxtr8-5k-20k**: $5,000 - $20,000 deals
+- **💎 bloxtr8-20k-100k**: $20,000 - $100,000 deals
+- **👑 bloxtr8-100k+**: $100,000+ premium deals
 
 ### Thread Structure
 
