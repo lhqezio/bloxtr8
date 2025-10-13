@@ -973,7 +973,7 @@ export async function handleListingWithGameModalSubmit(
           id: apiResult.data.id,
           title,
           summary,
-          price,
+          price: price.toString(), // Convert to string for BigInt serialization
           category,
           status: 'ACTIVE',
           visibility,
