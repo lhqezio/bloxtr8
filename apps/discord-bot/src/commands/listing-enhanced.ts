@@ -17,7 +17,7 @@ import {
 import { createListing } from '../utils/apiClient.js';
 import { getApiBaseUrl } from '../utils/apiClient.js';
 import { verifyUserForListing } from '../utils/userVerification.js';
-import { ensureUserExists } from '../utils/userVerification.js';
+import { checkUserExists } from '../utils/userVerification.js';
 
 // ✅ In-memory cache with TTL, size limits, and cleanup
 // FEATURES:
@@ -247,21 +247,18 @@ export async function handleListingCreateWithVerification(
 
     // Check user verification status without deferring (needed for modal)
 
-    // Ensure user exists in database
-    const userResult = await ensureUserExists(
-      interaction.user.id,
-      interaction.user.username
-    );
+    // Check if user exists in database (don't create if they don't exist)
+    const userResult = await checkUserExists(interaction.user.id);
 
     if (!userResult.user) {
       const errorEmbed = new EmbedBuilder()
         .setColor(0xef4444)
-        .setTitle('❌ Account Error')
-        .setDescription('**Unable to access your account**')
+        .setTitle('❌ Account Required')
+        .setDescription('**You must sign up before creating listings**')
         .setThumbnail(interaction.user.displayAvatarURL())
         .addFields({
           name: '🔧 Quick Fix',
-          value: 'Try `/signup` to create a new account',
+          value: 'Use `/signup` to create your account first',
         })
         .setFooter({
           text: 'Need help? Contact support',
@@ -470,13 +467,18 @@ export async function handleExperienceSelection(
     const discordId = interaction.user.id;
 
     // Get user's Roblox account
-    const userResult = await ensureUserExists(
-      discordId,
-      interaction.user.username
-    );
+    const userResult = await checkUserExists(discordId);
     const robloxAccount = userResult.user?.accounts?.find(
       acc => (acc as { providerId?: string }).providerId === 'roblox'
     );
+
+    if (!userResult.user) {
+      return interaction.reply({
+        content:
+          '❌ You must sign up first. Use `/signup` to create your account.',
+        ephemeral: true,
+      });
+    }
 
     if (!robloxAccount) {
       return interaction.reply({
@@ -607,13 +609,18 @@ export async function handleGameVerificationModalSubmit(
     const discordId = interaction.user.id;
 
     // Get user's Roblox account
-    const userResult = await ensureUserExists(
-      discordId,
-      interaction.user.username
-    );
+    const userResult = await checkUserExists(discordId);
     const robloxAccount = userResult.user?.accounts?.find(
       acc => (acc as { providerId?: string }).providerId === 'roblox'
     );
+
+    if (!userResult.user) {
+      return interaction.reply({
+        content:
+          '❌ You must sign up first. Use `/signup` to create your account.',
+        ephemeral: true,
+      });
+    }
 
     if (!robloxAccount) {
       return interaction.reply({
@@ -890,14 +897,12 @@ export async function handleListingWithGameModalSubmit(
     const price = Math.round(priceDollars * 100);
 
     // Get user info
-    const userResult = await ensureUserExists(
-      interaction.user.id,
-      interaction.user.username
-    );
+    const userResult = await checkUserExists(interaction.user.id);
 
     if (!userResult.user) {
       await interaction.reply({
-        content: '❌ Account error. Please try again.',
+        content:
+          '❌ You must sign up first. Use `/signup` to create your account.',
         ephemeral: true,
       });
       return;
