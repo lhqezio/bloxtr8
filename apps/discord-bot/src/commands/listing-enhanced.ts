@@ -419,20 +419,21 @@ export async function handleListingCreateWithVerification(
     );
 
     const embed = new EmbedBuilder()
-      .setColor(0x00d4aa)
+      .setColor(0x00d4aa) // Modern teal
       .setTitle('🎮 Select Experience to List')
       .setDescription(
-        `**Choose from your ${experiences.length} public experiences**`
+        `**✨ Choose from your ${experiences.length} public experiences**\n\n*Select the game you want to create a listing for.*`
       )
       .setThumbnail(interaction.user.displayAvatarURL())
       .addFields({
-        name: '📋 What happens next?',
+        name: '📋 **What happens next?**',
         value:
-          '1. Select your experience\n2. Verify ownership\n3. Create your listing',
+          '1. **Select your experience** from the dropdown\n2. **Verify ownership** automatically\n3. **Create your listing** with details',
       })
       .setFooter({
-        text: `Showing ${experiencesToShow.length} of ${experiences.length} experiences`,
-        iconURL: interaction.user.displayAvatarURL(),
+        text: `🛡️ Bloxtr8 • Showing ${experiencesToShow.length} of ${experiences.length} experiences`,
+        iconURL:
+          'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
       })
       .setTimestamp();
 
@@ -543,50 +544,64 @@ export async function handleExperienceSelection(
 
     const embed = new EmbedBuilder()
       .setTitle('✅ Game Ownership Verified')
-      .setDescription(`**${gameDetails.name}**`)
+      .setDescription(
+        `**🎮 ${gameDetails.name}**\n\n✨ *Your ownership has been verified and you can now create a listing for this game.*`
+      )
       .addFields(
         {
-          name: 'Ownership Type',
-          value: ownershipType || 'Owner',
+          name: '👑 **Ownership Type**',
+          value: `**${ownershipType || 'Owner'}**`,
           inline: true,
         },
         {
-          name: 'Player Count',
-          value: `${gameDetails.playing || 0} playing`,
+          name: '👥 **Player Count**',
+          value: `**${(gameDetails.playing || 0).toLocaleString()}** playing`,
           inline: true,
         },
         {
-          name: 'Total Visits',
-          value: `${gameDetails.visits || 0}`,
+          name: '📈 **Total Visits**',
+          value: `**${(gameDetails.visits || 0).toLocaleString()}**`,
           inline: true,
         },
         {
-          name: 'Creator',
-          value: gameDetails.creator?.name || 'Unknown',
+          name: '👤 **Creator**',
+          value: `**${gameDetails.creator?.name || 'Unknown'}**`,
           inline: true,
         },
-        { name: 'Genre', value: gameDetails.genre || 'Unknown', inline: true }
+        {
+          name: '🎯 **Genre**',
+          value: `**${gameDetails.genre || 'Unknown'}**`,
+          inline: true,
+        }
       )
       .setThumbnail(
         gameDetails.thumbnailUrl ||
           `https://thumbnails.roblox.com/v1/games/icons?gameIds=${selectedExperienceId}&size=420x420&format=Png`
       )
-      .setColor('Green');
+      .setColor(0x00d4aa) // Modern teal
+      .setFooter({
+        text: '🛡️ Bloxtr8 • Verified Asset Ownership',
+        iconURL:
+          'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
+      })
+      .setTimestamp();
 
-    // Create buttons for next steps
+    // Create beautiful action buttons
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId('create_listing_with_game')
         .setLabel('Create Game Listing')
-        .setStyle(ButtonStyle.Primary),
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('📋'),
       new ButtonBuilder()
         .setCustomId('cancel_listing_creation')
         .setLabel('Cancel')
         .setStyle(ButtonStyle.Secondary)
+        .setEmoji('❌')
     );
 
     await interaction.editReply({
-      content: 'Game ownership verified! You can now create your listing.',
+      content: '🎉 Game ownership verified! You can now create your listing.',
       embeds: [embed],
       components: [row],
     });
@@ -1042,55 +1057,57 @@ export async function handleListingWithGameModalSubmit(
     // Clear cached data
     verificationCache.delete(discordId);
 
-    // Success - show listing created message
+    // Success - show listing created message with beautiful design
     let embedDescription: string;
     let embedTitle: string;
 
     if (threadId) {
       embedDescription =
-        '**Your verified asset listing is now live with a dedicated thread!**';
+        '**🎉 Your verified asset listing is now live with a dedicated thread!**\n\n✨ *Your listing is visible to the community and ready for offers.*';
       embedTitle = '🎉 Verified Asset Listing Created!';
     } else {
       embedDescription =
-        '**Your verified asset listing has been created!**\n\n⚠️ *Note: Thread creation failed - listing is saved but not visible in Discord channels.*';
+        '**✅ Your verified asset listing has been created!**\n\n⚠️ *Note: Thread creation failed - listing is saved but not visible in Discord channels.*';
       embedTitle = '⚠️ Listing Created (Limited)';
     }
 
     const embed = new EmbedBuilder()
-      .setColor(threadId ? 0x00d4aa : 0xf59e0b) // Green if thread created, orange if not
+      .setColor(threadId ? 0x00d4aa : 0xf59e0b) // Modern teal if thread created, amber if not
       .setTitle(embedTitle)
       .setDescription(embedDescription)
       .setThumbnail(interaction.user.displayAvatarURL())
       .addFields(
         {
-          name: '📋 Details',
-          value: `**${title}**\n$${(price / 100).toFixed(2)} • ${category}`,
+          name: '📋 **Listing Details**',
+          value: `**${title}**\n💰 **$${(price / 100).toFixed(2)}** • 📂 **${category}**`,
           inline: true,
         },
         {
-          name: '🆔 ID',
+          name: '🆔 **Listing ID**',
           value: `\`${apiResult.data.id}\``,
           inline: true,
         },
         {
-          name: '✅ Verification',
-          value: 'Asset ownership verified',
+          name: '✅ **Verification**',
+          value: '🛡️ **Asset ownership verified**',
           inline: true,
         },
         {
-          name: '🌐 Visibility',
+          name: '🌐 **Visibility**',
           value:
-            visibility === 'PUBLIC' ? '🌍 All Servers' : '🔒 This Server Only',
+            visibility === 'PUBLIC'
+              ? '🌍 **All Servers**'
+              : '🔒 **This Server Only**',
           inline: true,
         },
         {
-          name: '💰 Price Range',
-          value: `${priceRange.emoji} ${priceRange.description}`,
+          name: '💰 **Price Range**',
+          value: `${priceRange.emoji} **${priceRange.description}**`,
           inline: true,
         },
         {
-          name: '🎮 Game',
-          value: `[Open on Roblox](${getRobloxGameUrl(cachedData.placeId)})`,
+          name: '🎮 **Game Link**',
+          value: `[🎯 Open on Roblox](${getRobloxGameUrl(cachedData.placeId)})`,
           inline: false,
         }
       );
@@ -1105,31 +1122,43 @@ export async function handleListingWithGameModalSubmit(
     }
 
     embed.setTimestamp().setFooter({
-      text: `Created by ${interaction.user.username}`,
-      iconURL: interaction.user.displayAvatarURL(),
+      text: `🛡️ Bloxtr8 • Created by ${interaction.user.username} • Secure Trading Platform`,
+      iconURL:
+        'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
     });
 
-    // Create buttons
+    // Create beautiful action buttons
     const buttons = new ActionRowBuilder<ButtonBuilder>();
 
     buttons.addComponents(
       new ButtonBuilder()
-        .setLabel('🎮 Open Game on Roblox')
+        .setLabel('Open Game on Roblox')
         .setStyle(ButtonStyle.Link)
         .setURL(getRobloxGameUrl(cachedData.placeId))
+        .setEmoji('🎮')
     );
 
     // Add thread link button if available
     if (threadId && channelId && interaction.guildId) {
       buttons.addComponents(
         new ButtonBuilder()
-          .setLabel('💬 View Thread')
-          .setStyle(ButtonStyle.Link)
+          .setLabel('View Thread')
+          .setStyle(ButtonStyle.Primary)
           .setURL(
             `https://discord.com/channels/${interaction.guildId}/${channelId}/${threadId}`
           )
+          .setEmoji('💬')
       );
     }
+
+    // Add web view button
+    buttons.addComponents(
+      new ButtonBuilder()
+        .setLabel('View on Web')
+        .setStyle(ButtonStyle.Secondary)
+        .setURL(`https://bloxtr8.com/listings/${apiResult.data.id}`)
+        .setEmoji('🌐')
+    );
 
     const gameButton = buttons;
 

@@ -52,23 +52,27 @@ export interface ListingData {
  */
 export function generateThreadName(listing: ListingData): string {
   const price = formatPrice(listing.price);
+
+  // Use cleaner, more modern emojis
   const statusEmoji =
     listing.status === 'ACTIVE'
       ? '🟢'
       : listing.status === 'SOLD'
         ? '🔴'
         : '⚪';
+
+  // Better verification indicators
   const verifiedEmoji = listing.user.kycVerified ? '✅' : '⚠️';
 
-  // Discord thread name limit is 50 characters (not 100!)
+  // Discord thread name limit is 50 characters
   const maxLength = 50;
 
   // Calculate space needed for fixed elements
-  // Format: "🟢Title - $Price|✅" (emojis + formatting)
+  // Format: "🟢 Title • $Price • ✅" (cleaner separators)
   const statusEmojiLength = statusEmoji.length; // 2
   const verifiedEmojiLength = verifiedEmoji.length; // 2
-  const separatorLength = ' - $'.length + '|'.length; // 5 (not 7!)
-  const priceLength = price.length; // variable, e.g., "15.00" = 5, "1.5k" = 4, "150k" = 4
+  const separatorLength = ' • $'.length + ' • '.length; // 6
+  const priceLength = price.length; // variable
 
   // Reserve space for all fixed elements
   const reservedSpace =
@@ -83,7 +87,7 @@ export function generateThreadName(listing: ListingData): string {
     title = `${title.substring(0, maxTitleLength - 3)}...`;
   }
 
-  const threadName = `${statusEmoji}${title} - $${price}|${verifiedEmoji}`;
+  const threadName = `${statusEmoji} ${title} • $${price} • ${verifiedEmoji}`;
 
   // Final safety check - ensure we never exceed 50 chars
   if (threadName.length > 50) {
@@ -92,7 +96,7 @@ export function generateThreadName(listing: ListingData): string {
     const hasEllipsis = title.endsWith('...');
     const baseTitle = hasEllipsis ? title.slice(0, -3) : title;
     title = `${baseTitle.substring(0, baseTitle.length - overBy)}...`;
-    return `${statusEmoji}${title} - $${price}|${verifiedEmoji}`;
+    return `${statusEmoji} ${title} • $${price} • ${verifiedEmoji}`;
   }
 
   return threadName;
@@ -102,72 +106,96 @@ export function generateThreadName(listing: ListingData): string {
  * Create rich embed for listing thread
  */
 export function createListingEmbed(listing: ListingData): EmbedBuilder {
+  const price = formatPrice(listing.price);
+  const statusEmoji = getStatusEmoji(listing.status);
+  const verificationBadge = getVerificationBadge(
+    listing.user.kycTier,
+    listing.user.kycVerified
+  );
+
+  // Create a beautiful, modern embed with better visual hierarchy
   const embed = new EmbedBuilder()
     .setTitle(`🎮 ${listing.title}`)
-    .setDescription(listing.summary)
+    .setDescription(`**${listing.summary}**`)
     .setColor(getStatusColor(listing.status))
-    .addFields(
-      {
-        name: '💰 Price',
-        value: `$${formatPrice(listing.price)}`,
-        inline: true,
-      },
-      {
-        name: '📂 Category',
-        value: listing.category,
-        inline: true,
-      },
-      {
-        name: '📊 Status',
-        value: `${getStatusEmoji(listing.status)} ${listing.status}`,
-        inline: true,
-      },
-      {
-        name: '👤 Seller',
-        value: listing.user.name || 'Anonymous',
-        inline: true,
-      },
-      {
-        name: '✅ Verification',
-        value: getVerificationBadge(
-          listing.user.kycTier,
-          listing.user.kycVerified
-        ),
-        inline: true,
-      },
-      {
-        name: '🌐 Visibility',
-        value:
-          listing.visibility === 'PUBLIC'
-            ? '🌍 All Servers'
-            : '🔒 This Server Only',
-        inline: true,
-      }
-    )
     .setTimestamp(listing.createdAt);
 
-  // Add Roblox game data if available
+  // Add Roblox game thumbnail if available
   if (listing.robloxSnapshots && listing.robloxSnapshots.length > 0) {
     const snapshot = listing.robloxSnapshots[0];
-
     if (snapshot && snapshot.thumbnailUrl) {
       embed.setThumbnail(snapshot.thumbnailUrl);
     }
+  }
 
+  // Main information section with better formatting
+  embed.addFields(
+    {
+      name: '💰 **Price**',
+      value: `**$${price}**`,
+      inline: true,
+    },
+    {
+      name: '📂 **Category**',
+      value: listing.category,
+      inline: true,
+    },
+    {
+      name: '📊 **Status**',
+      value: `${statusEmoji} **${listing.status}**`,
+      inline: true,
+    }
+  );
+
+  // Seller and verification section
+  embed.addFields(
+    {
+      name: '👤 **Seller**',
+      value: `**${listing.user.name || 'Anonymous'}**`,
+      inline: true,
+    },
+    {
+      name: '🛡️ **Verification**',
+      value: verificationBadge,
+      inline: true,
+    },
+    {
+      name: '🌐 **Visibility**',
+      value:
+        listing.visibility === 'PUBLIC'
+          ? '🌍 **All Servers**'
+          : '🔒 **This Server Only**',
+      inline: true,
+    }
+  );
+
+  // Enhanced game information section
+  if (listing.robloxSnapshots && listing.robloxSnapshots.length > 0) {
+    const snapshot = listing.robloxSnapshots[0];
     if (snapshot && snapshot.gameName) {
+      const gameStats = [];
+      if (snapshot.playerCount) {
+        gameStats.push(
+          `👥 **${snapshot.playerCount.toLocaleString()}** playing`
+        );
+      }
+      if (snapshot.visits) {
+        gameStats.push(`📈 **${snapshot.visits.toLocaleString()}** visits`);
+      }
+
       embed.addFields({
-        name: '🎮 Game Information',
-        value: `**Name:** ${snapshot.gameName}
-**Ownership:** ${snapshot.verifiedOwnership ? '✅ Verified' : '❌ Not Verified'}
-${snapshot.playerCount ? `**Players:** ${snapshot.playerCount.toLocaleString()}` : ''}
-${snapshot.visits ? `**Visits:** ${snapshot.visits.toLocaleString()}` : ''}`,
+        name: '🎮 **Game Information**',
+        value: `**${snapshot.gameName}**\n${snapshot.verifiedOwnership ? '✅ **Verified Ownership**' : '❌ **Not Verified**'}\n${gameStats.join(' • ')}`,
         inline: false,
       });
     }
   }
 
+  // Enhanced footer with better branding
   embed.setFooter({
-    text: `Listing ID: ${listing.id} • Created on Bloxtr8`,
+    text: `🆔 ${listing.id} • 🛡️ Bloxtr8 • Secure Trading Platform`,
+    iconURL:
+      'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
   });
 
   return embed;
@@ -183,19 +211,23 @@ export function createListingButtons(
     new ButtonBuilder()
       .setCustomId(`make_offer_${listingId}`)
       .setLabel('💸 Make Offer')
-      .setStyle(ButtonStyle.Primary),
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('💰'),
     new ButtonBuilder()
       .setCustomId(`view_details_${listingId}`)
-      .setLabel('🔍 View Details')
-      .setStyle(ButtonStyle.Secondary),
+      .setLabel('View Details')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🔍'),
     new ButtonBuilder()
-      .setLabel('🌐 View on Web')
+      .setLabel('View on Web')
       .setStyle(ButtonStyle.Link)
-      .setURL(`https://bloxtr8.com/listings/${listingId}`),
+      .setURL(`https://bloxtr8.com/listings/${listingId}`)
+      .setEmoji('🌐'),
     new ButtonBuilder()
       .setCustomId(`watch_listing_${listingId}`)
-      .setLabel('👁️ Watch')
+      .setLabel('Watch')
       .setStyle(ButtonStyle.Secondary)
+      .setEmoji('👁️')
   );
 }
 
@@ -400,13 +432,13 @@ export async function archiveListingThread(
 function getStatusColor(status: string): number {
   switch (status) {
     case 'ACTIVE':
-      return 0x00ff88; // Green
+      return 0x00d4aa; // Modern teal (matches Bloxtr8 brand)
     case 'SOLD':
-      return 0xff6b6b; // Red
+      return 0xef4444; // Modern red
     case 'CANCELLED':
-      return 0xffa500; // Orange
+      return 0xf59e0b; // Modern amber
     default:
-      return 0x5865f2; // Discord blurple
+      return 0x6366f1; // Modern indigo
   }
 }
 
@@ -427,16 +459,16 @@ function getStatusEmoji(status: string): string {
 
 function getVerificationBadge(kycTier?: string, kycVerified?: boolean): string {
   if (kycVerified) {
-    return '✅ Verified Seller';
+    return '✅ **Fully Verified**';
   }
 
   switch (kycTier) {
     case 'TIER_2':
-      return '✅ Premium Verified';
+      return '💎 **Premium Verified**';
     case 'TIER_1':
-      return '🟢 Roblox Linked';
+      return '🟢 **Roblox Linked**';
     case 'TIER_0':
     default:
-      return '⚠️ Unverified';
+      return '⚠️ **Unverified**';
   }
 }
