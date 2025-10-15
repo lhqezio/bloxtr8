@@ -33,7 +33,7 @@ export class OfferNotificationService {
   private client: Client;
   private apiBaseUrl: string;
   private lastPollTime: Date;
-  // eslint-disable-next-line no-undef
+
   private pollingInterval: ReturnType<typeof setInterval> | null = null;
   private processedOffers: Set<string> = new Set();
 
@@ -56,7 +56,7 @@ export class OfferNotificationService {
     });
 
     // Set up interval polling
-    // eslint-disable-next-line no-undef
+
     this.pollingInterval = setInterval(() => {
       this.pollOfferEvents().catch(error => {
         console.error('Offer poll failed:', error);
@@ -73,7 +73,6 @@ export class OfferNotificationService {
    */
   stop(): void {
     if (this.pollingInterval) {
-      // eslint-disable-next-line no-undef
       clearInterval(this.pollingInterval);
       this.pollingInterval = null;
       console.log('Offer notification service stopped');

@@ -14,7 +14,7 @@ export interface CreateListingRequest {
   sellerId: string;
   guildId?: string;
   visibility?: 'PUBLIC' | 'PRIVATE';
-  threadId?: string;
+  messageId?: string;
   channelId?: string;
   priceRange?: string;
 }
@@ -23,8 +23,8 @@ export interface CreateListingResponse {
   id: string;
 }
 
-export interface UpdateListingThreadRequest {
-  threadId?: string;
+export interface UpdateListingMessageRequest {
+  messageId?: string;
   channelId?: string;
   priceRange?: string;
 }
@@ -47,7 +47,7 @@ export interface ListingResponse {
   category: string;
   status: string;
   visibility: string;
-  threadId?: string;
+  messageId?: string;
   channelId?: string;
   priceRange?: string;
   userId: string;
@@ -211,22 +211,22 @@ export async function fetchListings(
 }
 
 /**
- * Update listing thread information
+ * Update listing message information
  */
-export async function updateListingThread(
+export async function updateListingMessage(
   listingId: string,
-  threadData: UpdateListingThreadRequest,
+  messageData: UpdateListingMessageRequest,
   apiBaseUrl: string = getApiBaseUrl()
 ): Promise<{ success: true } | { success: false; error: ApiError }> {
   try {
     const response = await fetch(
-      `${apiBaseUrl}/api/listings/${listingId}/thread`,
+      `${apiBaseUrl}/api/listings/${listingId}/message`,
       {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(threadData),
+        body: JSON.stringify(messageData),
         signal: AbortSignal.timeout(10000),
       }
     );
@@ -241,11 +241,11 @@ export async function updateListingThread(
 
     return { success: true };
   } catch (error) {
-    console.error('Error updating listing thread:', error);
+    console.error('Error updating listing message:', error);
     return {
       success: false,
       error: {
-        message: 'Network error occurred while updating listing thread',
+        message: 'Network error occurred while updating listing message',
       },
     };
   }

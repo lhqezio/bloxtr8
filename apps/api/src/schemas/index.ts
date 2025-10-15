@@ -37,7 +37,7 @@ export const createListingSchema = z.object({
   sellerId: z.string().min(1, 'Seller ID is required'),
   guildId: z.string().optional(),
   visibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
-  threadId: z.string().optional(),
+  messageId: z.string().optional(),
   channelId: z.string().optional(),
   priceRange: z.string().optional(),
 });

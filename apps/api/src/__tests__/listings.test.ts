@@ -257,7 +257,7 @@ describe('Listings API Routes', () => {
           category: true,
           status: true,
           visibility: true,
-          threadId: true,
+          messageId: true,
           channelId: true,
           priceRange: true,
           createdAt: true,

@@ -10,6 +10,7 @@ import {
   Bloxtr8Button,
   EmbedPatterns,
 } from '../utils/designSystem.js';
+import { sendDMWithEmbed, createDMDisabledEmbed } from '../utils/dmHelper.js';
 import { getWebAppBaseUrl, getApiBaseUrl } from '../utils/urls.js';
 import {
   checkUserExists,
@@ -20,23 +21,68 @@ export async function handleLinkRoblox(
   interaction: ChatInputCommandInteraction
 ) {
   try {
-    // Defer the reply immediately to extend the timeout to 15 minutes
-    await interaction.deferReply({ ephemeral: true });
-
     // Check if user exists (without creating them)
     const userResult = await checkUserExists(interaction.user.id);
 
     if (!userResult.user) {
-      const errorEmbed = EmbedPatterns.accountSetupRequired().addUserAvatar(
-        interaction.user.id,
-        interaction.user.avatar || undefined
-      );
+      // User not signed up - trigger signup flow via DM
+      const signupEmbed = new EmbedBuilder()
+        .setColor(0x00d4aa)
+        .setTitle('🚀 Welcome to Bloxtr8!')
+        .setDescription('**The secure marketplace for Roblox trading**')
+        .setThumbnail(interaction.user.displayAvatarURL())
+        .addFields(
+          {
+            name: '🛡️ Secure Trading',
+            value: 'Escrow protection • Verified users • Safe transactions',
+            inline: false,
+          },
+          {
+            name: '🔒 Privacy First',
+            value: 'Encrypted data • No sharing • You control your info',
+            inline: false,
+          },
+          {
+            name: '⚖️ Requirements',
+            value: '13+ years old • KYC verification • Follow guidelines',
+            inline: false,
+          },
+          {
+            name: '📋 Next Steps',
+            value:
+              '**1.** Sign up for an account\n**2.** Link your Roblox account\n**3.** Start trading!',
+            inline: false,
+          }
+        )
+        .setFooter({
+          text: 'By signing up, you agree to our Terms of Service',
+          iconURL: interaction.user.displayAvatarURL(),
+        })
+        .setTimestamp();
 
-      await interaction.editReply({
-        embeds: [errorEmbed],
-      });
+      // Try to send DM
+      const dmResult = await sendDMWithEmbed(interaction.user, signupEmbed);
+
+      if (dmResult.success) {
+        // DM sent successfully - reply ephemerally in server
+        await interaction.reply({
+          content:
+            '📩 **Check your DMs to sign up and link your Roblox account!**',
+          ephemeral: true,
+        });
+      } else {
+        // DM failed - show fallback message in server
+        const fallbackEmbed = createDMDisabledEmbed('link', interaction.user);
+        await interaction.reply({
+          embeds: [fallbackEmbed],
+          ephemeral: true,
+        });
+      }
       return;
     }
+
+    // Check if we're in a DM context
+    const isDM = !interaction.guildId;
 
     // Check if Roblox account is already linked
     const hasRobloxAccount = await checkProviderAccount(
@@ -52,11 +98,113 @@ export async function handleLinkRoblox(
         interaction.user.avatar || undefined
       );
 
-      await interaction.editReply({
-        embeds: [alreadyLinkedEmbed],
-      });
+      if (isDM) {
+        await interaction.reply({
+          embeds: [alreadyLinkedEmbed],
+        });
+      } else {
+        await interaction.reply({
+          embeds: [alreadyLinkedEmbed],
+          ephemeral: true,
+        });
+      }
       return;
     }
+
+    // If in server, send DM with link instructions
+    if (!isDM) {
+      // Generate link token
+      const tokenResponse = await fetch(
+        `${getApiBaseUrl()}/api/users/link-token`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            discordId: interaction.user.id,
+            purpose: 'roblox_link',
+          }),
+        }
+      );
+
+      if (!tokenResponse.ok) {
+        await interaction.reply({
+          content: '❌ Failed to generate link token. Please try again later.',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const tokenData = (await tokenResponse.json()) as {
+        token: string;
+        expiresIn: number;
+      };
+
+      // Create link instructions embed
+      const linkEmbed = Bloxtr8Embed.info(
+        'Connect Roblox Account',
+        'Link your Roblox account to unlock trading features'
+      )
+        .addUserAvatar(
+          interaction.user.id,
+          interaction.user.avatar || undefined
+        )
+        .addActionField(
+          'Quick Setup',
+          '**1.** Click the button below\n**2.** Sign in with Roblox\n**3.** Authorize connection',
+          false
+        )
+        .addActionField(
+          'Benefits',
+          'Verified status • Enhanced security • Trading access',
+          true
+        )
+        .addActionField(
+          'Security',
+          'OAuth 2.0 • No passwords • Limited access',
+          true
+        )
+        .addActionField(
+          'Expires',
+          `<t:${Math.floor((Date.now() + tokenData.expiresIn * 1000) / 1000)}:R>`,
+          true
+        );
+
+      // Create connect button
+      const connectButton = Bloxtr8Button.link(
+        '🔗 Connect Roblox Account',
+        `${getWebAppBaseUrl()}/auth/link/roblox?token=${tokenData.token}`
+      );
+
+      const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        connectButton
+      );
+
+      // Try to send DM
+      const dmResult = await sendDMWithEmbed(interaction.user, linkEmbed, [
+        buttonRow,
+      ]);
+
+      if (dmResult.success) {
+        // DM sent successfully - reply ephemerally in server
+        await interaction.reply({
+          content: '📩 **Check your DMs to link your Roblox account!**',
+          ephemeral: true,
+        });
+      } else {
+        // DM failed - show fallback message in server
+        const fallbackEmbed = createDMDisabledEmbed('link', interaction.user);
+        await interaction.reply({
+          embeds: [fallbackEmbed],
+          ephemeral: true,
+        });
+      }
+      return;
+    }
+
+    // Already in DM context - show link instructions directly
+    await interaction.deferReply({ ephemeral: true });
 
     // Generate secure link token
     const tokenResponse = await fetch(

@@ -14,13 +14,13 @@ import {
   type StringSelectMenuInteraction,
 } from 'discord.js';
 
-import { createListing, updateListingThread } from '../utils/apiClient.js';
+import { createListing, updateListingMessage } from '../utils/apiClient.js';
 import { getApiBaseUrl } from '../utils/apiClient.js';
 import { getPriceRangeForPrice } from '../utils/marketplace.js';
 import {
-  createListingThread,
+  createListingMessage,
   type ListingData,
-} from '../utils/threadManager.js';
+} from '../utils/messageManager.js';
 import { verifyUserForListing } from '../utils/userVerification.js';
 import { checkUserExists } from '../utils/userVerification.js';
 
@@ -978,8 +978,8 @@ export async function handleListingWithGameModalSubmit(
       // Continue anyway - listing was created successfully
     }
 
-    // Create Discord thread for the listing
-    let threadId: string | undefined;
+    // Create Discord message for the listing
+    let messageId: string | undefined;
     let channelId: string | undefined;
 
     if (interaction.guild) {
@@ -1012,44 +1012,44 @@ export async function handleListingWithGameModalSubmit(
           createdAt: new Date(),
         };
 
-        const thread = await createListingThread(
+        const message = await createListingMessage(
           listingData,
           interaction.guild,
           3
         );
 
-        if (thread) {
-          threadId = thread.id;
-          channelId = thread.parentId || undefined;
+        if (message) {
+          messageId = message.id;
+          channelId = message.channel.id;
 
-          // Update listing with thread information
-          await updateListingThread(apiResult.data.id, {
-            threadId,
+          // Update listing with message information
+          await updateListingMessage(apiResult.data.id, {
+            messageId,
             channelId,
             priceRange: priceRange.range,
           });
 
           console.log(
-            `Created thread ${threadId} for listing ${apiResult.data.id}`
+            `Created message ${messageId} for listing ${apiResult.data.id}`
           );
         }
       } catch (error) {
-        console.error('Failed to create listing thread:', error);
+        console.error('Failed to create listing message:', error);
 
         // Log specific error types for debugging
         if (error instanceof Error) {
           if (error.message.includes('Missing Permissions')) {
             console.error(
-              'Bot lacks permissions to create threads in this channel'
+              'Bot lacks permissions to send messages in this channel'
             );
           } else if (error.message.includes('rate limit')) {
-            console.error('Rate limited while creating thread');
+            console.error('Rate limited while creating message');
           } else if (error.message.includes('channel')) {
             console.error('Channel not found or inaccessible');
           }
         }
 
-        // Thread creation failed, but listing is still saved
+        // Message creation failed, but listing is still saved
         // The success message already handles this case appropriately
       }
     }
@@ -1061,18 +1061,18 @@ export async function handleListingWithGameModalSubmit(
     let embedDescription: string;
     let embedTitle: string;
 
-    if (threadId) {
+    if (messageId) {
       embedDescription =
-        '**🎉 Your verified asset listing is now live with a dedicated thread!**\n\n✨ *Your listing is visible to the community and ready for offers.*';
+        '**🎉 Your verified asset listing is now live in the marketplace!**\n\n✨ *Your listing is visible to the community and ready for offers.*';
       embedTitle = '🎉 Verified Asset Listing Created!';
     } else {
       embedDescription =
-        '**✅ Your verified asset listing has been created!**\n\n⚠️ *Note: Thread creation failed - listing is saved but not visible in Discord channels.*';
+        '**✅ Your verified asset listing has been created!**\n\n⚠️ *Note: Message creation failed - listing is saved but not visible in Discord channels.*';
       embedTitle = '⚠️ Listing Created (Limited)';
     }
 
     const embed = new EmbedBuilder()
-      .setColor(threadId ? 0x00d4aa : 0xf59e0b) // Modern teal if thread created, amber if not
+      .setColor(messageId ? 0x00d4aa : 0xf59e0b) // Modern teal if message created, amber if not
       .setTitle(embedTitle)
       .setDescription(embedDescription)
       .setThumbnail(interaction.user.displayAvatarURL())
@@ -1112,11 +1112,11 @@ export async function handleListingWithGameModalSubmit(
         }
       );
 
-    // Add thread link if available
-    if (threadId && channelId) {
+    // Add message link if available
+    if (messageId && channelId) {
       embed.addFields({
-        name: '💬 Discussion Thread',
-        value: `<#${channelId}> • [Jump to Thread](https://discord.com/channels/${interaction.guildId}/${channelId}/${threadId})`,
+        name: '💬 Marketplace Message',
+        value: `<#${channelId}> • [Jump to Message](https://discord.com/channels/${interaction.guildId}/${channelId}/${messageId})`,
         inline: false,
       });
     }
@@ -1132,32 +1132,29 @@ export async function handleListingWithGameModalSubmit(
 
     buttons.addComponents(
       new ButtonBuilder()
-        .setLabel('Open Game on Roblox')
+        .setLabel('🎮 Open Game on Roblox')
         .setStyle(ButtonStyle.Link)
         .setURL(getRobloxGameUrl(cachedData.placeId))
-        .setEmoji('🎮')
     );
 
-    // Add thread link button if available
-    if (threadId && channelId && interaction.guildId) {
+    // Add message link button if available
+    if (messageId && channelId && interaction.guildId) {
       buttons.addComponents(
         new ButtonBuilder()
-          .setLabel('View Thread')
-          .setStyle(ButtonStyle.Primary)
+          .setLabel('💬 View Message')
+          .setStyle(ButtonStyle.Link)
           .setURL(
-            `https://discord.com/channels/${interaction.guildId}/${channelId}/${threadId}`
+            `https://discord.com/channels/${interaction.guildId}/${channelId}/${messageId}`
           )
-          .setEmoji('💬')
       );
     }
 
     // Add web view button
     buttons.addComponents(
       new ButtonBuilder()
-        .setLabel('View on Web')
-        .setStyle(ButtonStyle.Secondary)
+        .setLabel('🌐 View on Web')
+        .setStyle(ButtonStyle.Link)
         .setURL(`https://bloxtr8.com/listings/${apiResult.data.id}`)
-        .setEmoji('🌐')
     );
 
     const gameButton = buttons;

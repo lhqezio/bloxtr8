@@ -29,11 +29,14 @@ import {
   handleSignup,
   handleConsentAccept,
   handleConsentDecline,
+  handleLinkRobloxAfterSignup,
 } from './commands/signup.js';
 import { execute as handleSyncListings } from './commands/sync-listings.js';
 import { handleVerify } from './commands/verify.js';
 // Offer notification service
+import { LinkNotificationService } from './services/linkNotifications.js';
 import { OfferNotificationService } from './services/offerNotifications.js';
+// Link notification service
 // Marketplace utilities
 import { syncPublicListingsToGuild } from './utils/listingSync.js';
 import {
@@ -59,8 +62,9 @@ const client = new Client({
   ],
 });
 
-// Initialize offer notification service
+// Initialize notification services
 let offerNotificationService: OfferNotificationService | null = null;
+let linkNotificationService: LinkNotificationService | null = null;
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user?.tag}`);
@@ -83,11 +87,18 @@ client.once('ready', async () => {
     );
   }
 
-  // Start offer notification service
+  // Start notification services
   const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+
+  // Start offer notification service
   offerNotificationService = new OfferNotificationService(client, apiBaseUrl);
   offerNotificationService.start(30000); // Poll every 30 seconds
   console.log('✅ Offer notification service started');
+
+  // Start link notification service
+  linkNotificationService = new LinkNotificationService(client, apiBaseUrl);
+  linkNotificationService.start(30000); // Poll every 30 seconds
+  console.log('✅ Link notification service started');
 
   // Register guild slash commands on startup
   const commands = [
@@ -282,6 +293,9 @@ client.on('interactionCreate', async interaction => {
     if (interaction.customId === 'consent_decline') {
       await handleConsentDecline(interaction);
     }
+    if (interaction.customId === 'link_roblox_after_signup') {
+      await handleLinkRobloxAfterSignup(interaction);
+    }
     if (interaction.customId === 'create_listing_with_game') {
       await handleCreateListingWithGameButton(interaction);
     }
@@ -346,9 +360,12 @@ client.on('guildDelete', async guild => {
 async function gracefulShutdown(signal: string) {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
 
-  // Stop offer notification service
+  // Stop notification services
   if (offerNotificationService) {
     offerNotificationService.stop();
+  }
+  if (linkNotificationService) {
+    linkNotificationService.stop();
   }
 
   // Cleanup verification cache

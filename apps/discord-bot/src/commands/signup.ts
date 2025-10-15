@@ -7,15 +7,14 @@ import {
   type ChatInputCommandInteraction,
 } from 'discord.js';
 
+import { sendDMWithEmbed, createDMDisabledEmbed } from '../utils/dmHelper.js';
+import { getWebAppBaseUrl, getApiBaseUrl } from '../utils/urls.js';
 import { verify } from '../utils/userVerification.js';
 import { ensureUserExists } from '../utils/userVerification.js';
 
 export async function handleSignup(interaction: ChatInputCommandInteraction) {
   try {
-    // Defer the reply immediately to extend the timeout to 15 minutes
-    await interaction.deferReply({ ephemeral: true });
-
-    // Check if user already exists
+    // Check if user already exists first
     const existingUser = await verify(interaction.user.id);
 
     if (
@@ -23,6 +22,7 @@ export async function handleSignup(interaction: ChatInputCommandInteraction) {
       ((Array.isArray(existingUser.data) && existingUser.data.length > 0) ||
         (!Array.isArray(existingUser.data) && existingUser.data.user))
     ) {
+      // User already exists - reply ephemerally in server
       const embed = new EmbedBuilder()
         .setColor(0xf59e0b)
         .setTitle('👋 Welcome Back!')
@@ -51,13 +51,14 @@ export async function handleSignup(interaction: ChatInputCommandInteraction) {
         })
         .setTimestamp();
 
-      await interaction.editReply({
+      await interaction.reply({
         embeds: [embed],
+        ephemeral: true,
       });
       return;
     }
 
-    // Show consent form
+    // User doesn't exist - send DM with signup invitation
     const consentEmbed = new EmbedBuilder()
       .setColor(0x00d4aa)
       .setTitle('🚀 Welcome to Bloxtr8!')
@@ -104,10 +105,25 @@ export async function handleSignup(interaction: ChatInputCommandInteraction) {
       declineButton
     );
 
-    await interaction.editReply({
-      embeds: [consentEmbed],
-      components: [buttonRow],
-    });
+    // Try to send DM
+    const dmResult = await sendDMWithEmbed(interaction.user, consentEmbed, [
+      buttonRow,
+    ]);
+
+    if (dmResult.success) {
+      // DM sent successfully - reply ephemerally in server
+      await interaction.reply({
+        content: '📩 **Check your DMs for signup instructions!**',
+        ephemeral: true,
+      });
+    } else {
+      // DM failed - show fallback message in server
+      const fallbackEmbed = createDMDisabledEmbed('signup', interaction.user);
+      await interaction.reply({
+        embeds: [fallbackEmbed],
+        ephemeral: true,
+      });
+    }
   } catch (error) {
     console.error('Error handling signup:', error);
 
@@ -160,7 +176,7 @@ export async function handleConsentAccept(interaction: ButtonInteraction) {
       return;
     }
 
-    // Success message
+    // Success message with automatic link prompt
     const successEmbed = new EmbedBuilder()
       .setColor(0x00d4aa)
       .setTitle('🎉 Welcome to Bloxtr8!')
@@ -178,8 +194,8 @@ export async function handleConsentAccept(interaction: ButtonInteraction) {
           inline: true,
         },
         {
-          name: '🚀 Next Steps',
-          value: '`/link` - Connect Roblox\n`/verify` - Check status',
+          name: '🚀 Next Step',
+          value: '**Link your Roblox account to start trading!**',
           inline: false,
         }
       )
@@ -189,9 +205,44 @@ export async function handleConsentAccept(interaction: ButtonInteraction) {
         iconURL: interaction.user.displayAvatarURL(),
       });
 
+    // Generate link token for Roblox linking
+    const tokenResponse = await fetch(
+      `${getApiBaseUrl()}/api/users/link-token`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          discordId: interaction.user.id,
+          purpose: 'roblox_link',
+        }),
+      }
+    );
+
+    if (!tokenResponse.ok) {
+      // Fallback without link button
+      await interaction.editReply({
+        embeds: [successEmbed],
+        components: [],
+      });
+      return;
+    }
+
+    // Create link button
+    const linkButton = new ButtonBuilder()
+      .setCustomId('link_roblox_after_signup')
+      .setLabel('🔗 Link Roblox Account')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🎮');
+
+    const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      linkButton
+    );
+
     await interaction.editReply({
       embeds: [successEmbed],
-      components: [],
+      components: [buttonRow],
     });
   } catch (error) {
     console.error('Error handling consent acceptance:', error);
@@ -228,6 +279,102 @@ export async function handleConsentDecline(interaction: ButtonInteraction) {
     console.error('Error handling consent decline:', error);
     await interaction.editReply({
       content: '❌ An error occurred. Please try again later.',
+      components: [],
+    });
+  }
+}
+
+export async function handleLinkRobloxAfterSignup(
+  interaction: ButtonInteraction
+) {
+  try {
+    // Generate link token
+    const tokenResponse = await fetch(
+      `${getApiBaseUrl()}/api/users/link-token`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          discordId: interaction.user.id,
+          purpose: 'roblox_link',
+        }),
+      }
+    );
+
+    if (!tokenResponse.ok) {
+      await interaction.reply({
+        content: '❌ Failed to generate link token. Please try again later.',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const tokenData = (await tokenResponse.json()) as {
+      token: string;
+      expiresIn: number;
+    };
+
+    // Create link instructions embed
+    const linkEmbed = new EmbedBuilder()
+      .setColor(0x00d4aa)
+      .setTitle('🔗 Link Your Roblox Account')
+      .setDescription(
+        '**Connect your Roblox account to unlock trading features**'
+      )
+      .setThumbnail(interaction.user.displayAvatarURL())
+      .addFields(
+        {
+          name: '⚡ Quick Setup',
+          value:
+            '**1.** Click the button below\n**2.** Sign in with Roblox\n**3.** Authorize connection',
+          inline: false,
+        },
+        {
+          name: '✅ Benefits',
+          value: 'Verified status • Enhanced security • Trading access',
+          inline: true,
+        },
+        {
+          name: '🔒 Security',
+          value: 'OAuth 2.0 • No passwords • Limited access',
+          inline: true,
+        },
+        {
+          name: '⏰ Expires',
+          value: `<t:${Math.floor((Date.now() + tokenData.expiresIn * 1000) / 1000)}:R>`,
+          inline: true,
+        }
+      )
+      .setFooter({
+        text: '🛡️ Bloxtr8 • Secure Trading Platform',
+        iconURL:
+          'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
+      })
+      .setTimestamp();
+
+    // Create connect button
+    const connectButton = new ButtonBuilder()
+      .setLabel('🔗 Connect Roblox Account')
+      .setStyle(ButtonStyle.Link)
+      .setURL(
+        `${getWebAppBaseUrl()}/auth/link/roblox?token=${tokenData.token}`
+      );
+
+    const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      connectButton
+    );
+
+    await interaction.update({
+      embeds: [linkEmbed],
+      components: [buttonRow],
+    });
+  } catch (error) {
+    console.error('Error handling link Roblox after signup:', error);
+    await interaction.editReply({
+      content:
+        '❌ An error occurred while setting up Roblox linking. Please try again later.',
       components: [],
     });
   }

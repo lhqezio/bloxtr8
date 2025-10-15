@@ -33,7 +33,7 @@ router.post('/listings', async (req, res, next) => {
       sellerId,
       guildId,
       visibility,
-      threadId,
+      messageId,
       channelId,
       priceRange,
     } = validationResult.data;
@@ -52,7 +52,7 @@ router.post('/listings', async (req, res, next) => {
       }
     }
 
-    // Insert listing with sellerId and thread info
+    // Insert listing with sellerId and message info
     const listing = await prisma.listing.create({
       data: {
         title,
@@ -62,7 +62,7 @@ router.post('/listings', async (req, res, next) => {
         userId: sellerId,
         guildId: internalGuildId,
         visibility: visibility || 'PUBLIC',
-        threadId: threadId || null,
+        messageId: messageId || null,
         channelId: channelId || null,
         priceRange: priceRange || null,
       },
@@ -155,7 +155,7 @@ router.get('/listings', async (req, res, next) => {
           category: true,
           status: true,
           visibility: true,
-          threadId: true,
+          messageId: true,
           channelId: true,
           priceRange: true,
           createdAt: true,
@@ -244,7 +244,7 @@ router.get('/listings/:id', async (req, res, next) => {
         category: true,
         status: true,
         visibility: true,
-        threadId: true,
+        messageId: true,
         channelId: true,
         priceRange: true,
         createdAt: true,
@@ -289,11 +289,11 @@ router.get('/listings/:id', async (req, res, next) => {
   }
 });
 
-// Update listing thread information
-router.patch('/listings/:id/thread', async (req, res, next) => {
+// Update listing message information
+router.patch('/listings/:id/message', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { threadId, channelId, priceRange } = req.body;
+    const { messageId, channelId, priceRange } = req.body;
 
     // Validate ID parameter
     if (!id || typeof id !== 'string' || id.trim() === '') {
@@ -313,11 +313,11 @@ router.patch('/listings/:id/thread', async (req, res, next) => {
       throw new AppError('Listing not found', 404);
     }
 
-    // Update thread information
+    // Update message information
     await prisma.listing.update({
       where: { id },
       data: {
-        threadId: threadId || null,
+        messageId: messageId || null,
         channelId: channelId || null,
         priceRange: priceRange || null,
         updatedAt: new Date(),
