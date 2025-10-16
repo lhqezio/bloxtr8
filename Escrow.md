@@ -62,6 +62,9 @@ Small tweaks and recommendations for the schema:
 
   * add `expiresAt DateTime?` to automatically expire AWAIT_FUNDS states.
   * add `metadata Json?` for rails-agnostic references (refund reasons, proofs, custodian IDs).
+  * change `currency` from Currency to String to support non fiat currency suuch as USDC?
+  * add `expiresAt DateTime?` (auto refund deadline)
+  * add `autoRefundAt DataTime?`
 
 * `StripeEscrow`
 
@@ -70,7 +73,14 @@ Small tweaks and recommendations for the schema:
 
 * `StablecoinEscrow`
 
-  * add `custodyProvider String?` (e.g., `Alchemy`, `Blockdaemon`) and `depositConfirmations Int?`.
+  * add `custodyProvider String?` (e.g., `coinbase_prime`) and `depositConfirmations Int?`.
+  * add `custodianBuyerWalletId String?` (Coinbase wallet id for buyer)
+  *  add `custodianSellerWalletId String?`
+  * add `custodianDepositTxId String?` (provider deposit id)
+  * add  `onchainSignature String?` ( onchain tx signature for release/refund)
+  * add ` providerEven Json?` ( raw webhook payload)
+  * add `version Int @default(1)` (optimistic locking)
+  * add `mintAddress String` (canonical USDC mint)
 
 * `AuditLog`
 
@@ -79,7 +89,8 @@ Small tweaks and recommendations for the schema:
 * `Delivery`
 
   * add `evidence Json?` that stores links to screenshots, roblox API responses, tx hashes, or signed messages.
-
+* `User`
+  * add `StripeAccountId` if the seller has to onboard with stripe to create a Stripe Connect account to receive payout
 These are optional but helpful for operations and debugging.
 
 ---
@@ -119,7 +130,7 @@ Security: validate provider signatures, dedupe events by `webhook_events.eventId
 ### Stripe (Stripe Connect) — recommended flow
 [Why Stripe Connect and not Stripe](https://www.preczn.com/blog/stripe-vs-stripeconnect-everything-you-need-to-know)
 #### Recommended Settings
-- Use Express or Custom Connect accounts for sellers ([Stripe Connect Account Types](https://docs.stripe.com/connect/accounts))
+- Use Express Connect accounts for sellers ([Stripe Connect Account Types](https://docs.stripe.com/connect/accounts))
 - Enable manual payouts to contorl when sellers can withdraw funds
 - Enable KYC verification for connected accounts.
 - Use test mode and test cards during integration
@@ -140,6 +151,10 @@ Security: validate provider signatures, dedupe events by `webhook_events.eventId
 - [Separate Charges and Transfers](https://docs.stripe.com/connect/separate-charges-and-transfers)
 - [Application Fees](https://docs.stripe.com/connect/direct-charges#collect-fees)
 - [Manual Payouts / Delayed Transfers](https://docs.stripe.com/connect/manual-payouts)
+- [Stripe Connect Overview](https://stripe.com/docs/connect)
+- [Seperate Charges and Transfers](https://stripe.com/docs/connect/separate-charges-and-transfers)
+- [Transfers to connected accounts](https://stripe.com/docs/connect/payouts)
+- [Charging connected accounts](https://stripe.com/docs/connect/charges-on-behalf-of)
 #### Sample Code
 ```ts
 import express from "express";
@@ -264,7 +279,7 @@ app.listen(3001, () => console.log("Server running on port 3001"));
 
 #### Important notes:
 
-* Using Stripe Connect if you want sellers to receive funds directly. Connect reduces your custodial regulatory burden but requires onboarded accounts.
+* Using Stripe Connect if you want sellers to receive funds directly. Connect reduces your custodial regulatory burden but requires onboarded accounts (only for sellers).
 * The fund can only be hold for 90 days in Stripe Connect Custodial account.
 * Use idempotency keys for PaymentIntent/Transfer creation.
 * Store webhook events to `WebhookEvent` table to avoid double-processing.
@@ -283,22 +298,162 @@ const paymentIntent = await stripe.paymentIntents.create({
 //Transfer $95.00 to the seller (minus Stripe’s 2.9% + $0.30)
 //Deposit your $5.00 into bloxtr8 platform Stripe balance
 ```
-#### Stripe Docs to Read
-1. [Stripe Connect Overview](https://stripe.com/docs/connect)
-2. [Seperate Charges and Transfers](https://stripe.com/docs/connect/separate-charges-and-transfers)
-3. [Application Fees](https://stripe.com/docs/connect/direct-charges#collect-fees)
-4. [Transfers to connected accounts](https://stripe.com/docs/connect/payouts)
-5. [Charging connected accounts](https://stripe.com/docs/connect/charges-on-behalf-of)
+
 ### USDC (Base) — recommended flow
 
 1. Generate a deposit address (or custodian subaddress) and save to `StablecoinEscrow.depositAddr`.
 2. Monitor on-chain (or custodian) for incoming tx to that address matching amount.
 3. Once deposit observed and confirmed, set `Escrow.status = FUNDS_HELD` and save `StablecoinEscrow.depositTx`.
 4. On release: create a release transaction, save `releaseTx`, set `Escrow.status = RELEASED`.
-5. If escrow supports self-custody or multisig, include multisig flow and admin sign-offs for release.
+5. **Important notes:**
+Coinbase Prime API endpoints & exact request shapes may require contract/production docs and specific API scopes. The code below is practical pseudocode using the Prime REST surface (create wallet, create transaction, webhooks). Replace endpoints & auth headers with the exact values from your Coinbase Prime docs/account.
+#### Coinbase Docs References
+- [Coinbase Prime API Docs (for actual api endpoints, the endpoints in the above examples are illustrative)](https://docs.cdp.coinbase.com/prime/introduction/welcome)
+- [Coinbase SDK](https://github.com/coinbase-samples/prime-sdk-ts)
+- [Coinbase Prime Onchain Wallet overview](https://help.coinbase.com/en/prime/onchain-wallet/introduction-to-coinbase-prime-onchain-wallet)
+- [Solana support in Prime Onchain Wallet](https://help.coinbase.com/en/prime/onchain-wallet/prime-onchain-solana)
+#### Sample Code
+
+```ts
+// coinbase-client.ts
+import axios from "axios";
+
+const COINBASE_BASE = process.env.COINBASE_PRIME_API_BASE || "https://api.cdp.coinbase.com";
+const API_KEY = process.env.COINBASE_PRIME_API_KEY;
+const API_SECRET = process.env.COINBASE_PRIME_API_SECRET; // or use OAuth/jwt as Coinbase requires
+const PASSPHRASE = process.env.COINBASE_PRIME_API_PASSPHRASE;
+
+// Simple axios instance - you will need to sign requests per Coinbase Prime auth requirements
+export const coinbaseClient = axios.create({
+  baseURL: COINBASE_BASE,
+  headers: {
+    "Content-Type": "application/json",
+    "CB-ACCESS-KEY": API_KEY,
+    // other auth headers (timestamp, signature) - follow Coinbase Prime docs
+  }
+});
+
+/**
+ * 2️⃣ Create custodial wallet/sub-account for buyer (provision deposit address)
+ */
+// createWalletForUser.ts
+import { coinbaseClient } from "./coinbase-client";
+
+export async function createBuyerCustodialWallet(appUserId: string) {
+  // NOTE: exact endpoint and body will depend on Coinbase Prime API
+  const body = {
+    name: `escrow-buyer-${appUserId}`,
+    network: "solana",      // for Solana USDC
+    asset: "USDC",          // or use mintAddress param
+    metadata: { escrowFor: appUserId }
+  };
+
+  const res = await coinbaseClient.post("/prime/v1/wallets", body);
+  // res.data -> { walletId, address, depositAddress, publicKey } (example)
+  return res.data;
+}
+
+/**
+ * 3️⃣ Watcher / webhook handler for deposit confirmation (webhook style)
+ */
+// webhooks/coinbase.ts
+import express from "express";
+import bodyParser from "body-parser";
+import { verifyCoinbaseSignature } from "./utils";
+import prisma from "./prisma";
+
+const router = express.Router();
+router.use(bodyParser.json());
+
+router.post("/coinbase/prime", async (req, res) => {
+  const sig = req.headers["cb-signature"] as string;
+  if (!verifyCoinbaseSignature(req.rawBody || JSON.stringify(req.body), sig)) {
+    return res.status(401).send("invalid signature");
+  }
+
+  const event = req.body;
+  // persist raw webhook for idempotency
+  const existing = await prisma.webhookEvent.findUnique({ where: { providerEventId: event.id } });
+  if (existing) return res.status(200).send({ received: true });
+
+  await prisma.webhookEvent.create({
+    data: { provider: "coinbase_prime", providerEventId: event.id, payload: event, processed: false }
+  });
+
+  // handle deposit notification type
+  if (event.type === "wallet.deposit" || event.type === "onchain.transaction.created") {
+    const data = event.data;
+    const depositAddress = data.address;
+    const amount = Number(data.amount);
+    const mint = data.asset || data.token;
+    const txSig = data.txHash || data.signature;
+
+    // Find escrow by deposit address
+    const escrow = await prisma.escrow.findFirst({ where: { custodianBuyerWalletId: depositAddress, status: "AWAIT_FUNDS" }});
+    if (!escrow) {
+      // optionally log unknown deposit
+      await prisma.auditLog.create({ data: { action: 'unknown.deposit', details: { depositAddress, amount, txSig } } });
+      return res.status(200).send({ received: true });
+    }
+
+    // Validate mint & amount
+    if (mint !== process.env.USDC_MINT) {
+      await prisma.auditLog.create({ data: { action: 'deposit.invalid_mint', details: { mint, escrowId: escrow.id } } });
+      return res.status(400).send({ error: 'invalid mint' });
+    }
+    // Optionally wait for confirmations depending on risk tolerance
+
+    // Mark FUNDS_HELD atomically
+    await prisma.$transaction(async (tx) => {
+      await tx.escrow.update({ where: { id: escrow.id }, data: { status: "FUNDS_HELD", custodianDepositTxId: txSig, providerEvent: event } });
+      await tx.auditLog.create({ data: { action: 'escrow.funds_held', details: { escrowId: escrow.id, providerTx: txSig } }});
+    });
+  }
+
+  // mark webhook processed
+  await prisma.webhookEvent.update({ where: { providerEventId: event.id }, data: { processed: true }});
+  return res.status(200).send({ received: true });
+});
+
+export default router;
+/**
+ * 4️⃣ Release funds to seller (platform approves release → custodian executes transfer)
+ */
+// releaseFunds.ts
+import { coinbaseClient } from "./coinbase-client";
+import prisma from "./prisma";
+
+export async function releaseEscrowToSeller(escrowId: string, operatorUserId: string) {
+  const escrow = await prisma.escrow.findUnique({ where: { id: escrowId }});
+  if (!escrow) throw new Error("Escrow not found");
+  if (escrow.status !== "FUNDS_HELD") throw new Error("Not in FUNDS_HELD");
+
+  // Optionally require multi-admin approvals here...
+  // Build transfer payload for Coinbase Prime: from buyer sub-wallet -> seller external address
+  const transferPayload = {
+    fromWalletId: escrow.custodianBuyerWalletId,
+    toAddress: escrow.custodianSellerWalletId || escrow.sellerOnchainAddress, // whichever the seller wants
+    amount: escrow.amount.toString(),
+    asset: escrow.currency || "USDC",
+    metadata: { escrowId: escrow.id, initiatedBy: operatorUserId }
+  };
+
+  // Submit transaction to Coinbase Prime
+  const res = await coinbaseClient.post("/prime/v1/transactions", transferPayload);
+  // res.data -> { transactionId, status, onchainSignature: ... }
+
+  // Update DB
+  await prisma.$transaction(async (tx) => {
+    await tx.escrow.update({ where: { id: escrow.id }, data: { status: "RELEASE_PENDING", custodianReleaseTxId: res.data.transactionId }});
+    await tx.auditLog.create({ data: { action: "escrow.release.initiated", details: { escrowId: escrow.id, txId: res.data.transactionId, operatorUserId } }});
+  });
+
+  return res.data;
+}
+
+```
 
 ---
-
 ## 7. Milestones
 
 * When an Offer uses milestones, create `MilestoneEscrow` rows with amounts summing to `Escrow.amount`.
