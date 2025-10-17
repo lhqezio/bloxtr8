@@ -1,4 +1,9 @@
-import { EmbedBuilder } from 'discord.js';
+import {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} from 'discord.js';
 
 interface OfferEventData {
   offerId: string;
@@ -66,7 +71,7 @@ export function buildOfferCreatedEmbed(
     )
     .setTimestamp(event.timestamp)
     .setFooter({
-      text: 'Use /offer command to respond',
+      text: 'Use buttons below to respond',
       iconURL:
         'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
     });
@@ -221,4 +226,29 @@ export function buildCounterOfferEmbed(
   }
 
   return embed;
+}
+
+/**
+ * Build action buttons for offer notifications (Accept/Decline/Counter)
+ */
+export function buildOfferActionButtons(
+  offerId: string
+): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`accept_offer_${offerId}`)
+      .setLabel('Accept Offer')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('✅'),
+    new ButtonBuilder()
+      .setCustomId(`decline_offer_${offerId}`)
+      .setLabel('Decline Offer')
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji('❌'),
+    new ButtonBuilder()
+      .setCustomId(`counter_offer_${offerId}`)
+      .setLabel('Counter Offer')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🔄')
+  );
 }

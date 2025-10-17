@@ -371,6 +371,257 @@ export async function getListing(
 }
 
 /**
+ * Accept an offer
+ */
+export async function acceptOffer(
+  offerId: string,
+  userId: string,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<{ success: true } | { success: false; error: ApiError }> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/offers/${offerId}/accept`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId }),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    const responseData = (await response.json()) as {
+      success?: boolean;
+      message?: string;
+      errors?: Array<{
+        field: string;
+        message: string;
+      }>;
+    };
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: {
+          message: responseData.message || 'Failed to accept offer',
+          errors: responseData.errors,
+        },
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error accepting offer:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while accepting offer',
+      },
+    };
+  }
+}
+
+/**
+ * Decline an offer
+ */
+export async function declineOffer(
+  offerId: string,
+  userId: string,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<{ success: true } | { success: false; error: ApiError }> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/offers/${offerId}/decline`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId }),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    const responseData = (await response.json()) as {
+      success?: boolean;
+      message?: string;
+      errors?: Array<{
+        field: string;
+        message: string;
+      }>;
+    };
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: {
+          message: responseData.message || 'Failed to decline offer',
+          errors: responseData.errors,
+        },
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error declining offer:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while declining offer',
+      },
+    };
+  }
+}
+
+/**
+ * Counter an offer
+ */
+export async function counterOffer(
+  offerId: string,
+  userId: string,
+  amount: string,
+  conditions?: string,
+  expiry?: string,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<
+  | { success: true; data: { id: string; amount: string } }
+  | { success: false; error: ApiError }
+> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/offers/${offerId}/counter`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId, amount, conditions, expiry }),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    const responseData = (await response.json()) as {
+      success?: boolean;
+      counterOffer?: {
+        id: string;
+        amount: string;
+      };
+      message?: string;
+      errors?: Array<{
+        field: string;
+        message: string;
+      }>;
+    };
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: {
+          message: responseData.message || 'Failed to counter offer',
+          errors: responseData.errors,
+        },
+      };
+    }
+
+    if (!responseData.counterOffer) {
+      return {
+        success: false,
+        error: {
+          message: 'Invalid response from server',
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: responseData.counterOffer,
+    };
+  } catch (error) {
+    console.error('Error countering offer:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while countering offer',
+      },
+    };
+  }
+}
+
+/**
+ * Get all offers for a listing
+ */
+export async function getOffersForListing(
+  listingId: string,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<
+  | {
+      success: true;
+      data: {
+        offers: Array<{
+          id: string;
+          amount: string;
+          conditions?: string;
+          expiry: string;
+          status: string;
+          createdAt: string;
+          buyer: {
+            id: string;
+            name: string;
+            kycTier: string;
+            kycVerified: boolean;
+          };
+        }>;
+        count: number;
+      };
+    }
+  | { success: false; error: ApiError }
+> {
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/offers/listing/${listingId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = (await response.json()) as ApiError;
+      return {
+        success: false,
+        error: errorData,
+      };
+    }
+
+    const data = (await response.json()) as {
+      offers: Array<{
+        id: string;
+        amount: string;
+        conditions?: string;
+        expiry: string;
+        status: string;
+        createdAt: string;
+        buyer: {
+          id: string;
+          name: string;
+          kycTier: string;
+          kycVerified: boolean;
+        };
+      }>;
+      count: number;
+    };
+
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('Error fetching offers for listing:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while fetching offers',
+      },
+    };
+  }
+}
+
+/**
  * Gets the base URL for API calls
  * In production, this would be the actual API URL
  */

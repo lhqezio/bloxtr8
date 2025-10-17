@@ -5,6 +5,7 @@ import {
   buildOfferAcceptedEmbed,
   buildOfferCreatedEmbed,
   buildOfferDeclinedEmbed,
+  buildOfferActionButtons,
 } from '../utils/offerEmbeds.js';
 
 interface OfferEvent {
@@ -206,11 +207,13 @@ export class OfferNotificationService {
       await this.sendToThread(event.threadId, embed);
     }
 
-    // DM the seller
+    // DM the seller with action buttons
     if (event.sellerDiscordId) {
-      await this.sendDM(
+      const buttons = buildOfferActionButtons(event.offerId);
+      await this.sendDMWithButtons(
         event.sellerDiscordId,
         embed,
+        buttons,
         `You received a new offer on "${event.listingTitle}"`
       );
     }
@@ -380,6 +383,29 @@ export class OfferNotificationService {
       const user = await this.client.users.fetch(discordId);
       if (user) {
         await user.send({ content: fallbackText, embeds: [embed] });
+      }
+    } catch (error) {
+      console.error(`Failed to send DM to user ${discordId}:`, error);
+    }
+  }
+
+  /**
+   * Send DM to a user with buttons
+   */
+  private async sendDMWithButtons(
+    discordId: string,
+    embed: EmbedBuilder,
+    buttons: any,
+    fallbackText: string
+  ): Promise<void> {
+    try {
+      const user = await this.client.users.fetch(discordId);
+      if (user) {
+        await user.send({
+          content: fallbackText,
+          embeds: [embed],
+          components: [buttons],
+        });
       }
     } catch (error) {
       console.error(`Failed to send DM to user ${discordId}:`, error);

@@ -28,6 +28,17 @@ import {
   handleConfirmOffer,
   handleCancelOffer,
 } from './commands/make-offer.js';
+import {
+  handleAcceptOfferButton,
+  handleDeclineOfferButton,
+  handleCounterOfferButton,
+  handleCounterOfferModalSubmit,
+  handleConfirmAcceptOffer,
+  handleConfirmDeclineOffer,
+  handleConfirmCounterOffer,
+  handleCancelOfferAction,
+} from './commands/offer-actions.js';
+import { handleViewOffersButton } from './commands/view-offers.js';
 import { execute as handleMarketplaceSetup } from './commands/marketplace-setup.js';
 import { execute as handleMarketplaceTest } from './commands/marketplace-test.js';
 import { handlePing } from './commands/ping.js';
@@ -292,6 +303,10 @@ client.on('interactionCreate', async interaction => {
     if (interaction.customId.startsWith('make_offer_modal_')) {
       await handleMakeOfferModalSubmit(interaction);
     }
+    // Handle counter offer modal submissions
+    if (interaction.customId.startsWith('counter_offer_modal_')) {
+      await handleCounterOfferModalSubmit(interaction);
+    }
   }
 
   // Handle button interactions
@@ -321,6 +336,33 @@ client.on('interactionCreate', async interaction => {
     }
     if (interaction.customId.startsWith('cancel_offer_')) {
       await handleCancelOffer(interaction);
+    }
+    // Handle offer action buttons (Accept/Decline/Counter)
+    if (interaction.customId.startsWith('accept_offer_')) {
+      await handleAcceptOfferButton(interaction);
+    }
+    if (interaction.customId.startsWith('decline_offer_')) {
+      await handleDeclineOfferButton(interaction);
+    }
+    if (interaction.customId.startsWith('counter_offer_')) {
+      await handleCounterOfferButton(interaction);
+    }
+    // Handle offer action confirmations
+    if (interaction.customId.startsWith('confirm_accept_')) {
+      await handleConfirmAcceptOffer(interaction);
+    }
+    if (interaction.customId.startsWith('confirm_decline_')) {
+      await handleConfirmDeclineOffer(interaction);
+    }
+    if (interaction.customId.startsWith('confirm_counter_')) {
+      await handleConfirmCounterOffer(interaction);
+    }
+    if (interaction.customId === 'cancel_offer_action') {
+      await handleCancelOfferAction(interaction);
+    }
+    // Handle view offers button
+    if (interaction.customId.startsWith('view_offers_')) {
+      await handleViewOffersButton(interaction);
     }
   }
 

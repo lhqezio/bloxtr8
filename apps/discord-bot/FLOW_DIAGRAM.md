@@ -1,6 +1,6 @@
 # Discord Bot Flow Diagrams
 
-## 🎮 Thread-Based Marketplace Architecture
+## 🎮 Message-Based Marketplace Architecture
 
 ### Listing Creation Flow
 
@@ -37,10 +37,10 @@ flowchart TD
     U --> V[End process]
 
     T -->|YES| W[Create asset snapshot]
-    W --> X[Create thread in price channel]
-    X --> Y[Post rich embed in thread]
-    Y --> Z[Update listing with thread ID]
-    Z --> AA[Show success with thread link]
+    W --> X[Post message in price channel]
+    X --> Y[Post rich embed as message]
+    Y --> Z[Update listing with message ID]
+    Z --> AA[Show success with message link]
     AA --> AB{Visibility PUBLIC?}
 
     AB -->|YES| AC[Sync to all guilds]
@@ -70,8 +70,8 @@ flowchart TD
     K --> L{More listings?}
 
     L -->|YES| M[Get next page]
-    M --> N[Create threads]
-    N --> O[Update with thread IDs]
+    M --> N[Post messages]
+    N --> O[Update with message IDs]
     O --> P[Wait 2s rate limit]
     P --> L
 
@@ -82,7 +82,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[PUBLIC listing created] --> B[Thread in origin guild]
+    A[PUBLIC listing created] --> B[Message in origin guild]
     B --> C[Get all guilds]
     C --> D{More guilds?}
 
@@ -92,7 +92,7 @@ flowchart TD
     F -->|YES| D
     F -->|NO| G[Get price channel]
 
-    G --> H[Create thread]
+    G --> H[Post message]
     H --> I[Post embed]
     I --> J[Add buttons]
     J --> K[Wait 2s]
@@ -112,14 +112,14 @@ The bot automatically creates 4 channels based on listing price:
 - **💎 bloxtr8-20k-100k**: $20,000 - $100,000 deals
 - **👑 bloxtr8-100k+**: $100,000+ premium deals
 
-### Thread Structure
+### Message Structure
 
-Each listing gets a dedicated thread with:
+Each listing is displayed as a rich embedded message with:
 
 ```
-🟢 Game Name - $15k | ✅
+🟢 New Global Listing
 ├── Rich Embed
-│   ├── 🎮 Game thumbnail
+│   ├── 🎮 Game Name - Game thumbnail
 │   ├── 💰 Price: $15,000
 │   ├── ✅ Verified Seller (KYC Badge)
 │   ├── 🌍 PUBLIC Listing
@@ -127,7 +127,7 @@ Each listing gets a dedicated thread with:
 │
 └── Action Buttons
     ├── 💸 Make Offer
-    ├── 🔍 View Details
+    ├── 📋 View Offers
     ├── 🌐 View on Web
     └── 👁️ Watch Listing
 ```
@@ -136,7 +136,7 @@ Each listing gets a dedicated thread with:
 
 **PUBLIC Listings:**
 
-- Created as threads in ALL guilds bot is in
+- Posted as messages in ALL guilds bot is in
 - Synced automatically on guild join
 - Cross-server marketplace experience
 
@@ -160,18 +160,18 @@ Each listing gets a dedicated thread with:
 - Creates verification record
 - Stores game metadata
 
-### 3. Thread Creation
+### 3. Message Creation
 
 - Determines price range from listing price
-- Creates thread in appropriate channel
+- Posts message in appropriate channel
 - Posts rich embed with all details
 - Adds interactive buttons
 
 ### 4. Cross-Guild Sync
 
 - Background process for PUBLIC listings
-- Rate-limited (2s between threads)
-- Updates database with thread IDs
+- Rate-limited (2s between messages)
+- Updates database with message IDs
 - Handles errors gracefully
 
 ### 5. Guild Setup
@@ -182,23 +182,30 @@ Each listing gets a dedicated thread with:
 - Posts welcome messages
 - Syncs existing PUBLIC listings
 
+### 6. Offer Negotiation
+
+- Button-based offer system in DMs
+- Accept/Decline/Counter offer flow
+- Private negotiations with sellers
+- Real-time notifications
+
 ## Error Handling
 
 - **User not found** → Create user record
 - **Not TIER_1+** → Show setup message
 - **Invalid input** → Validation error
 - **API failure** → Error message with retry
-- **Thread creation fails** → Listing still created
+- **Message creation fails** → Listing still created
 - **Rate limit hit** → Automatic backoff
 
 ## Rate Limiting
 
 To respect Discord API limits:
 
-- **2 seconds** between thread creations
+- **2 seconds** between message posts
 - **1 second** between pagination pages
 - **5 seconds** between guild syncs
-- **Max 50 threads** per 10 minutes (Discord limit)
+- **Max 50 messages** per 10 minutes (Discord limit)
 
 ## Database Updates
 
@@ -207,7 +214,7 @@ To respect Discord API limits:
 ```prisma
 model Listing {
   // ... existing fields
-  threadId    String?   @unique
+  messageId   String?   @unique
   channelId   String?
   priceRange  String?
   visibility  ListingVisibility @default(PUBLIC)
@@ -230,16 +237,58 @@ model MarketplaceChannel {
 
 ### Enhanced Endpoints
 
-- `POST /api/listings` - Now accepts `visibility`, `threadId`, `priceRange`
+- `POST /api/listings` - Now accepts `visibility`, `messageId`, `priceRange`
 - `GET /api/listings` - Filters by visibility and cross-guild
-- `PATCH /api/listings/:id/thread` - Updates thread information
+- `PATCH /api/listings/:id/message` - Updates message information
+- `POST /api/offers` - Create offer on a listing
+- `PATCH /api/offers/:id/accept` - Accept an offer
+- `PATCH /api/offers/:id/decline` - Decline an offer
+- `PATCH /api/offers/:id/counter` - Counter an offer
+- `GET /api/offers/listing/:id` - Get all offers for a listing
+
+## Offer Negotiation Flow
+
+```mermaid
+flowchart TD
+    A[Buyer clicks 'Make Offer'] --> B[Show offer modal]
+    B --> C[Enter amount & conditions]
+    C --> D[Show confirmation]
+    D --> E{Confirm?}
+    
+    E -->|NO| F[Cancel]
+    E -->|YES| G[Submit to API]
+    
+    G --> H[Create offer record]
+    H --> I[Notify seller via DM]
+    I --> J[Seller sees buttons]
+    
+    J --> K{Seller action?}
+    
+    K -->|Accept| L[Show confirmation]
+    L --> M[Re-verify asset]
+    M --> N[Mark as accepted]
+    N --> O[Notify buyer]
+    O --> P[Begin escrow]
+    
+    K -->|Decline| Q[Show confirmation]
+    Q --> R[Mark as declined]
+    R --> S[Notify buyer]
+    
+    K -->|Counter| T[Show counter modal]
+    T --> U[Enter counter amount]
+    U --> V[Show confirmation]
+    V --> W[Create counter offer]
+    W --> X[Mark original as countered]
+    X --> Y[Notify buyer]
+    Y --> Z[Buyer can accept/decline/counter]
+```
 
 ## Future Enhancements
 
-- [ ] `/listing view` command with thread links
-- [ ] Thread activity scoring
+- [ ] `/listing view` command with message links
+- [ ] Message activity scoring
 - [ ] Rich media from Roblox API
-- [ ] Offer management in threads
+- [x] Offer management via buttons
 - [ ] Analytics dashboard
-- [ ] Automated thread archiving
+- [ ] Automated message cleanup
 - [ ] Trending listings

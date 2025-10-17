@@ -170,10 +170,10 @@ export function createListingButtons(
         .setStyle(ButtonStyle.Success)
         .setEmoji('💰'),
       new ButtonBuilder()
-        .setCustomId(`view_details_${listingId}`)
-        .setLabel('View Details')
+        .setCustomId(`view_offers_${listingId}`)
+        .setLabel('View Offers')
         .setStyle(ButtonStyle.Primary)
-        .setEmoji('🔍'),
+        .setEmoji('📋'),
       new ButtonBuilder()
         .setLabel('🌐 View on Web')
         .setStyle(ButtonStyle.Link)
