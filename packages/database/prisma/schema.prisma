@@ -225,6 +225,21 @@ model Offer {
   @@map("offers")
 }
 
+model OfferDraft {
+  id            String   @id @default(cuid())
+  discordUserId String // Discord user ID (not internal user ID yet)
+  listingId     String
+  amount        BigInt // Amount in cents
+  conditions    String?
+  expiresAt     DateTime // Auto-cleanup after this time
+  createdAt     DateTime @default(now())
+
+  @@unique([discordUserId, listingId]) // One draft per user per listing
+  @@index([expiresAt]) // For cleanup queries
+  @@index([discordUserId])
+  @@map("offer_drafts")
+}
+
 model Contract {
   id        String         @id @default(cuid())
   pdfUrl    String?

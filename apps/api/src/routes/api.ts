@@ -5,6 +5,7 @@ import authRouter from './auth.js';
 import contractsRouter from './contracts.js';
 import listingsRouter from './listings.js';
 import metricsRouter from './metrics.js';
+import offerDraftsRouter from './offer-drafts.js';
 import offersRouter from './offers.js';
 import usersRouter from './users.js';
 
@@ -16,6 +17,7 @@ router.use('/asset-verification', assetVerificationRouter);
 router.use('/', usersRouter);
 router.use('/', listingsRouter);
 router.use('/', offersRouter);
+router.use('/offer-drafts', offerDraftsRouter);
 router.use('/', contractsRouter);
 router.use('/', metricsRouter);
 

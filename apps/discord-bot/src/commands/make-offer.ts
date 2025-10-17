@@ -10,7 +10,13 @@ import {
   type ModalSubmitInteraction,
 } from 'discord.js';
 
-import { createOffer, getListing } from '../utils/apiClient.js';
+import {
+  createOffer,
+  createOfferDraft,
+  deleteOfferDraft,
+  getOfferDraft,
+  getListing,
+} from '../utils/apiClient.js';
 import { formatPrice } from '../utils/marketplace.js';
 import { verify } from '../utils/userVerification.js';
 
@@ -233,12 +239,28 @@ export async function handleMakeOfferModalSubmit(
       inline: false,
     });
 
-    // Encode conditions in customId (use "1" if has conditions, "0" if not)
-    const hasConditions = conditions ? '1' : '0';
+    // Store offer draft in database (replaces in-memory cache)
+    // Convert offer amount to cents for storage
+    const offerAmountCents = Math.round(offerAmount * 100);
 
-    // Create confirmation buttons
+    const draftResult = await createOfferDraft({
+      discordUserId: interaction.user.id,
+      listingId,
+      amount: offerAmountCents.toString(),
+      conditions: conditions || undefined,
+      // Draft expires in 10 minutes (handled by API default)
+    });
+
+    if (!draftResult.success) {
+      await interaction.editReply({
+        content: `❌ Failed to save offer draft: ${draftResult.error.message}`,
+      });
+      return;
+    }
+
+    // Create confirmation buttons (simplified customId)
     const confirmButton = new ButtonBuilder()
-      .setCustomId(`confirm_offer_${listingId}_${offerAmount}_${hasConditions}`)
+      .setCustomId(`confirm_offer_${listingId}`)
       .setLabel('✅ Confirm Offer')
       .setStyle(ButtonStyle.Success);
 
@@ -252,32 +274,10 @@ export async function handleMakeOfferModalSubmit(
       cancelButton
     );
 
-    // Store conditions in a temporary way (we'll retrieve from the original modal submission context)
-    // For now, we'll pass it through the interaction update
     await interaction.editReply({
       embeds: [confirmEmbed],
       components: [buttonRow],
     });
-
-    // Store the conditions in a Map for retrieval when confirm is clicked
-    // This is a simple in-memory store - consider Redis for production
-    if (!global.offerConfirmationCache) {
-      global.offerConfirmationCache = new Map();
-    }
-    global.offerConfirmationCache.set(
-      `${interaction.user.id}_${listingId}_${offerAmount}`,
-      conditions
-    );
-
-    // Clean up cache after 5 minutes
-    setTimeout(
-      () => {
-        global.offerConfirmationCache?.delete(
-          `${interaction.user.id}_${listingId}_${offerAmount}`
-        );
-      },
-      5 * 60 * 1000
-    );
   } catch (error) {
     console.error('Error in handleMakeOfferModalSubmit:', error);
     if (!interaction.replied && !interaction.deferred) {
@@ -298,9 +298,10 @@ export async function handleConfirmOffer(
   interaction: ButtonInteraction
 ): Promise<void> {
   try {
-    // Parse customId (format: confirm_offer_${listingId}_${amount}_${hasConditions})
-    const parts = interaction.customId.split('_');
-    if (parts.length < 5) {
+    // Parse customId (format: confirm_offer_${listingId})
+    const listingId = interaction.customId.replace('confirm_offer_', '');
+
+    if (!listingId) {
       await interaction.reply({
         content: '❌ Invalid confirmation data. Please try again.',
         ephemeral: true,
@@ -308,19 +309,23 @@ export async function handleConfirmOffer(
       return;
     }
 
-    const listingId = parts[2] as string;
-    const offerAmount = parseFloat(parts[3] as string);
-
-    // Retrieve conditions from cache
-    const cacheKey = `${interaction.user.id}_${listingId}_${offerAmount}`;
-    const conditions =
-      global.offerConfirmationCache?.get(cacheKey) || undefined;
-
-    // Clean up cache
-    global.offerConfirmationCache?.delete(cacheKey);
-
     // Defer reply as API call might take time
     await interaction.deferReply({ ephemeral: true });
+
+    // Retrieve draft from database
+    const draftResult = await getOfferDraft(interaction.user.id, listingId);
+
+    if (!draftResult.success) {
+      await interaction.editReply({
+        content: `❌ Could not retrieve offer details: ${draftResult.error.message}\n\nYour offer may have expired. Please try again.`,
+      });
+      return;
+    }
+
+    const draft = draftResult.data;
+    // Convert amount from cents (stored in DB) to dollars for display
+    const offerAmount = parseFloat(draft.amount) / 100;
+    const conditions = draft.conditions || undefined;
 
     // Get buyer's user ID from Discord ID
     const verifyResult = await verify(interaction.user.id);
@@ -346,15 +351,17 @@ export async function handleConfirmOffer(
     }
 
     // Submit offer to API
-    // Convert offer amount from dollars to cents for the API
-    const offerAmountCents = Math.round(offerAmount * 100);
+    // Amount is already in cents from the draft
     const offerResult = await createOffer({
       listingId,
       buyerId: userData.user.id,
-      amount: offerAmountCents.toString(),
+      amount: draft.amount, // Already in cents
       conditions,
       // expiry is optional - API will default to 7 days
     });
+
+    // Clean up draft from database (do this regardless of offer creation result)
+    await deleteOfferDraft(interaction.user.id, listingId);
 
     if (!offerResult.success) {
       await interaction.editReply({
@@ -442,16 +449,8 @@ export async function handleCancelOffer(
     // Parse listingId from customId (format: cancel_offer_${listingId})
     const listingId = interaction.customId.replace('cancel_offer_', '');
 
-    // Clean up any cached data
-    // We need to find the cache entry - iterate through keys starting with user ID
-    if (global.offerConfirmationCache) {
-      const userIdPrefix = `${interaction.user.id}_${listingId}_`;
-      for (const key of global.offerConfirmationCache.keys()) {
-        if (key.startsWith(userIdPrefix)) {
-          global.offerConfirmationCache.delete(key);
-        }
-      }
-    }
+    // Clean up draft from database
+    await deleteOfferDraft(interaction.user.id, listingId);
 
     await interaction.update({
       content: '❌ Offer cancelled.',
@@ -467,9 +466,4 @@ export async function handleCancelOffer(
       });
     }
   }
-}
-
-// Extend global type for cache
-declare global {
-  var offerConfirmationCache: Map<string, string> | undefined;
 }

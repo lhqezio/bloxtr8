@@ -97,6 +97,24 @@ export interface CreateOfferResponse {
   id: string;
 }
 
+export interface CreateOfferDraftRequest {
+  discordUserId: string;
+  listingId: string;
+  amount: string; // BigInt as string
+  conditions?: string;
+  expiresAt?: string; // ISO datetime string
+}
+
+export interface OfferDraftResponse {
+  id: string;
+  discordUserId: string;
+  listingId: string;
+  amount: string; // BigInt as string
+  conditions?: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
 export interface ApiError {
   message: string;
   errors?: Array<{
@@ -616,6 +634,140 @@ export async function getOffersForListing(
       success: false,
       error: {
         message: 'Network error occurred while fetching offers',
+      },
+    };
+  }
+}
+
+/**
+ * Create or update an offer draft
+ */
+export async function createOfferDraft(
+  draftData: CreateOfferDraftRequest,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<
+  | { success: true; data: OfferDraftResponse }
+  | { success: false; error: ApiError }
+> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/offer-drafts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(draftData),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    const responseData = (await response.json()) as
+      | OfferDraftResponse
+      | ApiError;
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: responseData as ApiError,
+      };
+    }
+
+    return {
+      success: true,
+      data: responseData as OfferDraftResponse,
+    };
+  } catch (error) {
+    console.error('Error creating offer draft:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while creating offer draft',
+      },
+    };
+  }
+}
+
+/**
+ * Get an offer draft
+ */
+export async function getOfferDraft(
+  discordUserId: string,
+  listingId: string,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<
+  | { success: true; data: OfferDraftResponse }
+  | { success: false; error: ApiError }
+> {
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/offer-drafts/${discordUserId}/${listingId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = (await response.json()) as ApiError;
+      return {
+        success: false,
+        error: errorData,
+      };
+    }
+
+    const data = (await response.json()) as OfferDraftResponse;
+
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('Error fetching offer draft:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while fetching offer draft',
+      },
+    };
+  }
+}
+
+/**
+ * Delete an offer draft
+ */
+export async function deleteOfferDraft(
+  discordUserId: string,
+  listingId: string,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<{ success: true } | { success: false; error: ApiError }> {
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/offer-drafts/${discordUserId}/${listingId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!response.ok && response.status !== 204) {
+      const errorData = (await response.json()) as ApiError;
+      return {
+        success: false,
+        error: errorData,
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting offer draft:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while deleting offer draft',
       },
     };
   }
