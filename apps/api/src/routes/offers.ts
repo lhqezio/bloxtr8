@@ -214,6 +214,34 @@ router.patch('/offers/:id/accept', async (req, res, next) => {
       throw new AppError('Offer has expired', 400);
     }
 
+    // Verify seller still has linked Roblox account
+    const seller = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        accounts: {
+          where: { providerId: 'roblox' },
+        },
+      },
+    });
+
+    if (!seller || seller.accounts.length === 0) {
+      await prisma.auditLog.create({
+        data: {
+          action: 'OFFER_ACCEPT_FAILED',
+          userId,
+          details: {
+            offerId: id,
+            listingId: offer.listingId,
+            reason: 'Seller Roblox account not linked',
+          },
+        },
+      });
+      throw new AppError(
+        'Seller must have a linked Roblox account to accept offers',
+        403
+      );
+    }
+
     // Re-verify asset ownership
     const verificationResult =
       await gameVerificationService.reverifyAssetOwnership(offer.listingId);
@@ -482,6 +510,58 @@ router.patch('/offers/:id/counter', async (req, res, next) => {
         data: { status: 'EXPIRED' },
       });
       throw new AppError('Original offer has expired', 400);
+    }
+
+    // Verify buyer (who will receive the counter-offer) still has linked Roblox account and TIER_1+
+    const buyer = await prisma.user.findUnique({
+      where: { id: originalOffer.buyerId },
+      include: {
+        accounts: {
+          where: { providerId: 'roblox' },
+        },
+      },
+    });
+
+    if (!buyer) {
+      throw new AppError('Buyer not found', 404);
+    }
+
+    if (buyer.accounts.length === 0) {
+      await prisma.auditLog.create({
+        data: {
+          action: 'OFFER_COUNTER_FAILED',
+          userId,
+          details: {
+            offerId: id,
+            listingId: originalOffer.listingId,
+            buyerId: originalOffer.buyerId,
+            reason: 'Buyer Roblox account not linked',
+          },
+        },
+      });
+      throw new AppError(
+        'Buyer must have a linked Roblox account to receive counter-offers',
+        400
+      );
+    }
+
+    if (buyer.kycTier === 'TIER_0') {
+      await prisma.auditLog.create({
+        data: {
+          action: 'OFFER_COUNTER_FAILED',
+          userId,
+          details: {
+            offerId: id,
+            listingId: originalOffer.listingId,
+            buyerId: originalOffer.buyerId,
+            reason: 'Buyer KYC tier insufficient (TIER_0)',
+          },
+        },
+      });
+      throw new AppError(
+        'Buyer must be at least TIER_1 to receive counter-offers',
+        400
+      );
     }
 
     // Set counter offer expiry (default 7 days)

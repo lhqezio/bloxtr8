@@ -85,6 +85,18 @@ export interface FetchListingsResponse {
   };
 }
 
+export interface CreateOfferRequest {
+  listingId: string;
+  buyerId: string;
+  amount: string; // BigInt as string
+  conditions?: string;
+  expiry?: string; // ISO datetime string, defaults to 7 days on server
+}
+
+export interface CreateOfferResponse {
+  id: string;
+}
+
 export interface ApiError {
   message: string;
   errors?: Array<{
@@ -246,6 +258,114 @@ export async function updateListingMessage(
       success: false,
       error: {
         message: 'Network error occurred while updating listing message',
+      },
+    };
+  }
+}
+
+/**
+ * Create an offer via the API
+ */
+export async function createOffer(
+  offerData: CreateOfferRequest,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<
+  | { success: true; data: CreateOfferResponse }
+  | { success: false; error: ApiError }
+> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/offers`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(offerData),
+      signal: AbortSignal.timeout(10000), // 10 second timeout
+    });
+
+    const responseData = (await response.json()) as {
+      id?: string;
+      message?: string;
+      errors?: Array<{
+        field: string;
+        message: string;
+      }>;
+    };
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: {
+          message: responseData.message || 'Failed to create offer',
+          errors: responseData.errors,
+        },
+      };
+    }
+
+    // Validate response has id
+    if (!responseData.id) {
+      return {
+        success: false,
+        error: {
+          message: 'Invalid response from server',
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: { id: responseData.id },
+    };
+  } catch (error) {
+    console.error('Error creating offer:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while creating offer',
+      },
+    };
+  }
+}
+
+/**
+ * Get a single listing by ID
+ */
+export async function getListing(
+  listingId: string,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<
+  | { success: true; data: ListingResponse }
+  | { success: false; error: ApiError }
+> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/listings/${listingId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      const errorData = (await response.json()) as ApiError;
+      return {
+        success: false,
+        error: errorData,
+      };
+    }
+
+    const data = (await response.json()) as ListingResponse;
+
+    return {
+      success: true,
+      data,
+    };
+  } catch (error) {
+    console.error('Error fetching listing:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while fetching listing',
       },
     };
   }

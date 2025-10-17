@@ -6,6 +6,7 @@ const mockOfferCreate = jest.fn();
 const mockOfferUpdate = jest.fn();
 const mockAuditLogCreate = jest.fn();
 const mockAuditLogCreateMany = jest.fn();
+const mockUserFindUnique = jest.fn();
 const mockReverifyAssetOwnership = jest.fn();
 
 jest.mock('@bloxtr8/database', () => ({
@@ -14,6 +15,9 @@ jest.mock('@bloxtr8/database', () => ({
       findUnique: mockOfferFindUnique,
       create: mockOfferCreate,
       update: mockOfferUpdate,
+    },
+    user: {
+      findUnique: mockUserFindUnique,
     },
     auditLog: {
       create: mockAuditLogCreate,
@@ -38,6 +42,7 @@ describe('Offer Negotiation API Routes', () => {
     mockOfferUpdate.mockClear();
     mockAuditLogCreate.mockClear();
     mockAuditLogCreateMany.mockClear();
+    mockUserFindUnique.mockClear();
     mockReverifyAssetOwnership.mockClear();
   });
 
@@ -129,6 +134,12 @@ describe('Offer Negotiation API Routes', () => {
 
     it('should return 400 when asset verification fails', async () => {
       mockOfferFindUnique.mockResolvedValue(mockPendingOffer);
+      // Mock seller with valid Roblox account
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-seller-id',
+        kycTier: 'TIER_1',
+        accounts: [{ providerId: 'roblox', accountId: '12345' }],
+      });
       mockReverifyAssetOwnership.mockResolvedValue({
         verified: false,
         error: 'Seller no longer owns the asset',
@@ -147,6 +158,12 @@ describe('Offer Negotiation API Routes', () => {
 
     it('should successfully accept offer with valid verification', async () => {
       mockOfferFindUnique.mockResolvedValue(mockPendingOffer);
+      // Mock seller with valid Roblox account
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-seller-id',
+        kycTier: 'TIER_1',
+        accounts: [{ providerId: 'roblox', accountId: '12345' }],
+      });
       mockReverifyAssetOwnership.mockResolvedValue({
         verified: true,
         ownershipType: 'OWNER',
@@ -357,6 +374,12 @@ describe('Offer Negotiation API Routes', () => {
 
     it('should successfully create counter offer', async () => {
       mockOfferFindUnique.mockResolvedValue(mockPendingOffer);
+      // Mock buyer with valid Roblox account and TIER_1
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-buyer-id',
+        kycTier: 'TIER_1',
+        accounts: [{ providerId: 'roblox', accountId: '12345' }],
+      });
       mockOfferCreate.mockResolvedValue({
         id: 'counter-offer-id',
         listingId: 'test-listing-id',
@@ -420,6 +443,12 @@ describe('Offer Negotiation API Routes', () => {
 
       // Seller counters
       mockOfferFindUnique.mockResolvedValue(originalOffer);
+      // Mock buyer with valid Roblox account and TIER_1
+      mockUserFindUnique.mockResolvedValueOnce({
+        id: 'buyer-id',
+        kycTier: 'TIER_1',
+        accounts: [{ providerId: 'roblox', accountId: '12345' }],
+      });
       mockOfferCreate.mockResolvedValue({
         id: 'counter-offer-id',
         listingId: 'test-listing-id',
@@ -464,6 +493,12 @@ describe('Offer Negotiation API Routes', () => {
       };
 
       mockOfferFindUnique.mockResolvedValue(counterOffer);
+      // Mock original buyer (now seller of counter) with valid Roblox account
+      mockUserFindUnique.mockResolvedValueOnce({
+        id: 'buyer-id',
+        kycTier: 'TIER_1',
+        accounts: [{ providerId: 'roblox', accountId: '12345' }],
+      });
       mockReverifyAssetOwnership.mockResolvedValue({
         verified: true,
         ownershipType: 'OWNER',

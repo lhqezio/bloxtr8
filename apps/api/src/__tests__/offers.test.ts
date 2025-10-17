@@ -17,7 +17,10 @@ const mockOfferCreate = jest.fn().mockResolvedValue({
 const mockRobloxSnapshotFindFirst = jest.fn();
 const mockUserFindUnique = jest.fn();
 const mockAuditLogCreate = jest.fn();
+const mockAuditLogCreateMany = jest.fn();
 const mockOfferFindMany = jest.fn();
+const mockOfferFindUnique = jest.fn();
+const mockOfferUpdate = jest.fn();
 
 jest.mock('@bloxtr8/database', () => ({
   prisma: {
@@ -27,6 +30,8 @@ jest.mock('@bloxtr8/database', () => ({
     offer: {
       create: mockOfferCreate,
       findMany: mockOfferFindMany,
+      findUnique: mockOfferFindUnique,
+      update: mockOfferUpdate,
     },
     robloxSnapshot: {
       findFirst: mockRobloxSnapshotFindFirst,
@@ -36,7 +41,30 @@ jest.mock('@bloxtr8/database', () => ({
     },
     auditLog: {
       create: mockAuditLogCreate,
+      createMany: mockAuditLogCreateMany,
     },
+  },
+}));
+
+// Mock asset verification service
+jest.mock('../lib/asset-verification.js', () => ({
+  GameVerificationService: jest.fn().mockImplementation(() => ({
+    reverifyAssetOwnership: jest.fn().mockResolvedValue({
+      verified: true,
+      ownershipType: 'OWNER',
+    }),
+  })),
+}));
+
+// Mock events
+jest.mock('../lib/events.js', () => ({
+  emitOfferEvent: jest.fn(),
+  OfferEventType: {
+    CREATED: 'offer.created',
+    ACCEPTED: 'offer.accepted',
+    DECLINED: 'offer.declined',
+    COUNTERED: 'offer.countered',
+    EXPIRED: 'offer.expired',
   },
 }));
 
@@ -50,7 +78,10 @@ describe('Offers API Routes', () => {
     mockRobloxSnapshotFindFirst.mockClear();
     mockUserFindUnique.mockClear();
     mockAuditLogCreate.mockClear();
+    mockAuditLogCreateMany.mockClear();
     mockOfferFindMany.mockClear();
+    mockOfferFindUnique.mockClear();
+    mockOfferUpdate.mockClear();
   });
 
   describe('POST /api/offers', () => {
@@ -718,6 +749,258 @@ describe('Offers API Routes', () => {
         expectedMinTime.getTime() - 1000
       );
       expect(sinceDate.getTime()).toBeLessThanOrEqual(new Date().getTime());
+    });
+  });
+
+  describe('PATCH /api/offers/:id/accept', () => {
+    const mockPendingOffer = {
+      id: 'test-offer-id',
+      listingId: 'test-listing-id',
+      buyerId: 'test-buyer-id',
+      sellerId: 'test-seller-id',
+      amount: BigInt(5000),
+      status: 'PENDING',
+      expiry: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day from now
+      listing: {
+        id: 'test-listing-id',
+        userId: 'test-seller-id',
+        status: 'ACTIVE',
+      },
+    };
+
+    it('should reject accept if seller Roblox account is not linked', async () => {
+      mockOfferFindUnique.mockResolvedValue(mockPendingOffer);
+      // Seller without Roblox account
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-seller-id',
+        kycTier: 'TIER_1',
+        accounts: [], // No Roblox account
+      });
+
+      const response = await request(app)
+        .patch('/api/offers/test-offer-id/accept')
+        .send({ userId: 'test-seller-id' })
+        .expect(403);
+
+      expect(response.body.detail).toContain(
+        'Seller must have a linked Roblox account to accept offers'
+      );
+
+      // Verify audit log was created
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'OFFER_ACCEPT_FAILED',
+          userId: 'test-seller-id',
+          details: expect.objectContaining({
+            reason: 'Seller Roblox account not linked',
+          }),
+        }),
+      });
+    });
+
+    it('should accept offer when seller has linked Roblox account', async () => {
+      mockOfferFindUnique.mockResolvedValue(mockPendingOffer);
+      // Seller with valid Roblox account
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-seller-id',
+        kycTier: 'TIER_1',
+        accounts: [{ providerId: 'roblox', accountId: '12345' }],
+      });
+      mockOfferUpdate.mockResolvedValue({
+        ...mockPendingOffer,
+        status: 'ACCEPTED',
+      });
+
+      const response = await request(app)
+        .patch('/api/offers/test-offer-id/accept')
+        .send({ userId: 'test-seller-id' })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.offer.status).toBe('ACCEPTED');
+
+      // Verify offer was updated
+      expect(mockOfferUpdate).toHaveBeenCalledWith({
+        where: { id: 'test-offer-id' },
+        data: { status: 'ACCEPTED' },
+      });
+    });
+
+    it('should reject accept if offer has expired', async () => {
+      const expiredOffer = {
+        ...mockPendingOffer,
+        expiry: new Date(Date.now() - 1000), // Already expired
+      };
+      mockOfferFindUnique.mockResolvedValue(expiredOffer);
+
+      const response = await request(app)
+        .patch('/api/offers/test-offer-id/accept')
+        .send({ userId: 'test-seller-id' })
+        .expect(400);
+
+      expect(response.body.detail).toContain('Offer has expired');
+
+      // Verify offer was marked as expired
+      expect(mockOfferUpdate).toHaveBeenCalledWith({
+        where: { id: 'test-offer-id' },
+        data: { status: 'EXPIRED' },
+      });
+    });
+
+    it('should reject accept if user is not the seller', async () => {
+      mockOfferFindUnique.mockResolvedValue(mockPendingOffer);
+
+      const response = await request(app)
+        .patch('/api/offers/test-offer-id/accept')
+        .send({ userId: 'wrong-user-id' })
+        .expect(403);
+
+      expect(response.body.detail).toContain('Only the seller can accept offers');
+    });
+  });
+
+  describe('PATCH /api/offers/:id/counter', () => {
+    const mockPendingOffer = {
+      id: 'test-offer-id',
+      listingId: 'test-listing-id',
+      buyerId: 'test-buyer-id',
+      sellerId: 'test-seller-id',
+      amount: BigInt(5000),
+      status: 'PENDING',
+      expiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    };
+
+    it('should reject counter if buyer Roblox account is not linked', async () => {
+      mockOfferFindUnique.mockResolvedValue(mockPendingOffer);
+      // Buyer without Roblox account
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-buyer-id',
+        kycTier: 'TIER_1',
+        accounts: [], // No Roblox account
+      });
+
+      const response = await request(app)
+        .patch('/api/offers/test-offer-id/counter')
+        .send({
+          userId: 'test-seller-id',
+          amount: 7000,
+        })
+        .expect(400);
+
+      expect(response.body.detail).toContain(
+        'Buyer must have a linked Roblox account to receive counter-offers'
+      );
+
+      // Verify audit log was created
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'OFFER_COUNTER_FAILED',
+          userId: 'test-seller-id',
+          details: expect.objectContaining({
+            reason: 'Buyer Roblox account not linked',
+          }),
+        }),
+      });
+    });
+
+    it('should reject counter if buyer is TIER_0', async () => {
+      mockOfferFindUnique.mockResolvedValue(mockPendingOffer);
+      // Buyer with downgraded KYC tier
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-buyer-id',
+        kycTier: 'TIER_0',
+        accounts: [{ providerId: 'roblox', accountId: '12345' }],
+      });
+
+      const response = await request(app)
+        .patch('/api/offers/test-offer-id/counter')
+        .send({
+          userId: 'test-seller-id',
+          amount: 7000,
+        })
+        .expect(400);
+
+      expect(response.body.detail).toContain(
+        'Buyer must be at least TIER_1 to receive counter-offers'
+      );
+
+      // Verify audit log was created
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          action: 'OFFER_COUNTER_FAILED',
+          userId: 'test-seller-id',
+          details: expect.objectContaining({
+            reason: 'Buyer KYC tier insufficient (TIER_0)',
+          }),
+        }),
+      });
+    });
+
+    it('should create counter-offer when buyer has valid Roblox account', async () => {
+      mockOfferFindUnique.mockResolvedValue(mockPendingOffer);
+      // Buyer with valid Roblox account and TIER_1
+      mockUserFindUnique.mockResolvedValue({
+        id: 'test-buyer-id',
+        kycTier: 'TIER_1',
+        accounts: [{ providerId: 'roblox', accountId: '12345' }],
+      });
+      mockOfferCreate.mockResolvedValue({
+        id: 'counter-offer-id',
+        listingId: 'test-listing-id',
+        buyerId: 'test-seller-id',
+        sellerId: 'test-buyer-id',
+        amount: BigInt(7000),
+        status: 'PENDING',
+        parentId: 'test-offer-id',
+        expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      mockOfferUpdate.mockResolvedValue({
+        ...mockPendingOffer,
+        status: 'COUNTERED',
+      });
+      mockAuditLogCreateMany.mockResolvedValue({ count: 1 });
+
+      const response = await request(app)
+        .patch('/api/offers/test-offer-id/counter')
+        .send({
+          userId: 'test-seller-id',
+          amount: 7000,
+        })
+        .expect(201);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.counterOffer.id).toBe('counter-offer-id');
+
+      // Verify counter-offer was created with swapped buyer/seller
+      expect(mockOfferCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          listingId: 'test-listing-id',
+          buyerId: 'test-seller-id', // Seller becomes buyer in counter
+          sellerId: 'test-buyer-id', // Buyer becomes seller in counter
+          amount: BigInt(7000),
+          parentId: 'test-offer-id',
+        }),
+      });
+    });
+
+    it('should reject counter if original offer has expired', async () => {
+      const expiredOffer = {
+        ...mockPendingOffer,
+        expiry: new Date(Date.now() - 1000),
+      };
+      mockOfferFindUnique.mockResolvedValue(expiredOffer);
+
+      const response = await request(app)
+        .patch('/api/offers/test-offer-id/counter')
+        .send({
+          userId: 'test-seller-id',
+          amount: 7000,
+        })
+        .expect(400);
+
+      expect(response.body.detail).toContain('Original offer has expired');
     });
   });
 });

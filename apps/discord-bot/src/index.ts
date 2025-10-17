@@ -22,6 +22,12 @@ import {
   handleExperienceSelection,
   cleanupVerificationCache,
 } from './commands/listing-enhanced.js';
+import {
+  handleMakeOfferButton,
+  handleMakeOfferModalSubmit,
+  handleConfirmOffer,
+  handleCancelOffer,
+} from './commands/make-offer.js';
 import { execute as handleMarketplaceSetup } from './commands/marketplace-setup.js';
 import { execute as handleMarketplaceTest } from './commands/marketplace-test.js';
 import { handlePing } from './commands/ping.js';
@@ -283,6 +289,9 @@ client.on('interactionCreate', async interaction => {
     if (interaction.customId === 'listing_create_with_game_modal') {
       await handleListingWithGameModalSubmit(interaction);
     }
+    if (interaction.customId.startsWith('make_offer_modal_')) {
+      await handleMakeOfferModalSubmit(interaction);
+    }
   }
 
   // Handle button interactions
@@ -301,6 +310,17 @@ client.on('interactionCreate', async interaction => {
     }
     if (interaction.customId === 'cancel_listing_creation') {
       await handleCancelListingCreation(interaction);
+    }
+    // Handle make offer buttons
+    if (interaction.customId.startsWith('make_offer_')) {
+      await handleMakeOfferButton(interaction);
+    }
+    // Handle confirm/cancel offer buttons
+    if (interaction.customId.startsWith('confirm_offer_')) {
+      await handleConfirmOffer(interaction);
+    }
+    if (interaction.customId.startsWith('cancel_offer_')) {
+      await handleCancelOffer(interaction);
     }
   }
 
