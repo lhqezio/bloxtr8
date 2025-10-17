@@ -11,6 +11,7 @@ import {
 } from 'discord.js';
 
 import { createOffer, getListing } from '../utils/apiClient.js';
+import { formatPrice } from '../utils/marketplace.js';
 import { verify } from '../utils/userVerification.js';
 
 /**
@@ -99,7 +100,7 @@ export async function handleMakeOfferButton(
       .setCustomId('offer_amount')
       .setLabel('Your Offer Amount (USD)')
       .setStyle(TextInputStyle.Short)
-      .setPlaceholder(`Listing Price: $${listing.price}`)
+      .setPlaceholder(`Listing Price: ${formatPrice(listing.price)}`)
       .setRequired(true)
       .setMinLength(1)
       .setMaxLength(10);
@@ -182,12 +183,14 @@ export async function handleMakeOfferModalSubmit(
     }
 
     const listing = listingResult.data;
-    const listingPrice = parseFloat(listing.price);
+    // Convert listing price from cents to dollars
+    const listingPriceCents = BigInt(listing.price);
+    const listingPrice = Number(listingPriceCents) / 100;
 
     // Check if offer amount exceeds listing price
     if (offerAmount > listingPrice) {
       await interaction.reply({
-        content: `❌ Your offer ($${offerAmount}) cannot exceed the listing price ($${listingPrice}).`,
+        content: `❌ Your offer ($${offerAmount.toFixed(2)}) cannot exceed the listing price (${formatPrice(listing.price)}).`,
         ephemeral: true,
       });
       return;
@@ -196,19 +199,17 @@ export async function handleMakeOfferModalSubmit(
     // Create confirmation embed
     const confirmEmbed = new EmbedBuilder()
       .setTitle('🤝 Confirm Your Offer')
-      .setDescription(
-        `You are about to make an offer on **${listing.title}**`
-      )
+      .setDescription(`You are about to make an offer on **${listing.title}**`)
       .setColor(0x00d4aa)
       .addFields(
         {
           name: '💰 Listing Price',
-          value: `$${listingPrice}`,
+          value: formatPrice(listing.price),
           inline: true,
         },
         {
           name: '💸 Your Offer',
-          value: `$${offerAmount}`,
+          value: `$${offerAmount.toFixed(2)}`,
           inline: true,
         },
         {
@@ -271,11 +272,14 @@ export async function handleMakeOfferModalSubmit(
     );
 
     // Clean up cache after 5 minutes
-    setTimeout(() => {
-      global.offerConfirmationCache?.delete(
-        `${interaction.user.id}_${listingId}_${offerAmount}`
-      );
-    }, 5 * 60 * 1000);
+    setTimeout(
+      () => {
+        global.offerConfirmationCache?.delete(
+          `${interaction.user.id}_${listingId}_${offerAmount}`
+        );
+      },
+      5 * 60 * 1000
+    );
   } catch (error) {
     console.error('Error in handleMakeOfferModalSubmit:', error);
     if (!interaction.replied && !interaction.deferred) {
@@ -311,7 +315,8 @@ export async function handleConfirmOffer(
 
     // Retrieve conditions from cache
     const cacheKey = `${interaction.user.id}_${listingId}_${offerAmount}`;
-    const conditions = global.offerConfirmationCache?.get(cacheKey) || undefined;
+    const conditions =
+      global.offerConfirmationCache?.get(cacheKey) || undefined;
 
     // Clean up cache
     global.offerConfirmationCache?.delete(cacheKey);
@@ -336,16 +341,19 @@ export async function handleConfirmOffer(
 
     if (!userData) {
       await interaction.editReply({
-        content: '❌ Could not retrieve your user information. Please try again.',
+        content:
+          '❌ Could not retrieve your user information. Please try again.',
       });
       return;
     }
 
     // Submit offer to API
+    // Convert offer amount from dollars to cents for the API
+    const offerAmountCents = Math.round(offerAmount * 100);
     const offerResult = await createOffer({
       listingId,
       buyerId: userData.user.id,
-      amount: offerAmount.toString(),
+      amount: offerAmountCents.toString(),
       conditions,
       // expiry is optional - API will default to 7 days
     });
@@ -365,7 +373,7 @@ export async function handleConfirmOffer(
       .addFields(
         {
           name: '💸 Offer Amount',
-          value: `$${offerAmount}`,
+          value: `$${offerAmount.toFixed(2)}`,
           inline: true,
         },
         {
@@ -467,4 +475,3 @@ export async function handleCancelOffer(
 declare global {
   var offerConfirmationCache: Map<string, string> | undefined;
 }
-

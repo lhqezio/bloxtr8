@@ -334,8 +334,7 @@ export async function getListing(
   listingId: string,
   apiBaseUrl: string = getApiBaseUrl()
 ): Promise<
-  | { success: true; data: ListingResponse }
-  | { success: false; error: ApiError }
+  { success: true; data: ListingResponse } | { success: false; error: ApiError }
 > {
   try {
     const response = await fetch(`${apiBaseUrl}/api/listings/${listingId}`, {

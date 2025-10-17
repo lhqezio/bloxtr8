@@ -855,7 +855,9 @@ describe('Offers API Routes', () => {
         .send({ userId: 'wrong-user-id' })
         .expect(403);
 
-      expect(response.body.detail).toContain('Only the seller can accept offers');
+      expect(response.body.detail).toContain(
+        'Only the seller can accept offers'
+      );
     });
   });
 
