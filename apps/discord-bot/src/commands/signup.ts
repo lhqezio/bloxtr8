@@ -14,6 +14,9 @@ import { ensureUserExists } from '../utils/userVerification.js';
 
 export async function handleSignup(interaction: ChatInputCommandInteraction) {
   try {
+    // Defer reply immediately to prevent timeout
+    await interaction.deferReply({ ephemeral: true });
+
     // Check if user already exists first
     const existingUser = await verify(interaction.user.id);
 
@@ -51,9 +54,8 @@ export async function handleSignup(interaction: ChatInputCommandInteraction) {
         })
         .setTimestamp();
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [embed],
-        ephemeral: true,
       });
       return;
     }
@@ -111,17 +113,15 @@ export async function handleSignup(interaction: ChatInputCommandInteraction) {
     ]);
 
     if (dmResult.success) {
-      // DM sent successfully - reply ephemerally in server
-      await interaction.reply({
+      // DM sent successfully - edit deferred reply
+      await interaction.editReply({
         content: '📩 **Check your DMs for signup instructions!**',
-        ephemeral: true,
       });
     } else {
-      // DM failed - show fallback message in server
+      // DM failed - show fallback message
       const fallbackEmbed = createDMDisabledEmbed('signup', interaction.user);
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [fallbackEmbed],
-        ephemeral: true,
       });
     }
   } catch (error) {

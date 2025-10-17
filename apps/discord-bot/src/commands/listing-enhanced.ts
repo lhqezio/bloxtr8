@@ -246,11 +246,12 @@ export async function handleListingCreateWithVerification(
   interaction: ChatInputCommandInteraction
 ) {
   try {
+    // Defer reply immediately to prevent timeout
+    await interaction.deferReply({ ephemeral: true });
+
     // Clear any old verification cache for this user
     const discordId = interaction.user.id;
     verificationCache.delete(discordId);
-
-    // Check user verification status without deferring (needed for modal)
 
     // Check if user exists in database (don't create if they don't exist)
     const userResult = await checkUserExists(interaction.user.id);
@@ -271,9 +272,8 @@ export async function handleListingCreateWithVerification(
         })
         .setTimestamp();
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [errorEmbed],
-        ephemeral: true,
       });
       return;
     }
@@ -327,9 +327,8 @@ export async function handleListingCreateWithVerification(
         })
         .setTimestamp();
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [embed],
-        ephemeral: true,
       });
       return;
     }
@@ -357,15 +356,13 @@ export async function handleListingCreateWithVerification(
         })
         .setTimestamp();
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [embed],
-        ephemeral: true,
       });
       return;
     }
 
-    // Fetch user's experiences
-    await interaction.deferReply({ ephemeral: true });
+    // Fetch user's experiences (interaction already deferred above)
 
     const experiences = await fetchUserExperiences(userResult.user.id);
 
@@ -445,13 +442,12 @@ export async function handleListingCreateWithVerification(
     console.error('Error handling listing create with verification:', error);
 
     try {
-      await interaction.reply({
+      await interaction.editReply({
         content:
           '❌ An error occurred while processing your request. Please try again later.',
-        ephemeral: true,
       });
     } catch {
-      // Fallback if reply already sent
+      // Fallback if edit fails
       try {
         await interaction.followUp({
           content:
@@ -469,6 +465,9 @@ export async function handleExperienceSelection(
   interaction: StringSelectMenuInteraction
 ) {
   try {
+    // Defer update immediately to prevent timeout
+    await interaction.deferUpdate();
+
     const selectedExperienceId = interaction.values[0];
     const discordId = interaction.user.id;
 
@@ -479,22 +478,20 @@ export async function handleExperienceSelection(
     );
 
     if (!userResult.user) {
-      return interaction.reply({
+      return interaction.editReply({
         content:
           '❌ You must sign up first. Use `/signup` to create your account.',
-        ephemeral: true,
+        components: [],
       });
     }
 
     if (!robloxAccount) {
-      return interaction.reply({
+      return interaction.editReply({
         content:
           '❌ You must link your Roblox account first to verify game ownership.',
-        ephemeral: true,
+        components: [],
       });
     }
-
-    await interaction.deferReply({ ephemeral: true });
 
     // Get the selected experience details to find placeId
     const experiences = await fetchUserExperiences(userResult.user!.id);
@@ -625,6 +622,9 @@ export async function handleGameVerificationModalSubmit(
   interaction: ModalSubmitInteraction
 ) {
   try {
+    // Defer reply immediately to prevent timeout
+    await interaction.deferReply({ ephemeral: true });
+
     const gameId = interaction.fields.getTextInputValue('game_id');
     const discordId = interaction.user.id;
 
@@ -635,22 +635,18 @@ export async function handleGameVerificationModalSubmit(
     );
 
     if (!userResult.user) {
-      return interaction.reply({
+      return interaction.editReply({
         content:
           '❌ You must sign up first. Use `/signup` to create your account.',
-        ephemeral: true,
       });
     }
 
     if (!robloxAccount) {
-      return interaction.reply({
+      return interaction.editReply({
         content:
           '❌ You must link your Roblox account first to verify game ownership.',
-        ephemeral: true,
       });
     }
-
-    await interaction.deferReply({ ephemeral: true });
 
     // Verify game ownership via API
     const verificationResponse = await fetch(
@@ -874,15 +870,17 @@ export async function handleListingWithGameModalSubmit(
   interaction: ModalSubmitInteraction
 ) {
   try {
+    // Defer reply immediately to prevent timeout
+    await interaction.deferReply({ ephemeral: true });
+
     // Get cached verification data for game details
     const discordId = interaction.user.id;
     const cachedData = getCacheEntry(discordId);
 
     if (!cachedData) {
-      await interaction.reply({
+      await interaction.editReply({
         content:
           '❌ Verification data not found. Please verify your game again.',
-        ephemeral: true,
       });
       return;
     }
@@ -906,9 +904,8 @@ export async function handleListingWithGameModalSubmit(
     // Validate price and convert from dollars to cents
     const priceDollars = parseFloat(priceText);
     if (isNaN(priceDollars) || priceDollars <= 0) {
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ Please enter a valid price greater than $0.00.',
-        ephemeral: true,
       });
       return;
     }
@@ -920,15 +917,12 @@ export async function handleListingWithGameModalSubmit(
     const userResult = await checkUserExists(interaction.user.id);
 
     if (!userResult.user) {
-      await interaction.reply({
+      await interaction.editReply({
         content:
           '❌ You must sign up first. Use `/signup` to create your account.',
-        ephemeral: true,
       });
       return;
     }
-
-    await interaction.deferReply({ ephemeral: true });
 
     // Determine visibility (PUBLIC by default for now)
     // TODO: Add visibility selection UI in future update

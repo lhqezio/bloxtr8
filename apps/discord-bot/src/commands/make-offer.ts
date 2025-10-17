@@ -144,13 +144,15 @@ export async function handleMakeOfferModalSubmit(
   interaction: ModalSubmitInteraction
 ): Promise<void> {
   try {
+    // Defer reply immediately to prevent timeout
+    await interaction.deferReply({ ephemeral: true });
+
     // Extract listing ID from modal customId (format: make_offer_modal_${listingId})
     const listingId = interaction.customId.replace('make_offer_modal_', '');
 
     if (!listingId) {
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ Invalid listing ID. Please try again.',
-        ephemeral: true,
       });
       return;
     }
@@ -164,9 +166,8 @@ export async function handleMakeOfferModalSubmit(
     const offerAmount = parseFloat(offerAmountRaw.replace(/[^0-9.-]/g, ''));
 
     if (isNaN(offerAmount) || offerAmount <= 0) {
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ Invalid offer amount. Please enter a positive number.',
-        ephemeral: true,
       });
       return;
     }
@@ -175,9 +176,8 @@ export async function handleMakeOfferModalSubmit(
     const listingResult = await getListing(listingId);
 
     if (!listingResult.success) {
-      await interaction.reply({
+      await interaction.editReply({
         content: `❌ Could not fetch listing details: ${listingResult.error.message}`,
-        ephemeral: true,
       });
       return;
     }
@@ -189,9 +189,8 @@ export async function handleMakeOfferModalSubmit(
 
     // Check if offer amount exceeds listing price
     if (offerAmount > listingPrice) {
-      await interaction.reply({
+      await interaction.editReply({
         content: `❌ Your offer ($${offerAmount.toFixed(2)}) cannot exceed the listing price (${formatPrice(listing.price)}).`,
-        ephemeral: true,
       });
       return;
     }
@@ -255,10 +254,9 @@ export async function handleMakeOfferModalSubmit(
 
     // Store conditions in a temporary way (we'll retrieve from the original modal submission context)
     // For now, we'll pass it through the interaction update
-    await interaction.reply({
+    await interaction.editReply({
       embeds: [confirmEmbed],
       components: [buttonRow],
-      ephemeral: true,
     });
 
     // Store the conditions in a Map for retrieval when confirm is clicked

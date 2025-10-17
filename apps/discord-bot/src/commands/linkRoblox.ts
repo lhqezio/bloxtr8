@@ -21,6 +21,9 @@ export async function handleLinkRoblox(
   interaction: ChatInputCommandInteraction
 ) {
   try {
+    // Defer reply immediately to prevent timeout
+    await interaction.deferReply({ ephemeral: true });
+
     // Check if user exists (without creating them)
     const userResult = await checkUserExists(interaction.user.id);
 
@@ -64,18 +67,16 @@ export async function handleLinkRoblox(
       const dmResult = await sendDMWithEmbed(interaction.user, signupEmbed);
 
       if (dmResult.success) {
-        // DM sent successfully - reply ephemerally in server
-        await interaction.reply({
+        // DM sent successfully - edit deferred reply
+        await interaction.editReply({
           content:
             '📩 **Check your DMs to sign up and link your Roblox account!**',
-          ephemeral: true,
         });
       } else {
-        // DM failed - show fallback message in server
+        // DM failed - show fallback message
         const fallbackEmbed = createDMDisabledEmbed('link', interaction.user);
-        await interaction.reply({
+        await interaction.editReply({
           embeds: [fallbackEmbed],
-          ephemeral: true,
         });
       }
       return;
@@ -98,16 +99,9 @@ export async function handleLinkRoblox(
         interaction.user.avatar || undefined
       );
 
-      if (isDM) {
-        await interaction.reply({
-          embeds: [alreadyLinkedEmbed],
-        });
-      } else {
-        await interaction.reply({
-          embeds: [alreadyLinkedEmbed],
-          ephemeral: true,
-        });
-      }
+      await interaction.editReply({
+        embeds: [alreadyLinkedEmbed],
+      });
       return;
     }
 
@@ -129,9 +123,8 @@ export async function handleLinkRoblox(
       );
 
       if (!tokenResponse.ok) {
-        await interaction.reply({
+        await interaction.editReply({
           content: '❌ Failed to generate link token. Please try again later.',
-          ephemeral: true,
         });
         return;
       }
@@ -187,24 +180,21 @@ export async function handleLinkRoblox(
       ]);
 
       if (dmResult.success) {
-        // DM sent successfully - reply ephemerally in server
-        await interaction.reply({
+        // DM sent successfully - edit deferred reply
+        await interaction.editReply({
           content: '📩 **Check your DMs to link your Roblox account!**',
-          ephemeral: true,
         });
       } else {
-        // DM failed - show fallback message in server
+        // DM failed - show fallback message
         const fallbackEmbed = createDMDisabledEmbed('link', interaction.user);
-        await interaction.reply({
+        await interaction.editReply({
           embeds: [fallbackEmbed],
-          ephemeral: true,
         });
       }
       return;
     }
 
-    // Already in DM context - show link instructions directly
-    await interaction.deferReply({ ephemeral: true });
+    // Already in DM context - continue with deferred reply
 
     // Generate secure link token
     const tokenResponse = await fetch(
