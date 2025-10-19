@@ -17,6 +17,7 @@ import {
   getOfferDraft,
   getListing,
 } from '../utils/apiClient.js';
+import { isDebugMode } from '../utils/debug.js';
 import { formatPrice } from '../utils/marketplace.js';
 import { verify } from '../utils/userVerification.js';
 
@@ -52,48 +53,69 @@ export async function handleMakeOfferButton(
 
     const listing = listingResult.data;
 
+    const debugMode = isDebugMode();
+
     // Check if listing is active
-    if (listing.status !== 'ACTIVE') {
+    if (listing.status !== 'ACTIVE' && !debugMode) {
       await interaction.reply({
         content: '❌ This listing is no longer active.',
         ephemeral: true,
       });
       return;
+    } else if (listing.status !== 'ACTIVE' && debugMode) {
+      console.warn(
+        `🔧 DEBUG MODE: Allowing offer on ${listing.status} listing ${listingId}`
+      );
     }
 
     // Verify user exists and has linked Roblox account (TIER_1+)
     const verifyResult = await verify(interaction.user.id);
 
     if (!verifyResult.success) {
-      await interaction.reply({
-        content:
-          '❌ You must sign up first. Use `/signup` command to get started.',
-        ephemeral: true,
-      });
-      return;
+      if (!debugMode) {
+        await interaction.reply({
+          content:
+            '❌ You must sign up first. Use `/signup` command to get started.',
+          ephemeral: true,
+        });
+        return;
+      } else {
+        console.warn(
+          `🔧 DEBUG MODE: Allowing unverified user ${interaction.user.id} to make offer`
+        );
+      }
     }
 
     // Check if user has linked Roblox account
-    const userData = Array.isArray(verifyResult.data)
-      ? null
-      : verifyResult.data;
+    const userData =
+      verifyResult.success && !Array.isArray(verifyResult.data)
+        ? verifyResult.data
+        : null;
 
-    if (!userData || userData.user.kycTier === 'TIER_0') {
+    if (!userData || (userData.user.kycTier === 'TIER_0' && !debugMode)) {
       await interaction.reply({
         content:
           '❌ You must link your Roblox account to make offers. Use `/link` command to link your account.',
         ephemeral: true,
       });
       return;
+    } else if (userData && userData.user.kycTier === 'TIER_0' && debugMode) {
+      console.warn(
+        `🔧 DEBUG MODE: Allowing TIER_0 user ${interaction.user.id} to make offer`
+      );
     }
 
     // Check if user is trying to offer on their own listing
-    if (userData.user.id === listing.userId) {
+    if (userData && userData.user.id === listing.userId && !debugMode) {
       await interaction.reply({
         content: '❌ You cannot make an offer on your own listing.',
         ephemeral: true,
       });
       return;
+    } else if (userData && userData.user.id === listing.userId && debugMode) {
+      console.warn(
+        `🔧 DEBUG MODE: Allowing user ${interaction.user.id} to offer on their own listing ${listingId}`
+      );
     }
 
     // Create modal for offer details
@@ -193,19 +215,29 @@ export async function handleMakeOfferModalSubmit(
     const listingPriceCents = BigInt(listing.price);
     const listingPrice = Number(listingPriceCents) / 100;
 
+    const debugMode = isDebugMode();
+
     // Check if offer amount exceeds listing price
-    if (offerAmount > listingPrice) {
+    if (offerAmount > listingPrice && !debugMode) {
       await interaction.editReply({
         content: `❌ Your offer ($${offerAmount.toFixed(2)}) cannot exceed the listing price (${formatPrice(listing.price)}).`,
       });
       return;
+    } else if (offerAmount > listingPrice && debugMode) {
+      console.warn(
+        `🔧 DEBUG MODE: Allowing offer amount ($${offerAmount.toFixed(2)}) to exceed listing price (${formatPrice(listing.price)})`
+      );
     }
 
     // Create confirmation embed
     const confirmEmbed = new EmbedBuilder()
-      .setTitle('🤝 Confirm Your Offer')
+      .setTitle(
+        debugMode
+          ? '🔧 DEBUG MODE - Confirm Your Offer'
+          : '🤝 Confirm Your Offer'
+      )
       .setDescription(`You are about to make an offer on **${listing.title}**`)
-      .setColor(0x00d4aa)
+      .setColor(debugMode ? 0xffa500 : 0x00d4aa)
       .addFields(
         {
           name: '💰 Listing Price',

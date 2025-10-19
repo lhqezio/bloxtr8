@@ -10,11 +10,7 @@ import {
   type ModalSubmitInteraction,
 } from 'discord.js';
 
-import {
-  acceptOffer,
-  counterOffer,
-  declineOffer,
-} from '../utils/apiClient.js';
+import { acceptOffer, counterOffer, declineOffer } from '../utils/apiClient.js';
 import { verify } from '../utils/userVerification.js';
 
 /**

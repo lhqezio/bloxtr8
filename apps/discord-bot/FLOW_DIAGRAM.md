@@ -254,26 +254,26 @@ flowchart TD
     B --> C[Enter amount & conditions]
     C --> D[Show confirmation]
     D --> E{Confirm?}
-    
+
     E -->|NO| F[Cancel]
     E -->|YES| G[Submit to API]
-    
+
     G --> H[Create offer record]
     H --> I[Notify seller via DM]
     I --> J[Seller sees buttons]
-    
+
     J --> K{Seller action?}
-    
+
     K -->|Accept| L[Show confirmation]
     L --> M[Re-verify asset]
     M --> N[Mark as accepted]
     N --> O[Notify buyer]
     O --> P[Begin escrow]
-    
+
     K -->|Decline| Q[Show confirmation]
     Q --> R[Mark as declined]
     R --> S[Notify buyer]
-    
+
     K -->|Counter| T[Show counter modal]
     T --> U[Enter counter amount]
     U --> V[Show confirmation]

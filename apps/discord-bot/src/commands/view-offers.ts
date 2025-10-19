@@ -212,4 +212,3 @@ function getVerificationBadge(kycTier: string, kycVerified: boolean): string {
       return '⚠️';
   }
 }
-

@@ -446,14 +446,17 @@ export async function declineOffer(
   apiBaseUrl: string = getApiBaseUrl()
 ): Promise<{ success: true } | { success: false; error: ApiError }> {
   try {
-    const response = await fetch(`${apiBaseUrl}/api/offers/${offerId}/decline`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ userId }),
-      signal: AbortSignal.timeout(10000),
-    });
+    const response = await fetch(
+      `${apiBaseUrl}/api/offers/${offerId}/decline`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
+        signal: AbortSignal.timeout(10000),
+      }
+    );
 
     const responseData = (await response.json()) as {
       success?: boolean;
@@ -501,14 +504,17 @@ export async function counterOffer(
   | { success: false; error: ApiError }
 > {
   try {
-    const response = await fetch(`${apiBaseUrl}/api/offers/${offerId}/counter`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ userId, amount, conditions, expiry }),
-      signal: AbortSignal.timeout(10000),
-    });
+    const response = await fetch(
+      `${apiBaseUrl}/api/offers/${offerId}/counter`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId, amount, conditions, expiry }),
+        signal: AbortSignal.timeout(10000),
+      }
+    );
 
     const responseData = (await response.json()) as {
       success?: boolean;

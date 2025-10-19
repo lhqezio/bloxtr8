@@ -28,6 +28,8 @@ import {
   handleConfirmOffer,
   handleCancelOffer,
 } from './commands/make-offer.js';
+import { execute as handleMarketplaceSetup } from './commands/marketplace-setup.js';
+import { execute as handleMarketplaceTest } from './commands/marketplace-test.js';
 import {
   handleAcceptOfferButton,
   handleDeclineOfferButton,
@@ -38,9 +40,6 @@ import {
   handleConfirmCounterOffer,
   handleCancelOfferAction,
 } from './commands/offer-actions.js';
-import { handleViewOffersButton } from './commands/view-offers.js';
-import { execute as handleMarketplaceSetup } from './commands/marketplace-setup.js';
-import { execute as handleMarketplaceTest } from './commands/marketplace-test.js';
 import { handlePing } from './commands/ping.js';
 import {
   handleSignup,
@@ -50,6 +49,7 @@ import {
 } from './commands/signup.js';
 import { execute as handleSyncListings } from './commands/sync-listings.js';
 import { handleVerify } from './commands/verify.js';
+import { handleViewOffersButton } from './commands/view-offers.js';
 // Offer notification service
 import { LinkNotificationService } from './services/linkNotifications.js';
 import { OfferNotificationService } from './services/offerNotifications.js';
