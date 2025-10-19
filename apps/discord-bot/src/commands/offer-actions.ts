@@ -14,9 +14,7 @@ import {
   acceptOffer,
   counterOffer,
   declineOffer,
-  getApiBaseUrl,
 } from '../utils/apiClient.js';
-import { formatPrice } from '../utils/marketplace.js';
 import { verify } from '../utils/userVerification.js';
 
 /**
@@ -575,7 +573,9 @@ export async function handleConfirmDeclineOffer(
     // Success! Show confirmation
     const successEmbed = new EmbedBuilder()
       .setTitle('❌ Offer Declined')
-      .setDescription('The offer has been declined and the buyer has been notified.')
+      .setDescription(
+        'The offer has been declined and the buyer has been notified.'
+      )
       .setColor(0xef4444)
       .addFields({
         name: '🆔 Offer ID',
@@ -640,8 +640,7 @@ export async function handleConfirmCounterOffer(
 
     // Retrieve conditions from cache
     const cacheKey = `${interaction.user.id}_${offerId}_${counterAmount}`;
-    const conditions =
-      global.counterOfferCache?.get(cacheKey) || undefined;
+    const conditions = global.counterOfferCache?.get(cacheKey) || undefined;
 
     // Clean up cache
     global.counterOfferCache?.delete(cacheKey);
@@ -787,4 +786,3 @@ export async function handleCancelOfferAction(
 declare global {
   var counterOfferCache: Map<string, string> | undefined;
 }
-

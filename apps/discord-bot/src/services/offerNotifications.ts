@@ -1,4 +1,9 @@
-import { type Client, type EmbedBuilder } from 'discord.js';
+import {
+  type ActionRowBuilder,
+  type ButtonBuilder,
+  type Client,
+  type EmbedBuilder,
+} from 'discord.js';
 
 import {
   buildCounterOfferEmbed,
@@ -395,7 +400,7 @@ export class OfferNotificationService {
   private async sendDMWithButtons(
     discordId: string,
     embed: EmbedBuilder,
-    buttons: any,
+    buttons: ActionRowBuilder<ButtonBuilder>,
     fallbackText: string
   ): Promise<void> {
     try {

@@ -15,12 +15,16 @@ jest.mock('@bloxtr8/database', () => ({
   },
 }));
 
-import { manuallyExpireOffers } from '../lib/offer-expiry.js';
-
-// Mock node-cron
+// Mock node-cron before importing
+const mockSchedule = jest.fn();
 jest.mock('node-cron', () => ({
-  schedule: jest.fn(),
+  schedule: (...args: unknown[]) => mockSchedule(...args),
 }));
+
+import {
+  manuallyExpireOffers,
+  initializeOfferExpiryJob,
+} from '../lib/offer-expiry.js';
 
 // Mock events
 jest.mock('../lib/events.js', () => ({
@@ -221,6 +225,139 @@ describe('Offer Expiry Service', () => {
               expiry: '2025-01-01T00:00:00.000Z',
               manualExpiry: true,
             },
+          },
+        ],
+      });
+    });
+  });
+
+  describe('initializeOfferExpiryJob', () => {
+    it('should schedule cron job to run every 5 minutes', () => {
+      initializeOfferExpiryJob();
+
+      expect(mockSchedule).toHaveBeenCalledWith(
+        '*/5 * * * *',
+        expect.any(Function)
+      );
+    });
+
+    it('should execute expiry logic when cron job runs', async () => {
+      const expiredDate = new Date(Date.now() - 1000);
+      const mockExpiredOffers = [
+        {
+          id: 'offer-1',
+          listingId: 'listing-1',
+          buyerId: 'buyer-1',
+          sellerId: 'seller-1',
+          amount: BigInt(5000),
+          status: 'PENDING',
+          expiry: expiredDate,
+        },
+      ];
+
+      mockOfferFindMany.mockResolvedValue(mockExpiredOffers);
+      mockOfferUpdateMany.mockResolvedValue({ count: 1 });
+      mockAuditLogCreateMany.mockResolvedValue({ count: 1 });
+
+      // Initialize the job
+      initializeOfferExpiryJob();
+
+      // Get the callback function that was passed to schedule
+      const scheduleCallback = mockSchedule.mock.calls[0][1];
+
+      // Execute the callback (simulating cron trigger)
+      await scheduleCallback();
+
+      // Verify that the expiry logic ran
+      expect(mockOfferFindMany).toHaveBeenCalled();
+      expect(mockOfferUpdateMany).toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).toHaveBeenCalled();
+    });
+
+    it('should handle case when no expired offers found', async () => {
+      mockOfferFindMany.mockResolvedValue([]);
+
+      initializeOfferExpiryJob();
+
+      const scheduleCallback = mockSchedule.mock.calls[0][1];
+      await scheduleCallback();
+
+      expect(mockOfferFindMany).toHaveBeenCalled();
+      expect(mockOfferUpdateMany).not.toHaveBeenCalled();
+      expect(mockAuditLogCreateMany).not.toHaveBeenCalled();
+    });
+
+    it('should handle errors gracefully during cron execution', async () => {
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      mockOfferFindMany.mockRejectedValue(new Error('Database error'));
+
+      initializeOfferExpiryJob();
+
+      const scheduleCallback = mockSchedule.mock.calls[0][1];
+      await scheduleCallback();
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[Offer Expiry] Error during expiry check:',
+        expect.any(Error)
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should log when checking for expired offers', async () => {
+      const consoleLogSpy = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => {});
+
+      mockOfferFindMany.mockResolvedValue([]);
+
+      initializeOfferExpiryJob();
+
+      const scheduleCallback = mockSchedule.mock.calls[0][1];
+      await scheduleCallback();
+
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        '[Offer Expiry] Running expiry check...'
+      );
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        '[Offer Expiry] No expired offers found'
+      );
+
+      consoleLogSpy.mockRestore();
+    });
+
+    it('should create audit logs with autoExpired flag for cron-triggered expiry', async () => {
+      const expiredDate = new Date(Date.now() - 1000);
+      const mockExpiredOffer = {
+        id: 'offer-1',
+        listingId: 'listing-1',
+        buyerId: 'buyer-1',
+        sellerId: 'seller-1',
+        amount: BigInt(5000),
+        status: 'PENDING',
+        expiry: expiredDate,
+      };
+
+      mockOfferFindMany.mockResolvedValue([mockExpiredOffer]);
+      mockOfferUpdateMany.mockResolvedValue({ count: 1 });
+      mockAuditLogCreateMany.mockResolvedValue({ count: 1 });
+
+      initializeOfferExpiryJob();
+
+      const scheduleCallback = mockSchedule.mock.calls[0][1];
+      await scheduleCallback();
+
+      expect(mockAuditLogCreateMany).toHaveBeenCalledWith({
+        data: [
+          {
+            action: 'OFFER_EXPIRED',
+            userId: null,
+            details: expect.objectContaining({
+              autoExpired: true,
+            }),
           },
         ],
       });

@@ -1,9 +1,10 @@
-import { Router } from 'express';
+import { prisma } from '@bloxtr8/database';
+import { Router, type Router as ExpressRouter } from 'express';
 import { z } from 'zod';
 
-import { prisma } from '../lib/prisma.js';
+import { isDebugMode } from '../lib/env-validation.js';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 // Validation schemas
 const createDraftSchema = z.object({
@@ -41,9 +42,17 @@ router.post('/', async (req, res, next) => {
     const { discordUserId, listingId, amount, conditions, expiresAt } =
       validation.data;
 
-    // Default expiry: 10 minutes from now
-    const defaultExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    // Default expiry: 10 minutes from now (or 24 hours in debug mode)
+    const debugMode = isDebugMode();
+    const expiryMinutes = debugMode ? 24 * 60 : 10; // 24 hours or 10 minutes
+    const defaultExpiry = new Date(Date.now() + expiryMinutes * 60 * 1000);
     const expiry = expiresAt ? new Date(expiresAt) : defaultExpiry;
+
+    if (debugMode) {
+      console.log(
+        `🔧 DEBUG MODE: Offer draft expiry extended to 24 hours for listing ${listingId}`
+      );
+    }
 
     // Upsert: create or update existing draft
     const draft = await prisma.offerDraft.upsert({
@@ -206,4 +215,3 @@ router.delete('/cleanup', async (_req, res, next) => {
 });
 
 export default router;
-
