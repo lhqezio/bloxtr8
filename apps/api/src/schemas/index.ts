@@ -16,20 +16,50 @@ export const createListingSchema = z.object({
     .string()
     .min(1, 'Summary is required')
     .max(1000, 'Summary must be less than 1000 characters'),
-  price: z.number().int().positive('Price must be a positive integer'),
+  price: z
+    .union([z.string(), z.number()])
+    .refine(
+      val => {
+        try {
+          const num = BigInt(val);
+          return num > 0n;
+        } catch {
+          return false;
+        }
+      },
+      { message: 'Price must be a positive integer' }
+    )
+    .transform(val => BigInt(val)),
   category: z
     .string()
     .min(1, 'Category is required')
     .max(100, 'Category must be less than 100 characters'),
   sellerId: z.string().min(1, 'Seller ID is required'),
   guildId: z.string().optional(),
+  visibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
+  messageId: z.string().optional(),
+  channelId: z.string().optional(),
+  priceRange: z.string().optional(),
 });
 
 // Offer validation schemas
 export const createOfferSchema = z.object({
   listingId: z.string().min(1, 'Listing ID is required'),
   buyerId: z.string().min(1, 'Buyer ID is required'),
-  amount: z.number().int().positive('Amount must be a positive integer'),
+  amount: z
+    .union([z.string(), z.number()])
+    .refine(
+      val => {
+        try {
+          const num = BigInt(val);
+          return num > 0n;
+        } catch {
+          return false;
+        }
+      },
+      { message: 'Amount must be a positive integer' }
+    )
+    .transform(val => BigInt(val)),
   conditions: z.string().optional(),
   expiry: z.string().datetime().optional(), // ISO datetime string
 });
@@ -37,6 +67,30 @@ export const createOfferSchema = z.object({
 // Contract validation schemas
 export const contractIdSchema = z.object({
   id: z.string().min(1, 'Contract ID is required'),
+});
+
+// Offer action schemas
+export const counterOfferSchema = z.object({
+  amount: z
+    .union([z.string(), z.number()])
+    .refine(
+      val => {
+        try {
+          const num = BigInt(val);
+          return num > 0n;
+        } catch {
+          return false;
+        }
+      },
+      { message: 'Amount must be a positive integer' }
+    )
+    .transform(val => BigInt(val)),
+  conditions: z.string().optional(),
+  expiry: z.string().datetime().optional(), // ISO datetime string
+});
+
+export const offerActionSchema = z.object({
+  userId: z.string().min(1, 'User ID is required'), // For authorization
 });
 
 // Common validation schemas
