@@ -112,6 +112,7 @@ start_service() {
 
 # Start services
 start_service "api" "@bloxtr8/api" "3000"
+start_service "escrow" "@bloxtr8/escrow" "3001"
 start_service "discord-bot" "@bloxtr8/discord-bot" "discord"
 start_service "web-app" "web-app" "5173"
 
@@ -126,6 +127,12 @@ if curl -s http://localhost:3000/health > /dev/null 2>&1; then
     print_success "API server is healthy at http://localhost:3000"
 else
     print_warning "API server may not be ready yet at http://localhost:3000"
+fi
+# Check Escrow
+if curl -s http://localhost:3001/health > /dev/null 2>&1; then
+    print_success "Escrow server is healthy at http://localhost:3001"
+else
+    print_warning "Escrow server may not be ready yet at http://localhost:3001"
 fi
 
 # Check Web App
@@ -147,6 +154,7 @@ echo "🎉 Development Environment Ready!"
 echo "================================="
 echo "📊 API Server:     http://localhost:3000"
 echo "🌐 Web App:        http://localhost:5173"
+echo "🏦 Escrow:         http://localhost:3001"
 echo "🤖 Discord Bot:    Running in background"
 echo "🗄️  Database:      localhost:5432"
 echo "📁 MinIO Console:  http://localhost:9001 (admin/minioadmin123)"

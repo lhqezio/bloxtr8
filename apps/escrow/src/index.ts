@@ -68,7 +68,7 @@ app.use(errorHandler);
 // Start server only if not in test environment
 if (process.env.NODE_ENV !== 'test') {
   app.listen(port, () => {
-    console.log(`🤖 Escrow API running on http://localhost:${port}`);
+    console.log(`🏦 Escrow API running on http://localhost:${port}`);
     console.log(`📊 Escrow's Health check available at http://localhost:${port}/health`);
   });
 }
