@@ -17,7 +17,7 @@ export interface Listing {
   id: string;
   title: string;
   summary: string;
-  price: number; // in cents
+  price: string; // in cents (stored as BigInt, serialized as string)
   category: string;
   status: 'ACTIVE' | 'INACTIVE' | 'SOLD';
   userId: string;
@@ -27,7 +27,7 @@ export interface Listing {
 
 export interface Offer {
   id: string;
-  amount: number; // in cents
+  amount: string; // in cents (stored as BigInt, serialized as string)
   currency: 'USD' | 'USDC';
   conditions?: string;
   expiry: Date;
@@ -53,7 +53,7 @@ export interface Contract {
 export interface Escrow {
   id: string;
   rail: 'STRIPE' | 'USDC_BASE';
-  amount: number; // in cents
+  amount: string; // in cents (stored as BigInt, serialized as string)
   currency: 'USD' | 'USDC';
   status:
     | 'AWAIT_FUNDS'

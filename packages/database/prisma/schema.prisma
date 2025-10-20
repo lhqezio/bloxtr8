@@ -2,9 +2,9 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated/prisma"
-  moduleFormat = "esm"
+  provider      = "prisma-client"
+  output        = "../src/generated/prisma"
+  moduleFormat  = "esm"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x", "debian-openssl-3.0.x", "darwin-arm64"]
 }
 
@@ -25,7 +25,6 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
-
   // KYC tiers
   kycTier     KycTier @default(TIER_0)
   kycVerified Boolean @default(false)
@@ -35,15 +34,16 @@ model User {
   walletRisk    WalletRisk @default(UNKNOWN)
 
   // Relations
-  listings         Listing[]
-  buyerOffers      Offer[]       @relation("BuyerOffers")
-  sellerOffers     Offer[]       @relation("SellerOffers")
-  signatures       Signature[]
-  auditLogs        AuditLog[]
-  deliveries       Delivery[]
-  disputes         Dispute[]     @relation("DisputeUser")
-  guildMemberships GuildMember[]
+  listings           Listing[]
+  buyerOffers        Offer[]             @relation("BuyerOffers")
+  sellerOffers       Offer[]             @relation("SellerOffers")
+  signatures         Signature[]
+  auditLogs          AuditLog[]
+  deliveries         Delivery[]
+  disputes           Dispute[]           @relation("DisputeUser")
+  guildMemberships   GuildMember[]
   assetVerifications AssetVerification[]
+  linkEvents         LinkEvent[]
 
   @@unique([email])
   @@index([email])
@@ -104,11 +104,18 @@ model Guild {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Marketplace setup tracking
+  marketplaceSetup Boolean   @default(false)
+  setupCompletedAt DateTime?
+  lastSyncAt       DateTime?
+
   // Relations
-  members  GuildMember[]
-  listings Listing[]
+  members             GuildMember[]
+  listings            Listing[]
+  marketplaceChannels MarketplaceChannel[]
 
   @@index([discordId])
+  @@index([marketplaceSetup])
   @@map("guilds")
 }
 
@@ -133,7 +140,7 @@ model LinkToken {
   id        String   @id @default(cuid())
   token     String   @unique
   discordId String
-  purpose   String   // e.g., 'roblox_link'
+  purpose   String // e.g., 'roblox_link'
   expiresAt DateTime
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -149,11 +156,20 @@ model Listing {
   id        String        @id @default(cuid())
   title     String
   summary   String
-  price     Int // Price in cents
+  price     BigInt // Price in cents (BigInt to support large prices)
   category  String
   status    ListingStatus @default(ACTIVE)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
+
+  // Message management
+  messageId           String?           @unique
+  channelId           String?
+  priceRange          String?
+  visibility          ListingVisibility @default(PUBLIC)
+  mediaUrls           Json? // Array of image/video URLs
+  autoArchiveAt       DateTime?
+  threadActivityScore Int               @default(0)
 
   // Relations
   userId          String
@@ -168,12 +184,15 @@ model Listing {
   @@index([guildId])
   @@index([status])
   @@index([category])
+  @@index([messageId])
+  @@index([visibility])
+  @@index([priceRange])
   @@map("listings")
 }
 
 model Offer {
   id         String      @id @default(cuid())
-  amount     Int // Amount in cents
+  amount     BigInt // Amount in cents (BigInt to support large offers)
   currency   Currency    @default(USD)
   conditions String?
   expiry     DateTime
@@ -204,6 +223,21 @@ model Offer {
   @@index([status])
   @@index([expiry])
   @@map("offers")
+}
+
+model OfferDraft {
+  id            String   @id @default(cuid())
+  discordUserId String // Discord user ID (not internal user ID yet)
+  listingId     String
+  amount        BigInt // Amount in cents
+  conditions    String?
+  expiresAt     DateTime // Auto-cleanup after this time
+  createdAt     DateTime @default(now())
+
+  @@unique([discordUserId, listingId]) // One draft per user per listing
+  @@index([expiresAt]) // For cleanup queries
+  @@index([discordUserId])
+  @@map("offer_drafts")
 }
 
 model Contract {
@@ -243,7 +277,7 @@ model Signature {
 model Escrow {
   id        String       @id @default(cuid())
   rail      EscrowRail
-  amount    Int // Amount in cents
+  amount    BigInt // Amount in cents (BigInt to support large escrows)
   currency  Currency     @default(USD)
   status    EscrowStatus @default(AWAIT_FUNDS)
   createdAt DateTime     @default(now())
@@ -362,19 +396,19 @@ model Dispute {
 }
 
 model RobloxSnapshot {
-  id                String   @id @default(cuid())
-  gameId            String   // Roblox game ID
+  id                String            @id @default(cuid())
+  gameId            String // Roblox game ID
   gameName          String
   gameDescription   String?
   thumbnailUrl      String?
-  playerCount       Int?     // Current player count
-  visits            Int?     // Total visits
+  playerCount       Int? // Current player count
+  visits            Int? // Total visits
   createdDate       DateTime?
-  verifiedOwnership Boolean  @default(false)
+  verifiedOwnership Boolean           @default(false)
   ownershipType     GameOwnershipType @default(OWNER)
   verificationDate  DateTime?
-  metadata          Json?    // Additional game metadata
-  createdAt         DateTime @default(now())
+  metadata          Json? // Additional game metadata
+  createdAt         DateTime          @default(now())
 
   // Relations
   listingId String?
@@ -388,21 +422,21 @@ model RobloxSnapshot {
 }
 
 model AssetVerification {
-  id              String                @id @default(cuid())
-  userId          String
-  gameId          String
+  id                 String             @id @default(cuid())
+  userId             String
+  gameId             String
   verificationStatus VerificationStatus @default(PENDING)
   verificationMethod VerificationMethod
-  ownershipType   GameOwnershipType     @default(OWNER)
-  verifiedAt      DateTime?
-  expiresAt       DateTime?
-  metadata        Json?                 // API response data
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  ownershipType      GameOwnershipType  @default(OWNER)
+  verifiedAt         DateTime?
+  expiresAt          DateTime?
+  metadata           Json? // API response data
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   // Relations
-  user  User   @relation(fields: [userId], references: [id])
-  
+  user User @relation(fields: [userId], references: [id])
+
   @@unique([userId, gameId], name: "userId_gameId")
   @@index([userId])
   @@index([gameId])
@@ -442,11 +476,28 @@ model WebhookEvent {
   @@map("webhook_events")
 }
 
+model MarketplaceChannel {
+  id             String   @id @default(cuid())
+  guildId        String
+  guild          Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  channelId      String // Discord channel ID
+  priceRange     String // e.g., "under-5k", "5k-20k", "20k-100k", "100k+"
+  activeListings Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([guildId, priceRange])
+  @@index([guildId])
+  @@index([channelId])
+  @@index([priceRange])
+  @@map("marketplace_channels")
+}
+
 // Enums
 enum KycTier {
-  TIER_0  // Signed up - no Roblox account
-  TIER_1  // Signed up - Roblox linked - can post listings
-  TIER_2  // Signed up - Roblox linked - verified by Bloxtr8 team
+  TIER_0 // Signed up - no Roblox account
+  TIER_1 // Signed up - Roblox linked - can post listings
+  TIER_2 // Signed up - Roblox linked - verified by Bloxtr8 team
 }
 
 enum WalletRisk {
@@ -461,6 +512,12 @@ enum ListingStatus {
   ACTIVE
   INACTIVE
   SOLD
+  CANCELLED
+}
+
+enum ListingVisibility {
+  PUBLIC // Visible across all guilds
+  PRIVATE // Visible only in the guild where created
 }
 
 enum OfferStatus {
@@ -536,4 +593,20 @@ enum DisputeStatus {
   IN_REVIEW
   RESOLVED
   CLOSED
+}
+
+// Link events for tracking when users link accounts (for DM notifications)
+model LinkEvent {
+  id          String   @id @default(cuid())
+  userId      String
+  providerId  String   // 'roblox', 'discord', etc.
+  accountId   String   // The external account ID
+  notified    Boolean  @default(false) // Whether Discord bot has sent notification
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([notified, createdAt])
+  @@index([userId])
 }

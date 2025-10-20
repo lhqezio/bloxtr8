@@ -14,8 +14,13 @@ import {
   type StringSelectMenuInteraction,
 } from 'discord.js';
 
-import { createListing } from '../utils/apiClient.js';
+import { createListing, updateListingMessage } from '../utils/apiClient.js';
 import { getApiBaseUrl } from '../utils/apiClient.js';
+import { getPriceRangeForPrice } from '../utils/marketplace.js';
+import {
+  createListingMessage,
+  type ListingData,
+} from '../utils/messageManager.js';
 import { verifyUserForListing } from '../utils/userVerification.js';
 import { checkUserExists } from '../utils/userVerification.js';
 
@@ -241,11 +246,12 @@ export async function handleListingCreateWithVerification(
   interaction: ChatInputCommandInteraction
 ) {
   try {
+    // Defer reply immediately to prevent timeout
+    await interaction.deferReply({ ephemeral: true });
+
     // Clear any old verification cache for this user
     const discordId = interaction.user.id;
     verificationCache.delete(discordId);
-
-    // Check user verification status without deferring (needed for modal)
 
     // Check if user exists in database (don't create if they don't exist)
     const userResult = await checkUserExists(interaction.user.id);
@@ -266,9 +272,8 @@ export async function handleListingCreateWithVerification(
         })
         .setTimestamp();
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [errorEmbed],
-        ephemeral: true,
       });
       return;
     }
@@ -322,9 +327,8 @@ export async function handleListingCreateWithVerification(
         })
         .setTimestamp();
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [embed],
-        ephemeral: true,
       });
       return;
     }
@@ -352,15 +356,13 @@ export async function handleListingCreateWithVerification(
         })
         .setTimestamp();
 
-      await interaction.reply({
+      await interaction.editReply({
         embeds: [embed],
-        ephemeral: true,
       });
       return;
     }
 
-    // Fetch user's experiences
-    await interaction.deferReply({ ephemeral: true });
+    // Fetch user's experiences (interaction already deferred above)
 
     const experiences = await fetchUserExperiences(userResult.user.id);
 
@@ -414,20 +416,21 @@ export async function handleListingCreateWithVerification(
     );
 
     const embed = new EmbedBuilder()
-      .setColor(0x00d4aa)
+      .setColor(0x00d4aa) // Modern teal
       .setTitle('🎮 Select Experience to List')
       .setDescription(
-        `**Choose from your ${experiences.length} public experiences**`
+        `**✨ Choose from your ${experiences.length} public experiences**\n\n*Select the game you want to create a listing for.*`
       )
       .setThumbnail(interaction.user.displayAvatarURL())
       .addFields({
-        name: '📋 What happens next?',
+        name: '📋 **What happens next?**',
         value:
-          '1. Select your experience\n2. Verify ownership\n3. Create your listing',
+          '1. **Select your experience** from the dropdown\n2. **Verify ownership** automatically\n3. **Create your listing** with details',
       })
       .setFooter({
-        text: `Showing ${experiencesToShow.length} of ${experiences.length} experiences`,
-        iconURL: interaction.user.displayAvatarURL(),
+        text: `🛡️ Bloxtr8 • Showing ${experiencesToShow.length} of ${experiences.length} experiences`,
+        iconURL:
+          'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
       })
       .setTimestamp();
 
@@ -439,13 +442,12 @@ export async function handleListingCreateWithVerification(
     console.error('Error handling listing create with verification:', error);
 
     try {
-      await interaction.reply({
+      await interaction.editReply({
         content:
           '❌ An error occurred while processing your request. Please try again later.',
-        ephemeral: true,
       });
     } catch {
-      // Fallback if reply already sent
+      // Fallback if edit fails
       try {
         await interaction.followUp({
           content:
@@ -463,6 +465,9 @@ export async function handleExperienceSelection(
   interaction: StringSelectMenuInteraction
 ) {
   try {
+    // Defer update immediately to prevent timeout
+    await interaction.deferUpdate();
+
     const selectedExperienceId = interaction.values[0];
     const discordId = interaction.user.id;
 
@@ -473,22 +478,20 @@ export async function handleExperienceSelection(
     );
 
     if (!userResult.user) {
-      return interaction.reply({
+      return interaction.editReply({
         content:
           '❌ You must sign up first. Use `/signup` to create your account.',
-        ephemeral: true,
+        components: [],
       });
     }
 
     if (!robloxAccount) {
-      return interaction.reply({
+      return interaction.editReply({
         content:
           '❌ You must link your Roblox account first to verify game ownership.',
-        ephemeral: true,
+        components: [],
       });
     }
-
-    await interaction.deferReply({ ephemeral: true });
 
     // Get the selected experience details to find placeId
     const experiences = await fetchUserExperiences(userResult.user!.id);
@@ -538,50 +541,64 @@ export async function handleExperienceSelection(
 
     const embed = new EmbedBuilder()
       .setTitle('✅ Game Ownership Verified')
-      .setDescription(`**${gameDetails.name}**`)
+      .setDescription(
+        `**🎮 ${gameDetails.name}**\n\n✨ *Your ownership has been verified and you can now create a listing for this game.*`
+      )
       .addFields(
         {
-          name: 'Ownership Type',
-          value: ownershipType || 'Owner',
+          name: '👑 **Ownership Type**',
+          value: `**${ownershipType || 'Owner'}**`,
           inline: true,
         },
         {
-          name: 'Player Count',
-          value: `${gameDetails.playing || 0} playing`,
+          name: '👥 **Player Count**',
+          value: `**${(gameDetails.playing || 0).toLocaleString()}** playing`,
           inline: true,
         },
         {
-          name: 'Total Visits',
-          value: `${gameDetails.visits || 0}`,
+          name: '📈 **Total Visits**',
+          value: `**${(gameDetails.visits || 0).toLocaleString()}**`,
           inline: true,
         },
         {
-          name: 'Creator',
-          value: gameDetails.creator?.name || 'Unknown',
+          name: '👤 **Creator**',
+          value: `**${gameDetails.creator?.name || 'Unknown'}**`,
           inline: true,
         },
-        { name: 'Genre', value: gameDetails.genre || 'Unknown', inline: true }
+        {
+          name: '🎯 **Genre**',
+          value: `**${gameDetails.genre || 'Unknown'}**`,
+          inline: true,
+        }
       )
       .setThumbnail(
         gameDetails.thumbnailUrl ||
           `https://thumbnails.roblox.com/v1/games/icons?gameIds=${selectedExperienceId}&size=420x420&format=Png`
       )
-      .setColor('Green');
+      .setColor(0x00d4aa) // Modern teal
+      .setFooter({
+        text: '🛡️ Bloxtr8 • Verified Asset Ownership',
+        iconURL:
+          'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
+      })
+      .setTimestamp();
 
-    // Create buttons for next steps
+    // Create beautiful action buttons
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId('create_listing_with_game')
         .setLabel('Create Game Listing')
-        .setStyle(ButtonStyle.Primary),
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('📋'),
       new ButtonBuilder()
         .setCustomId('cancel_listing_creation')
         .setLabel('Cancel')
         .setStyle(ButtonStyle.Secondary)
+        .setEmoji('❌')
     );
 
     await interaction.editReply({
-      content: 'Game ownership verified! You can now create your listing.',
+      content: '🎉 Game ownership verified! You can now create your listing.',
       embeds: [embed],
       components: [row],
     });
@@ -605,6 +622,9 @@ export async function handleGameVerificationModalSubmit(
   interaction: ModalSubmitInteraction
 ) {
   try {
+    // Defer reply immediately to prevent timeout
+    await interaction.deferReply({ ephemeral: true });
+
     const gameId = interaction.fields.getTextInputValue('game_id');
     const discordId = interaction.user.id;
 
@@ -615,22 +635,18 @@ export async function handleGameVerificationModalSubmit(
     );
 
     if (!userResult.user) {
-      return interaction.reply({
+      return interaction.editReply({
         content:
           '❌ You must sign up first. Use `/signup` to create your account.',
-        ephemeral: true,
       });
     }
 
     if (!robloxAccount) {
-      return interaction.reply({
+      return interaction.editReply({
         content:
           '❌ You must link your Roblox account first to verify game ownership.',
-        ephemeral: true,
       });
     }
-
-    await interaction.deferReply({ ephemeral: true });
 
     // Verify game ownership via API
     const verificationResponse = await fetch(
@@ -854,15 +870,17 @@ export async function handleListingWithGameModalSubmit(
   interaction: ModalSubmitInteraction
 ) {
   try {
+    // Defer reply immediately to prevent timeout
+    await interaction.deferReply({ ephemeral: true });
+
     // Get cached verification data for game details
     const discordId = interaction.user.id;
     const cachedData = getCacheEntry(discordId);
 
     if (!cachedData) {
-      await interaction.reply({
+      await interaction.editReply({
         content:
           '❌ Verification data not found. Please verify your game again.',
-        ephemeral: true,
       });
       return;
     }
@@ -886,9 +904,8 @@ export async function handleListingWithGameModalSubmit(
     // Validate price and convert from dollars to cents
     const priceDollars = parseFloat(priceText);
     if (isNaN(priceDollars) || priceDollars <= 0) {
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ Please enter a valid price greater than $0.00.',
-        ephemeral: true,
       });
       return;
     }
@@ -900,15 +917,19 @@ export async function handleListingWithGameModalSubmit(
     const userResult = await checkUserExists(interaction.user.id);
 
     if (!userResult.user) {
-      await interaction.reply({
+      await interaction.editReply({
         content:
           '❌ You must sign up first. Use `/signup` to create your account.',
-        ephemeral: true,
       });
       return;
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    // Determine visibility (PUBLIC by default for now)
+    // TODO: Add visibility selection UI in future update
+    const visibility = 'PUBLIC';
+
+    // Determine price range for channel routing
+    const priceRange = getPriceRangeForPrice(price);
 
     // Create listing via API
     const apiResult = await createListing({
@@ -918,6 +939,8 @@ export async function handleListingWithGameModalSubmit(
       category,
       sellerId: userResult.user.id,
       guildId: interaction.guildId || undefined,
+      visibility,
+      priceRange: priceRange.range,
     });
 
     if (!apiResult.success) {
@@ -949,50 +972,186 @@ export async function handleListingWithGameModalSubmit(
       // Continue anyway - listing was created successfully
     }
 
+    // Create Discord message for the listing
+    let messageId: string | undefined;
+    let channelId: string | undefined;
+
+    if (interaction.guild) {
+      try {
+        const listingData: ListingData = {
+          id: apiResult.data.id,
+          title,
+          summary,
+          price: price.toString(), // Convert to string for BigInt serialization
+          category,
+          status: 'ACTIVE',
+          visibility,
+          userId: userResult.user.id,
+          guildId: interaction.guildId || undefined,
+          user: {
+            name: interaction.user.username,
+            kycTier: userResult.user.kycTier,
+            kycVerified: userResult.user.kycVerified,
+          },
+          robloxSnapshots: [
+            {
+              gameName: cachedData.gameDetails.name,
+              gameDescription: cachedData.gameDetails.description,
+              thumbnailUrl: cachedData.gameDetails.thumbnailUrl,
+              playerCount: cachedData.gameDetails.playing,
+              visits: cachedData.gameDetails.visits,
+              verifiedOwnership: true,
+            },
+          ],
+          createdAt: new Date(),
+        };
+
+        const message = await createListingMessage(
+          listingData,
+          interaction.guild,
+          3
+        );
+
+        if (message) {
+          messageId = message.id;
+          channelId = message.channel.id;
+
+          // Update listing with message information
+          await updateListingMessage(apiResult.data.id, {
+            messageId,
+            channelId,
+            priceRange: priceRange.range,
+          });
+
+          console.log(
+            `Created message ${messageId} for listing ${apiResult.data.id}`
+          );
+        }
+      } catch (error) {
+        console.error('Failed to create listing message:', error);
+
+        // Log specific error types for debugging
+        if (error instanceof Error) {
+          if (error.message.includes('Missing Permissions')) {
+            console.error(
+              'Bot lacks permissions to send messages in this channel'
+            );
+          } else if (error.message.includes('rate limit')) {
+            console.error('Rate limited while creating message');
+          } else if (error.message.includes('channel')) {
+            console.error('Channel not found or inaccessible');
+          }
+        }
+
+        // Message creation failed, but listing is still saved
+        // The success message already handles this case appropriately
+      }
+    }
+
     // Clear cached data
     verificationCache.delete(discordId);
 
-    // Success - show listing created message
+    // Success - show listing created message with beautiful design
+    let embedDescription: string;
+    let embedTitle: string;
+
+    if (messageId) {
+      embedDescription =
+        '**🎉 Your verified asset listing is now live in the marketplace!**\n\n✨ *Your listing is visible to the community and ready for offers.*';
+      embedTitle = '🎉 Verified Asset Listing Created!';
+    } else {
+      embedDescription =
+        '**✅ Your verified asset listing has been created!**\n\n⚠️ *Note: Message creation failed - listing is saved but not visible in Discord channels.*';
+      embedTitle = '⚠️ Listing Created (Limited)';
+    }
+
     const embed = new EmbedBuilder()
-      .setColor(0x00d4aa)
-      .setTitle('🎉 Verified Asset Listing Created!')
-      .setDescription('**Your verified asset listing is now live!**')
+      .setColor(messageId ? 0x00d4aa : 0xf59e0b) // Modern teal if message created, amber if not
+      .setTitle(embedTitle)
+      .setDescription(embedDescription)
       .setThumbnail(interaction.user.displayAvatarURL())
       .addFields(
         {
-          name: '📋 Details',
-          value: `**${title}**\n$${(price / 100).toFixed(2)} • ${category}`,
+          name: '📋 **Listing Details**',
+          value: `**${title}**\n💰 **$${(price / 100).toFixed(2)}** • 📂 **${category}**`,
           inline: true,
         },
         {
-          name: '🆔 ID',
+          name: '🆔 **Listing ID**',
           value: `\`${apiResult.data.id}\``,
           inline: true,
         },
         {
-          name: '✅ Verification',
-          value: 'Asset ownership verified',
+          name: '✅ **Verification**',
+          value: '🛡️ **Asset ownership verified**',
           inline: true,
         },
         {
-          name: '🎮 Game',
-          value: `[Open on Roblox](${getRobloxGameUrl(cachedData.placeId)})`,
+          name: '🌐 **Visibility**',
+          value:
+            visibility === 'PUBLIC'
+              ? '🌍 **All Servers**'
+              : '🔒 **This Server Only**',
+          inline: true,
+        },
+        {
+          name: '💰 **Price Range**',
+          value: `${priceRange.emoji} **${priceRange.description}**`,
+          inline: true,
+        },
+        {
+          name: '🎮 **Game Link**',
+          value: `[🎯 Open on Roblox](${getRobloxGameUrl(cachedData.placeId)})`,
           inline: false,
         }
-      )
-      .setTimestamp()
-      .setFooter({
-        text: `Created by ${interaction.user.username}`,
-        iconURL: interaction.user.displayAvatarURL(),
-      });
+      );
 
-    // Create button to open Roblox game
-    const gameButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    // Add message link if available
+    if (messageId && channelId) {
+      embed.addFields({
+        name: '💬 Marketplace Message',
+        value: `<#${channelId}> • [Jump to Message](https://discord.com/channels/${interaction.guildId}/${channelId}/${messageId})`,
+        inline: false,
+      });
+    }
+
+    embed.setTimestamp().setFooter({
+      text: `🛡️ Bloxtr8 • Created by ${interaction.user.username} • Secure Trading Platform`,
+      iconURL:
+        'https://cdn.discordapp.com/attachments/1234567890/1234567890/bloxtr8-logo.png',
+    });
+
+    // Create beautiful action buttons
+    const buttons = new ActionRowBuilder<ButtonBuilder>();
+
+    buttons.addComponents(
       new ButtonBuilder()
         .setLabel('🎮 Open Game on Roblox')
         .setStyle(ButtonStyle.Link)
         .setURL(getRobloxGameUrl(cachedData.placeId))
     );
+
+    // Add message link button if available
+    if (messageId && channelId && interaction.guildId) {
+      buttons.addComponents(
+        new ButtonBuilder()
+          .setLabel('💬 View Message')
+          .setStyle(ButtonStyle.Link)
+          .setURL(
+            `https://discord.com/channels/${interaction.guildId}/${channelId}/${messageId}`
+          )
+      );
+    }
+
+    // Add web view button
+    buttons.addComponents(
+      new ButtonBuilder()
+        .setLabel('🌐 View on Web')
+        .setStyle(ButtonStyle.Link)
+        .setURL(`https://bloxtr8.com/listings/${apiResult.data.id}`)
+    );
+
+    const gameButton = buttons;
 
     await interaction.editReply({
       content: '',

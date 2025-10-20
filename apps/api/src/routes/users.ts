@@ -564,6 +564,18 @@ router.post('/users/link-account', async (req, res, next) => {
         },
       });
 
+      // Create link event for notification service (only for new links)
+      if (providerId === 'roblox') {
+        await tx.linkEvent.create({
+          data: {
+            userId,
+            providerId,
+            accountId,
+            notified: false,
+          },
+        });
+      }
+
       return { account, user: updatedUser, alreadyLinked: false };
     });
 
@@ -672,6 +684,70 @@ router.get('/users/:userId/experiences', async (req, res, next) => {
     });
   } catch (error) {
     console.error('Error fetching user experiences:', error);
+    next(error);
+  }
+});
+
+// Get pending link events for Discord bot notification service
+router.get('/users/link-events/pending', async (req, res, next) => {
+  try {
+    const { limit = 50 } = req.query;
+
+    const linkEvents = await prisma.linkEvent.findMany({
+      where: {
+        notified: false,
+        providerId: 'roblox', // Only notify for Roblox links
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            accounts: {
+              where: { providerId: 'discord' },
+              select: { accountId: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: Number(limit),
+    });
+
+    res.status(200).json({
+      success: true,
+      events: linkEvents,
+    });
+  } catch (error) {
+    console.error('Error fetching pending link events:', error);
+    next(error);
+  }
+});
+
+// Mark link event as notified
+router.post('/users/link-events/:eventId/notify', async (req, res, next) => {
+  try {
+    const { eventId } = req.params;
+
+    if (!eventId) {
+      throw new AppError('Event ID is required', 400);
+    }
+
+    const linkEvent = await prisma.linkEvent.update({
+      where: { id: eventId },
+      data: { notified: true },
+    });
+
+    if (!linkEvent) {
+      throw new AppError('Link event not found', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Link event marked as notified',
+    });
+  } catch (error) {
+    console.error('Error marking link event as notified:', error);
     next(error);
   }
 });

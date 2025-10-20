@@ -376,4 +376,120 @@ export class GameVerificationService {
       },
     });
   }
+
+  /**
+   * Re-verify asset ownership for a listing (used when accepting offers)
+   */
+  async reverifyAssetOwnership(listingId: string): Promise<{
+    verified: boolean;
+    ownershipType?: string;
+    error?: string;
+  }> {
+    try {
+      // Get listing with seller info and Roblox snapshot
+      const listing = await this.prisma.listing.findUnique({
+        where: { id: listingId },
+        include: {
+          user: {
+            include: {
+              accounts: {
+                where: { providerId: 'roblox' },
+              },
+            },
+          },
+          robloxSnapshots: {
+            where: { verifiedOwnership: true },
+            take: 1,
+          },
+        },
+      });
+
+      if (!listing) {
+        return {
+          verified: false,
+          error: 'Listing not found',
+        };
+      }
+
+      if (listing.robloxSnapshots.length === 0) {
+        return {
+          verified: false,
+          error: 'No verified Roblox snapshot found for listing',
+        };
+      }
+
+      const snapshot = listing.robloxSnapshots[0];
+
+      if (!snapshot) {
+        return {
+          verified: false,
+          error: 'No verified Roblox snapshot found for listing',
+        };
+      }
+
+      const robloxAccount = listing.user.accounts.find(
+        acc => acc.providerId === 'roblox'
+      );
+
+      if (!robloxAccount) {
+        return {
+          verified: false,
+          error: 'Seller does not have linked Roblox account',
+        };
+      }
+
+      // Verify ownership using Roblox API
+      const ownershipResult = await this.robloxApi.verifyGameOwnership(
+        robloxAccount.accountId,
+        snapshot.gameId
+      );
+
+      if (!ownershipResult.owns) {
+        // Update snapshot verification status
+        await this.prisma.robloxSnapshot.update({
+          where: { id: snapshot.id },
+          data: {
+            verifiedOwnership: false,
+            metadata: {
+              ...(snapshot.metadata as object),
+              reverificationFailed: true,
+              reverificationDate: new Date().toISOString(),
+              reverificationError: 'Ownership verification failed',
+            },
+          },
+        });
+
+        return {
+          verified: false,
+          error: 'Seller no longer owns the Roblox asset',
+        };
+      }
+
+      // Update snapshot with successful re-verification
+      await this.prisma.robloxSnapshot.update({
+        where: { id: snapshot.id },
+        data: {
+          verifiedOwnership: true,
+          verificationDate: new Date(),
+          metadata: {
+            ...(snapshot.metadata as object),
+            lastReverification: new Date().toISOString(),
+            reverificationSuccess: true,
+          },
+        },
+      });
+
+      return {
+        verified: true,
+        ownershipType: ownershipResult.role,
+      };
+    } catch (error) {
+      console.error('Asset re-verification error:', error);
+      return {
+        verified: false,
+        error:
+          error instanceof Error ? error.message : 'Re-verification failed',
+      };
+    }
+  }
 }
