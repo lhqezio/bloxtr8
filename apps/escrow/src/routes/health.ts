@@ -1,7 +1,6 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import type { Pool } from 'pg';
 
-
 const router: ExpressRouter = Router();
 
 let pool: Pool | null = null;

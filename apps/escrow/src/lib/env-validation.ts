@@ -6,7 +6,6 @@ interface RequiredEnvVars {
   DATABASE_URL?: string;
   DATABASE_URL_PRISMA?: string;
 
-  
   // Application
   NODE_ENV?: string;
   PORT?: string;
@@ -17,9 +16,7 @@ interface RequiredEnvVars {
  * @throws {Error} if required variables are missing
  */
 export function validateEnvironment(): void {
-  const required: (keyof RequiredEnvVars)[] = [
-    'DATABASE_URL',
-  ];
+  const required: (keyof RequiredEnvVars)[] = ['DATABASE_URL'];
 
   const missing: string[] = [];
 

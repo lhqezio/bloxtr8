@@ -40,7 +40,7 @@ services:
     restart: 'no'
     depends_on:
       - test-db
-# Escrow service - development mode
+  # Escrow service - development mode
   escrow:
     build:
       context: .

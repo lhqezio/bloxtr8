@@ -11,7 +11,6 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
 import healthRoutes, { setPool } from './routes/health.js';
 
-
 const { Pool } = pkg;
 // Load environment variables
 config();
@@ -69,7 +68,9 @@ app.use(errorHandler);
 if (process.env.NODE_ENV !== 'test') {
   app.listen(port, () => {
     console.log(`🏦 Escrow API running on http://localhost:${port}`);
-    console.log(`📊 Escrow's Health check available at http://localhost:${port}/health`);
+    console.log(
+      `📊 Escrow's Health check available at http://localhost:${port}/health`
+    );
   });
 }
 
