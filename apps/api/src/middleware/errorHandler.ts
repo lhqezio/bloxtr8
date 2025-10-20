@@ -35,7 +35,7 @@ export const createProblemDetails = (
     statusCode || (error instanceof AppError ? error.statusCode : 500);
 
   return {
-    type: `https://bloxtr8.com/problems/${getErrorType(code)}`,
+    type: `https://web.bloxtr8.com/problems/${getErrorType(code)}`,
     title: getErrorTitle(code),
     status: code,
     detail: error.message,
@@ -102,7 +102,7 @@ export const errorHandler = (
 
 export const notFoundHandler = (req: Request, res: Response): void => {
   const problemDetails: ProblemDetails = {
-    type: 'https://bloxtr8.com/problems/not-found',
+    type: 'https://web.bloxtr8.com/problems/not-found',
     title: 'Not Found',
     status: 404,
     detail: `The requested resource ${req.originalUrl} was not found`,
