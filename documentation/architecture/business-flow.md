@@ -202,37 +202,195 @@ Seller → Clicks "Decline"
 Update Offer.status = DECLINED
 ```
 
+### 5a. Offer Drafts
+
+To prevent data loss during multi-step Discord interactions, offer data is temporarily stored in drafts before final submission.
+
+```
+User → Clicks "Make Offer" button
+  ↓
+Bot → Show offer modal
+  ↓
+User → Fills amount & conditions
+  ↓
+User → Submits modal
+  ↓
+POST /api/offer-drafts
+  {
+    discordUserId: "discord_123",
+    listingId: "listing_456",
+    amount: 45000,
+    conditions: "Optional terms",
+    expiresAt: Date.now() + 30min
+  }
+  ↓
+API → Upsert OfferDraft (one per user per listing)
+  ↓
+Bot → Show confirmation embed with offer details
+  ↓
+User → Clicks "Confirm Offer" button
+  ↓
+Bot → Fetch draft from API
+  ↓
+Bot → Verify user exists in system
+  ↓
+POST /api/offers (create actual offer)
+  ↓
+DELETE /api/offer-drafts/:discordUserId/:listingId
+  ↓
+Offer created → Notify seller
+```
+
+**Database Changes**:
+
+- Create/update `OfferDraft` record
+- Auto-cleanup after 30 minutes
+- Delete draft after successful offer creation
+
+**Benefits**:
+
+- Prevents data loss if Discord interaction fails
+- Allows multi-step confirmation flow
+- User can review before final submission
+- Automatic cleanup prevents database bloat
+
+**Cleanup**:
+
+```
+Cron job (every hour)
+  ↓
+DELETE /api/offer-drafts/cleanup
+  ↓
+Remove all expired drafts (expiresAt < now())
+```
+
 ## Contract & Escrow
 
-### 6. Contract Generation (Future)
+### 6. Contract Generation
 
 ```
 Offer ACCEPTED
   ↓
-POST /api/contracts
+POST /api/contracts/generate
+  ↓
+API → Fetch offer + listing + parties + Roblox snapshots
   ↓
 API → Generate PDF contract:
   - Listing details from RobloxSnapshot
-  - Offer terms
-  - Buyer/seller info
+  - Offer terms (amount, conditions, expiry)
+  - Buyer/seller info (with Roblox accounts)
+  - Roblox asset data snapshot
   ↓
-API → Store PDF in S3
+API → Upload PDF to S3
   ↓
 API → Calculate SHA-256 hash
   ↓
 API → Create Contract (status: PENDING_SIGNATURE)
   ↓
-API → Send DocuSign signing requests to both parties
+API → Store robloxAssetData JSON snapshot
   ↓
-Both sign → Webhook updates Contract.status = EXECUTED
+Discord Bot → Send DM to buyer with contract notification
   ↓
-Trigger escrow creation
+Discord Bot → Send DM to seller with contract notification
+  ↓
+Both parties receive:
+  - Contract summary embed
+  - Quick Sign button (Discord native)
+  - Web Sign button (opens browser)
+  - Review Contract button (download PDF)
 ```
 
 **Database Changes**:
 
 - Create `Contract` record
-- Create `Signature` records (2)
+- Store `robloxAssetData` JSON
+- Store `pdfUrl` and `sha256` hash
+
+### 6a. Contract Signing Flow
+
+**Quick Sign (Discord Native)**:
+
+```
+User → Clicks "✍️ Sign Contract" button
+  ↓
+Bot → Verify user is party to contract
+  ↓
+Bot → Check if already signed
+  ↓
+Bot → Show confirmation modal
+  ↓
+User → Types "I AGREE" in text input
+  ↓
+Bot → Validate input matches exactly
+  ↓
+POST /api/contracts/:id/sign
+  {
+    userId: "user_123",
+    signatureMethod: "DISCORD_NATIVE",
+    ipAddress: "...",
+    userAgent: "Discord/..."
+  }
+  ↓
+API → Create Signature record
+  ↓
+API → Check if both parties signed
+  ↓
+If both signed → Update Contract.status = EXECUTED
+  ↓
+Bot → Send confirmation to user
+  ↓
+If executed → Notify both parties → Trigger escrow
+```
+
+**Web Sign**:
+
+```
+User → Clicks "🌐 Sign on Web" button
+  ↓
+Bot → POST /api/contracts/:id/sign-token
+  ↓
+API → Generate secure token (15min expiry)
+  ↓
+API → Create magic link with token
+  ↓
+Bot → Send ephemeral message with link
+  ↓
+User → Clicks link → Opens web app
+  ↓
+Web App → Validate token
+  ↓
+Web App → Show contract preview
+  ↓
+User → Clicks "Sign Contract" button
+  ↓
+Web App → POST /api/contracts/:id/sign
+  {
+    userId: "user_123",
+    signatureMethod: "WEB_BASED",
+    ipAddress: "...",
+    userAgent: "Mozilla/..."
+  }
+  ↓
+API → Create Signature record
+  ↓
+API → Clean up used token
+  ↓
+If both signed → Update Contract.status = EXECUTED
+  ↓
+Web App → Show success page
+  ↓
+Discord Bot → Send confirmation DM
+```
+
+**Database Changes**:
+
+- Create `Signature` record with metadata:
+  - userId, contractId
+  - signedAt timestamp
+  - ipAddress, userAgent
+  - signatureMethod (DISCORD_NATIVE or WEB_BASED)
+- Update `Contract.status` to EXECUTED when both signed
+- Create `AuditLog` entries for signatures
 
 ### 7. Escrow Creation
 

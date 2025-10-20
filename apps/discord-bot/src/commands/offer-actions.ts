@@ -10,7 +10,13 @@ import {
   type ModalSubmitInteraction,
 } from 'discord.js';
 
-import { acceptOffer, counterOffer, declineOffer } from '../utils/apiClient.js';
+import {
+  acceptOffer,
+  counterOffer,
+  declineOffer,
+  generateContract,
+} from '../utils/apiClient.js';
+import { sendContractSigningNotification } from './contract-notifications.js';
 import { verify } from '../utils/userVerification.js';
 
 /**
@@ -493,6 +499,34 @@ export async function handleConfirmAcceptOffer(
       });
     } catch (error) {
       console.error('Could not update original message:', error);
+    }
+
+    // Generate contract automatically in the background
+    try {
+      console.log(`Generating contract for accepted offer ${offerId}...`);
+      const contractResult = await generateContract(offerId);
+
+      if (contractResult.success) {
+        console.log(
+          `Contract generated successfully: ${contractResult.data.contractId}`
+        );
+
+        // Get offer data to send notifications (we'll fetch from API to get all details)
+        // Note: In a production system, we might want to fetch the full offer details
+        // including buyer/seller Discord IDs to send proper notifications
+        // For now, we'll log success and rely on a notification service to pick this up
+        console.log(`Contract ready for signatures: ${contractResult.data.pdfUrl}`);
+      } else {
+        console.error(
+          `Failed to generate contract for offer ${offerId}:`,
+          contractResult.error.message
+        );
+        // Don't fail the whole operation if contract generation fails
+        // The contract can be generated manually later if needed
+      }
+    } catch (contractError) {
+      console.error('Error generating contract:', contractError);
+      // Continue execution - contract generation failure shouldn't block offer acceptance
     }
   } catch (error) {
     console.error('Error in handleConfirmAcceptOffer:', error);

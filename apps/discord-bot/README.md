@@ -70,6 +70,83 @@ Check account verification status.
 
 Show available commands and information.
 
+### `/contract view <id>`
+
+View and download your contracts.
+
+**Requirements:**
+
+- Account created (`/signup`)
+- Must be a party to the contract (buyer or seller)
+
+**Features:**
+
+- View contract details (asset, price, parties)
+- Check signature status for both parties
+- Download contract PDF
+- Sign contract if not already signed
+- See contract execution status
+
+**Response:**
+
+- Contract summary embed with:
+  - Asset and price information
+  - Your role (Buyer or Seller)
+  - Signature status for both parties
+  - Contract status (Pending/Executed/Void)
+  - Download PDF button (if available)
+  - Sign button (if not yet signed)
+
+### `/contract list`
+
+List all your contracts (Coming Soon).
+
+**Note:** Currently shows placeholder message. Check DMs for contract notifications or use `/contract view <id>` with a specific contract ID.
+
+## Contract Signing
+
+When an offer is accepted, a digital contract is automatically generated. Both parties must sign the contract before the transaction proceeds to escrow.
+
+### Signing Methods
+
+**1. Quick Sign (Discord Native)**
+
+- Click "✍️ Sign Contract" button in DM or contract view
+- Review contract summary
+- Type "I AGREE" in confirmation modal
+- Signature recorded instantly
+- Method: `DISCORD_NATIVE`
+
+**2. Web Sign**
+
+- Click "🌐 Sign on Web" button
+- Opens secure signing page in browser
+- Full contract preview with all terms
+- Magic link valid for 15 minutes
+- Method: `WEB_BASED`
+
+**3. Review Contract**
+
+- Click "📄 Review Contract" button
+- Download full PDF contract
+- Review all terms and conditions
+- Return to sign via Quick Sign or Web Sign
+
+### Contract Status
+
+- **PENDING_SIGNATURE**: Awaiting signatures from one or both parties
+- **EXECUTED**: Both parties have signed, transaction proceeds to escrow
+- **VOID**: Contract cancelled or expired
+
+### Signature Metadata
+
+Each signature captures:
+
+- User ID and timestamp
+- IP address and user agent
+- Signature method (Discord or Web)
+- Immutable audit trail
+
 ## Guild Setup
 
 When the bot joins a server:

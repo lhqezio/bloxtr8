@@ -241,12 +241,14 @@ model OfferDraft {
 }
 
 model Contract {
-  id        String         @id @default(cuid())
-  pdfUrl    String?
-  sha256    String?
-  status    ContractStatus @default(PENDING_SIGNATURE)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id              String         @id @default(cuid())
+  pdfUrl          String?
+  sha256          String?
+  status          ContractStatus @default(PENDING_SIGNATURE)
+  robloxAssetData Json? // Snapshot of Roblox asset details at time of contract
+  templateVersion String         @default("1.0.0") // Contract template version used
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   // Relations
   offerId    String
@@ -261,12 +263,15 @@ model Contract {
 }
 
 model Signature {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  contractId String
-  contract   Contract @relation(fields: [contractId], references: [id])
-  signedAt   DateTime @default(now())
+  id              String          @id @default(cuid())
+  userId          String
+  user            User            @relation(fields: [userId], references: [id])
+  contractId      String
+  contract        Contract        @relation(fields: [contractId], references: [id])
+  signedAt        DateTime        @default(now())
+  ipAddress       String? // IP address at time of signing
+  userAgent       String? // Browser/client user agent
+  signatureMethod SignatureMethod @default(DISCORD_NATIVE) // How the signature was captured
 
   @@unique([userId, contractId])
   @@index([userId])
@@ -595,6 +600,12 @@ enum DisputeStatus {
   CLOSED
 }
 
+enum SignatureMethod {
+  DISCORD_NATIVE // Quick sign via Discord button
+  WEB_APP // Full review and sign via web app
+  API // Programmatic signature (future)
+}
+
 // Link events for tracking when users link accounts (for DM notifications)
 model LinkEvent {
   id          String   @id @default(cuid())
@@ -609,4 +620,37 @@ model LinkEvent {
   
   @@index([notified, createdAt])
   @@index([userId])
+}
+
+// Contract templates for versioned legal terms
+model ContractTemplate {
+  id          String   @id @default(cuid())
+  version     String   @unique // e.g., "1.0.0", "1.1.0"
+  name        String // e.g., "Roblox Asset Sale Agreement"
+  terms       Json // Contract terms and clauses
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deprecatedAt DateTime? // When this version was deprecated
+
+  @@index([version])
+  @@index([isActive])
+  @@map("contract_templates")
+}
+
+// One-time tokens for contract signing authentication
+model ContractSignToken {
+  id         String   @id @default(cuid())
+  token      String   @unique
+  contractId String
+  userId     String
+  expiresAt  DateTime
+  used       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([token])
+  @@index([contractId])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("contract_sign_tokens")
 }

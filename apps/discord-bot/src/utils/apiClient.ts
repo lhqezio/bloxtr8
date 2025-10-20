@@ -780,6 +780,182 @@ export async function deleteOfferDraft(
 }
 
 /**
+ * Get contract details
+ */
+export async function getContract(
+  contractId: string,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<
+  { success: true; data: any } | { success: false; error: ApiError }
+> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/contracts/${contractId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      const errorData = (await response.json()) as ApiError;
+      return {
+        success: false,
+        error: errorData,
+      };
+    }
+
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error fetching contract:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while fetching contract',
+      },
+    };
+  }
+}
+
+/**
+ * Sign a contract
+ */
+export async function signContract(
+  contractId: string,
+  userId: string,
+  signatureMethod: 'DISCORD_NATIVE' | 'WEB_APP' = 'DISCORD_NATIVE',
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<
+  { success: true; data: any } | { success: false; error: ApiError }
+> {
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/contracts/${contractId}/sign`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          signatureMethod,
+          // Note: IP address and user agent would be captured on server side for Discord
+        }),
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = (await response.json()) as ApiError;
+      return {
+        success: false,
+        error: errorData,
+      };
+    }
+
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error signing contract:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while signing contract',
+      },
+    };
+  }
+}
+
+/**
+ * Generate contract signing token for web app
+ */
+export async function generateContractSignToken(
+  contractId: string,
+  userId: string,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<
+  { success: true; data: any } | { success: false; error: ApiError }
+> {
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/contracts/${contractId}/sign-token`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+        }),
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = (await response.json()) as ApiError;
+      return {
+        success: false,
+        error: errorData,
+      };
+    }
+
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error generating contract sign token:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while generating sign token',
+      },
+    };
+  }
+}
+
+/**
+ * Generate contract from accepted offer
+ */
+export async function generateContract(
+  offerId: string,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<
+  { success: true; data: any } | { success: false; error: ApiError }
+> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/contracts/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        offerId,
+      }),
+      signal: AbortSignal.timeout(30000), // Longer timeout for PDF generation
+    });
+
+    if (!response.ok) {
+      const errorData = (await response.json()) as ApiError;
+      return {
+        success: false,
+        error: errorData,
+      };
+    }
+
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error generating contract:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while generating contract',
+      },
+    };
+  }
+}
+
+/**
  * Gets the base URL for API calls
  * In production, this would be the actual API URL
  */
