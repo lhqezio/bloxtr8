@@ -2,7 +2,7 @@ name: Auto Pull & Restart bloxtr8
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ['main']
 
 jobs:
   deploy:
