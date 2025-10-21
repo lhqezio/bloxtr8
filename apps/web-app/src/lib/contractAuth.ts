@@ -98,7 +98,7 @@ export async function signContractWeb(
         },
         body: JSON.stringify({
           userId,
-          signatureMethod: 'WEB_APP',
+          signatureMethod: 'WEB_BASED',
           token, // Include token for validation
         }),
       }
@@ -148,4 +148,6 @@ export async function getContractPdfUrl(contractId: string): Promise<string> {
     throw error;
   }
 }
+
+
 

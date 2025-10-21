@@ -281,36 +281,61 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
       allSignatures.some(sig => sig.userId === contract.offer.buyerId) &&
       allSignatures.some(sig => sig.userId === contract.offer.sellerId);
 
-    // If both signed, update contract status to EXECUTED and trigger contract execution
-    if (bothSigned) {
-      await prisma.contract.update({
-        where: { id },
-        data: {
-          status: 'EXECUTED',
-        },
-      });
+    // If both signed, execute contract (create escrow) and update status
+    let contractStatus = 'PENDING_SIGNATURE';
+    let escrowId: string | undefined;
+    let executionError: string | undefined;
 
-      // Execute contract (create escrow) in the background
-      // Don't await to avoid blocking the response
-      executeContract(id)
-        .then(result => {
-          if (result.success) {
-            console.log(
-              `Contract ${id} executed successfully. Escrow ${result.escrowId} created.`
-            );
-          } else {
-            console.error(`Failed to execute contract ${id}:`, result.error);
-          }
-        })
-        .catch(error => {
-          console.error('Error executing contract:', error);
+    if (bothSigned) {
+      try {
+        // Execute contract synchronously to ensure escrow is created before responding
+        const executionResult = await executeContract(id);
+        
+        if (executionResult.success) {
+          // Only mark as EXECUTED if escrow creation succeeded
+          await prisma.contract.update({
+            where: { id },
+            data: {
+              status: 'EXECUTED',
+            },
+          });
+          contractStatus = 'EXECUTED';
+          escrowId = executionResult.escrowId;
+          console.log(
+            `Contract ${id} executed successfully. Escrow ${escrowId} created.`
+          );
+        } else {
+          // If escrow creation failed, keep contract in a safe state
+          await prisma.contract.update({
+            where: { id },
+            data: {
+              status: 'EXECUTION_FAILED',
+            },
+          });
+          contractStatus = 'EXECUTION_FAILED';
+          executionError = executionResult.error;
+          console.error(`Failed to execute contract ${id}:`, executionResult.error);
+        }
+      } catch (error) {
+        // Handle unexpected errors during contract execution
+        await prisma.contract.update({
+          where: { id },
+          data: {
+            status: 'EXECUTION_FAILED',
+          },
         });
+        contractStatus = 'EXECUTION_FAILED';
+        executionError = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Error executing contract:', error);
+      }
     }
 
     res.json({
       signature: serializeBigInt(signature),
-      contractStatus: bothSigned ? 'EXECUTED' : 'PENDING_SIGNATURE',
+      contractStatus,
       bothPartiesSigned: bothSigned,
+      ...(escrowId && { escrowId }),
+      ...(executionError && { executionError }),
     });
   } catch (error) {
     next(error);
@@ -455,7 +480,50 @@ router.post('/contracts/:id/sign-token', async (req, res, next) => {
     res.json({
       token,
       expiresAt,
-      signUrl: `${process.env.WEB_APP_URL || 'http://localhost:3000'}/contract/${id}/sign?token=${token}`,
+      signUrl: `${process.env.WEB_APP_URL || 'http://localhost:5173'}/contract/${id}/sign?token=${token}`,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Validate contract signing token
+router.post('/contracts/validate-token', async (req, res, next) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      throw new AppError('Token is required', 400);
+    }
+
+    // Look up token
+    const signToken = await prisma.contractSignToken.findUnique({
+      where: { token },
+    });
+
+    if (!signToken) {
+      throw new AppError('Invalid or expired token', 401);
+    }
+
+    // Check if token is expired
+    if (signToken.expiresAt < new Date()) {
+      throw new AppError('Token has expired', 401);
+    }
+
+    // Check if token has already been used
+    if (signToken.usedAt) {
+      throw new AppError('Token has already been used', 401);
+    }
+
+    // Mark token as used
+    await prisma.contractSignToken.update({
+      where: { token },
+      data: { usedAt: new Date() },
+    });
+
+    res.json({
+      contractId: signToken.contractId,
+      userId: signToken.userId,
     });
   } catch (error) {
     next(error);

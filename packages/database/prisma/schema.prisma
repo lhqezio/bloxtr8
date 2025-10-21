@@ -536,6 +536,7 @@ enum OfferStatus {
 enum ContractStatus {
   PENDING_SIGNATURE
   EXECUTED
+  EXECUTION_FAILED
   VOID
 }
 
@@ -602,7 +603,7 @@ enum DisputeStatus {
 
 enum SignatureMethod {
   DISCORD_NATIVE // Quick sign via Discord button
-  WEB_APP // Full review and sign via web app
+  WEB_BASED // Full review and sign via web app
   API // Programmatic signature (future)
 }
 

@@ -824,7 +824,7 @@ export async function getContract(
 export async function signContract(
   contractId: string,
   userId: string,
-  signatureMethod: 'DISCORD_NATIVE' | 'WEB_APP' = 'DISCORD_NATIVE',
+  signatureMethod: 'DISCORD_NATIVE' | 'WEB_BASED' = 'DISCORD_NATIVE',
   apiBaseUrl: string = getApiBaseUrl()
 ): Promise<
   { success: true; data: any } | { success: false; error: ApiError }

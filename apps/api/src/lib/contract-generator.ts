@@ -350,3 +350,5 @@ export function getContractHash(contractId: string, pdfHash: string): string {
   return hash.digest('hex');
 }
 
+
+
