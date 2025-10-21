@@ -1,0 +1,16 @@
+name: Auto Pull & Restart bloxtr8
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Restart bloxtr8 service
+        run: |
+          echo "Restarting bloxtr8.service due to push on main..."
+          sudo systemctl restart bloxtr8.service
+          echo "bloxtr8.service restarted successfully at $(date)"
