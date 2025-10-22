@@ -9,6 +9,7 @@ import pkg from 'pg';
 
 import { auth } from './lib/auth.js';
 import { validateEnvironment } from './lib/env-validation.js';
+import { initializeOfferExpiryJob } from './lib/offer-expiry.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
 import healthRoutes, { setPool } from './routes/health.js';
@@ -79,6 +80,9 @@ app.use(errorHandler);
 
 // Start server only if not in test environment
 if (process.env.NODE_ENV !== 'test') {
+  // Initialize background jobs
+  initializeOfferExpiryJob();
+
   app.listen(port, () => {
     console.log(`🚀 Bloxtr8 API running on http://localhost:${port}`);
     console.log(`📊 Health check available at http://localhost:${port}/health`);
