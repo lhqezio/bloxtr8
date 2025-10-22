@@ -9,6 +9,11 @@ interface RequiredEnvVars {
   // Application
   NODE_ENV?: string;
   PORT?: string;
+  ESCROW_PORT?: string;
+
+  // Stripe
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
 }
 
 /**
@@ -16,7 +21,7 @@ interface RequiredEnvVars {
  * @throws {Error} if required variables are missing
  */
 export function validateEnvironment(): void {
-  const required: (keyof RequiredEnvVars)[] = ['DATABASE_URL'];
+  const required: (keyof RequiredEnvVars)[] = ['DATABASE_URL', 'STRIPE_SECRET_KEY'];
 
   const missing: string[] = [];
 

@@ -62,7 +62,6 @@ Small tweaks and recommendations for the schema:
 - `Escrow`
   - add `expiresAt DateTime?` to automatically expire AWAIT_FUNDS states.
   - add `metadata Json?` for rails-agnostic references (refund reasons, proofs, custodian IDs).
-  - change `currency` from Currency to String to support non fiat currency suuch as USDC?
   - add `expiresAt DateTime?` (auto refund deadline)
   - add `autoRefundAt DataTime?`
 
