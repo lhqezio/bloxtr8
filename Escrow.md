@@ -159,6 +159,7 @@ Security: validate provider signatures, dedupe events by `webhook_events.eventId
 - [Seperate Charges and Transfers](https://stripe.com/docs/connect/separate-charges-and-transfers)
 - [Transfers to connected accounts](https://stripe.com/docs/connect/payouts)
 - [Charging connected accounts](https://stripe.com/docs/connect/charges-on-behalf-of)
+- [Charge SaaS fees to your connected accountsPublic preview](https://docs.stripe.com/connect/accounts-v2/integrate-billing-connect)
 
 #### Sample Code
 
