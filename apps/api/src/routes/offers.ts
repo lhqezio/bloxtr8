@@ -2,8 +2,8 @@ import { prisma } from '@bloxtr8/database';
 import { Router, type Router as ExpressRouter } from 'express';
 
 import { GameVerificationService } from '../lib/asset-verification.js';
-import { emitOfferEvent, OfferEventType } from '../lib/events.js';
 import { isDebugMode } from '../lib/env-validation.js';
+import { emitOfferEvent, OfferEventType } from '../lib/events.js';
 import { AppError } from '../middleware/errorHandler.js';
 import {
   counterOfferSchema,

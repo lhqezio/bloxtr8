@@ -42,13 +42,16 @@ export class OfferNotificationService {
 
   private pollingInterval: ReturnType<typeof setInterval> | null = null;
   private processedOffers: Set<string> = new Set();
-  
+
   // Track message IDs for cleanup
-  private offerMessageIds: Map<string, {
-    sellerDMId?: string;
-    buyerDMId?: string;
-    threadMessageId?: string;
-  }> = new Map();
+  private offerMessageIds: Map<
+    string,
+    {
+      sellerDMId?: string;
+      buyerDMId?: string;
+      threadMessageId?: string;
+    }
+  > = new Map();
 
   constructor(client: Client, apiBaseUrl: string) {
     this.client = client;

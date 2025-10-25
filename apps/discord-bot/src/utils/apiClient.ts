@@ -128,9 +128,14 @@ export interface ApiError {
  */
 async function parseErrorResponse(response: fetch.Response): Promise<ApiError> {
   try {
-    const responseData = await response.json() as { message?: string; errors?: string[] };
+    const responseData = (await response.json()) as {
+      message?: string;
+      errors?: string[];
+    };
     return {
-      message: responseData.message || `HTTP ${response.status}: ${response.statusText}`,
+      message:
+        responseData.message ||
+        `HTTP ${response.status}: ${response.statusText}`,
       errors: responseData.errors,
     };
   } catch {

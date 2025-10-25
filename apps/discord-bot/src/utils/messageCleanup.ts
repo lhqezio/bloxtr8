@@ -34,7 +34,7 @@ export async function editOfferNotificationMessage(
 
     const dmChannel = await user.createDM();
     const message = await dmChannel.messages.fetch(messageId);
-    
+
     if (!message) {
       console.warn(`Message ${messageId} not found for user ${discordId}`);
       return;
@@ -42,25 +42,37 @@ export async function editOfferNotificationMessage(
 
     // Create updated embed with final status
     const finalEmbed = createFinalStatusEmbed(status, offerData);
-    
+
     await message.edit({
       content: getStatusMessage(status, offerData.listingTitle),
       embeds: [finalEmbed],
       components: [], // Remove all buttons
     });
 
-    console.log(`Successfully updated offer notification message ${messageId} for user ${discordId} to status ${status}`);
+    console.log(
+      `Successfully updated offer notification message ${messageId} for user ${discordId} to status ${status}`
+    );
   } catch (error) {
     if (error && typeof error === 'object' && 'code' in error) {
       if (error.code === 10008) {
-        console.warn(`Message ${messageId} no longer exists for user ${discordId}`);
+        console.warn(
+          `Message ${messageId} no longer exists for user ${discordId}`
+        );
       } else if (error.code === 50013) {
-        console.warn(`Missing permissions to edit message ${messageId} for user ${discordId}`);
+        console.warn(
+          `Missing permissions to edit message ${messageId} for user ${discordId}`
+        );
       } else {
-        console.error(`Failed to edit offer notification message ${messageId} for user ${discordId}:`, error);
+        console.error(
+          `Failed to edit offer notification message ${messageId} for user ${discordId}:`,
+          error
+        );
       }
     } else {
-      console.error(`Failed to edit offer notification message ${messageId} for user ${discordId}:`, error);
+      console.error(
+        `Failed to edit offer notification message ${messageId} for user ${discordId}:`,
+        error
+      );
     }
   }
 }
@@ -90,24 +102,36 @@ export async function updateListingThreadMessage(
 
     // Create updated embed with final status
     const finalEmbed = createFinalStatusEmbed(status, offerData);
-    
+
     await message.edit({
       embeds: [finalEmbed],
       components: [], // Remove all buttons
     });
 
-    console.log(`Successfully updated thread message ${messageId} in thread ${threadId} to status ${status}`);
+    console.log(
+      `Successfully updated thread message ${messageId} in thread ${threadId} to status ${status}`
+    );
   } catch (error) {
     if (error && typeof error === 'object' && 'code' in error) {
       if (error.code === 10008) {
-        console.warn(`Message ${messageId} no longer exists in thread ${threadId}`);
+        console.warn(
+          `Message ${messageId} no longer exists in thread ${threadId}`
+        );
       } else if (error.code === 50013) {
-        console.warn(`Missing permissions to edit message ${messageId} in thread ${threadId}`);
+        console.warn(
+          `Missing permissions to edit message ${messageId} in thread ${threadId}`
+        );
       } else {
-        console.error(`Failed to update thread message ${messageId} in thread ${threadId}:`, error);
+        console.error(
+          `Failed to update thread message ${messageId} in thread ${threadId}:`,
+          error
+        );
       }
     } else {
-      console.error(`Failed to update thread message ${messageId} in thread ${threadId}:`, error);
+      console.error(
+        `Failed to update thread message ${messageId} in thread ${threadId}:`,
+        error
+      );
     }
   }
 }
@@ -115,10 +139,15 @@ export async function updateListingThreadMessage(
 /**
  * Create a final status embed showing the resolved offer
  */
-function createFinalStatusEmbed(status: OfferStatus, offerData: OfferCleanupData): EmbedBuilder {
+function createFinalStatusEmbed(
+  status: OfferStatus,
+  offerData: OfferCleanupData
+): EmbedBuilder {
   const embed = new DiscordEmbedBuilder()
     .setTitle(getStatusTitle(status))
-    .setDescription(`Offer for **${offerData.listingTitle}** has been ${status.toLowerCase()}`)
+    .setDescription(
+      `Offer for **${offerData.listingTitle}** has been ${status.toLowerCase()}`
+    )
     .setColor(getStatusColor(status))
     .addFields(
       {
