@@ -447,11 +447,29 @@ export async function handleConfirmOffer(
 
     // Update the original message to remove buttons
     try {
-      await interaction.message.edit({
-        components: [],
-      });
+      // Check if the message still exists and is editable
+      if (interaction.message && interaction.message.editable) {
+        await interaction.message.edit({
+          components: [],
+        });
+      } else {
+        console.warn('Original message is not editable or does not exist');
+      }
     } catch (error) {
-      console.error('Could not update confirmation message:', error);
+      // Handle specific Discord API errors
+      if (error && typeof error === 'object' && 'code' in error) {
+        if (error.code === 10008) {
+          console.warn('Original message no longer exists (Unknown Message)');
+        } else if (error.code === 50013) {
+          console.warn('Missing permissions to edit message');
+        } else if (error.code === 50035) {
+          console.warn('Invalid form body when editing message');
+        } else {
+          console.error('Could not update confirmation message:', error);
+        }
+      } else {
+        console.error('Could not update confirmation message:', error);
+      }
     }
   } catch (error) {
     console.error('Error in handleConfirmOffer:', error);

@@ -42,6 +42,13 @@ export class OfferNotificationService {
 
   private pollingInterval: ReturnType<typeof setInterval> | null = null;
   private processedOffers: Set<string> = new Set();
+  
+  // Track message IDs for cleanup
+  private offerMessageIds: Map<string, {
+    sellerDMId?: string;
+    buyerDMId?: string;
+    threadMessageId?: string;
+  }> = new Map();
 
   constructor(client: Client, apiBaseUrl: string) {
     this.client = client;
@@ -72,6 +79,17 @@ export class OfferNotificationService {
     console.log(
       `Offer notifications polling every ${intervalMs / 1000} seconds`
     );
+  }
+
+  /**
+   * Get tracked message IDs for an offer
+   */
+  getOfferMessageIds(offerId: string): {
+    sellerDMId?: string;
+    buyerDMId?: string;
+    threadMessageId?: string;
+  } | null {
+    return this.offerMessageIds.get(offerId) || null;
   }
 
   /**
@@ -207,21 +225,36 @@ export class OfferNotificationService {
       }
     );
 
+    const messageIds: {
+      sellerDMId?: string;
+      buyerDMId?: string;
+      threadMessageId?: string;
+    } = {};
+
     // Send to listing thread if exists
     if (event.threadId) {
-      await this.sendToThread(event.threadId, embed);
+      const threadMessageId = await this.sendToThread(event.threadId, embed);
+      if (threadMessageId) {
+        messageIds.threadMessageId = threadMessageId;
+      }
     }
 
     // DM the seller with action buttons
     if (event.sellerDiscordId) {
       const buttons = buildOfferActionButtons(event.offerId);
-      await this.sendDMWithButtons(
+      const sellerDMId = await this.sendDMWithButtons(
         event.sellerDiscordId,
         embed,
         buttons,
         `You received a new offer on "${event.listingTitle}"`
       );
+      if (sellerDMId) {
+        messageIds.sellerDMId = sellerDMId;
+      }
     }
+
+    // Store message IDs for cleanup
+    this.offerMessageIds.set(event.offerId, messageIds);
   }
 
   /**
@@ -361,19 +394,22 @@ export class OfferNotificationService {
 
   /**
    * Send embed to a thread
+   * Returns the message ID for cleanup purposes
    */
   private async sendToThread(
     threadId: string,
     embed: EmbedBuilder
-  ): Promise<void> {
+  ): Promise<string | null> {
     try {
       const thread = await this.client.channels.fetch(threadId);
       if (thread && thread.isThread()) {
-        await thread.send({ embeds: [embed] });
+        const message = await thread.send({ embeds: [embed] });
+        return message.id;
       }
     } catch (error) {
       console.error(`Failed to send message to thread ${threadId}:`, error);
     }
+    return null;
   }
 
   /**
@@ -396,24 +432,27 @@ export class OfferNotificationService {
 
   /**
    * Send DM to a user with buttons
+   * Returns the message ID for cleanup purposes
    */
   private async sendDMWithButtons(
     discordId: string,
     embed: EmbedBuilder,
     buttons: ActionRowBuilder<ButtonBuilder>,
     fallbackText: string
-  ): Promise<void> {
+  ): Promise<string | null> {
     try {
       const user = await this.client.users.fetch(discordId);
       if (user) {
-        await user.send({
+        const message = await user.send({
           content: fallbackText,
           embeds: [embed],
           components: [buttons],
         });
+        return message.id;
       }
     } catch (error) {
       console.error(`Failed to send DM to user ${discordId}:`, error);
     }
+    return null;
   }
 }
