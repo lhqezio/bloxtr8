@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+import fetch, { type Response } from 'node-fetch';
 import { z } from 'zod';
 
 // API response schema
@@ -126,7 +126,7 @@ export interface ApiError {
 /**
  * Helper function to parse error responses from the API
  */
-async function parseErrorResponse(response: fetch.Response): Promise<ApiError> {
+async function parseErrorResponse(response: Response): Promise<ApiError> {
   try {
     const responseData = (await response.json()) as {
       message?: string;
@@ -136,7 +136,10 @@ async function parseErrorResponse(response: fetch.Response): Promise<ApiError> {
       message:
         responseData.message ||
         `HTTP ${response.status}: ${response.statusText}`,
-      errors: responseData.errors,
+      errors: responseData.errors?.map(error => ({
+        field: 'general',
+        message: error,
+      })),
     };
   } catch {
     // If we can't parse the error response, create a generic error

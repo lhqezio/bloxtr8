@@ -52,7 +52,6 @@ export class OfferNotificationService {
       threadMessageId?: string;
     }
   > = new Map();
-
   constructor(client: Client, apiBaseUrl: string) {
     this.client = client;
     this.apiBaseUrl = apiBaseUrl;
