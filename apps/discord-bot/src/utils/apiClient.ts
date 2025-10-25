@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+import fetch, { type Response } from 'node-fetch';
 import { z } from 'zod';
 
 // API response schema
@@ -121,6 +121,32 @@ export interface ApiError {
     field: string;
     message: string;
   }>;
+}
+
+/**
+ * Helper function to parse error responses from the API
+ */
+async function parseErrorResponse(response: Response): Promise<ApiError> {
+  try {
+    const responseData = (await response.json()) as {
+      message?: string;
+      errors?: string[];
+    };
+    return {
+      message:
+        responseData.message ||
+        `HTTP ${response.status}: ${response.statusText}`,
+      errors: responseData.errors?.map(error => ({
+        field: 'general',
+        message: error,
+      })),
+    };
+  } catch {
+    // If we can't parse the error response, create a generic error
+    return {
+      message: `HTTP ${response.status}: ${response.statusText}`,
+    };
+  }
 }
 
 /**
@@ -262,7 +288,7 @@ export async function updateListingMessage(
     );
 
     if (!response.ok) {
-      const errorData = (await response.json()) as ApiError;
+      const errorData = await parseErrorResponse(response);
       return {
         success: false,
         error: errorData,
@@ -364,7 +390,7 @@ export async function getListing(
     });
 
     if (!response.ok) {
-      const errorData = (await response.json()) as ApiError;
+      const errorData = await parseErrorResponse(response);
       return {
         success: false,
         error: errorData,
@@ -605,7 +631,7 @@ export async function getOffersForListing(
     );
 
     if (!response.ok) {
-      const errorData = (await response.json()) as ApiError;
+      const errorData = await parseErrorResponse(response);
       return {
         success: false,
         error: errorData,
@@ -715,7 +741,7 @@ export async function getOfferDraft(
     );
 
     if (!response.ok) {
-      const errorData = (await response.json()) as ApiError;
+      const errorData = await parseErrorResponse(response);
       return {
         success: false,
         error: errorData,
@@ -760,7 +786,7 @@ export async function deleteOfferDraft(
     );
 
     if (!response.ok && response.status !== 204) {
-      const errorData = (await response.json()) as ApiError;
+      const errorData = await parseErrorResponse(response);
       return {
         success: false,
         error: errorData,
