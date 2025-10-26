@@ -4,8 +4,9 @@ import { prisma } from '@bloxtr8/database';
 import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 import { Router, type Router as ExpressRouter } from 'express';
 
-import { executeContract } from '../lib/contract-execution.js';
 import { generateContract, verifyContract } from '../lib/contract-generator.js';
+import { executeContract } from '../lib/contract-execution.js';
+import { queueContractExecution } from '../lib/contract-execution-queue.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { serializeBigInt } from '../utils/bigint.js';
 
@@ -357,65 +358,26 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
       allSignatures.some(sig => sig.userId === contract.offer.buyerId) &&
       allSignatures.some(sig => sig.userId === contract.offer.sellerId);
 
-    // If both signed, execute contract (create escrow) and update status
-    let contractStatus = 'PENDING_SIGNATURE';
-    let escrowId: string | undefined;
-    let executionError: string | undefined;
-
+    // Queue contract execution asynchronously if both parties have signed
+    // This prevents blocking the signature response
     if (bothSigned) {
-      try {
-        // Execute contract synchronously to ensure escrow is created before responding
-        const executionResult = await executeContract(id);
-
-        if (executionResult.success) {
-          // Only mark as EXECUTED if escrow creation succeeded
-          await prisma.contract.update({
-            where: { id },
-            data: {
-              status: 'EXECUTED',
-            },
-          });
-          contractStatus = 'EXECUTED';
-          escrowId = executionResult.escrowId;
-          console.log(
-            `Contract ${id} executed successfully. Escrow ${escrowId} created.`
-          );
-        } else {
-          // If escrow creation failed, keep contract in a safe state
-          await prisma.contract.update({
-            where: { id },
-            data: {
-              status: 'EXECUTION_FAILED',
-            },
-          });
-          contractStatus = 'EXECUTION_FAILED';
-          executionError = executionResult.error;
-          console.error(
-            `Failed to execute contract ${id}:`,
-            executionResult.error
-          );
-        }
-      } catch (error) {
-        // Handle unexpected errors during contract execution
-        await prisma.contract.update({
-          where: { id },
-          data: {
-            status: 'EXECUTION_FAILED',
-          },
-        });
-        contractStatus = 'EXECUTION_FAILED';
-        executionError =
-          error instanceof Error ? error.message : 'Unknown error';
-        console.error('Error executing contract:', error);
-      }
+      console.log(
+        `Contract ${id} has both signatures. Queuing contract execution...`
+      );
+      // Don't await - let it run in background
+      queueContractExecution(id).catch(error => {
+        console.error(`Failed to queue contract execution for ${id}:`, error);
+      });
     }
 
+    // Respond immediately with the signature details
     res.json({
       signature: serializeBigInt(signature),
-      contractStatus,
+      contractStatus: 'PENDING_SIGNATURE', // Status will be updated asynchronously
       bothPartiesSigned: bothSigned,
-      ...(escrowId && { escrowId }),
-      ...(executionError && { executionError }),
+      message: bothSigned
+        ? 'Contract execution has been queued and will be processed shortly'
+        : 'Waiting for counterparty signature',
     });
   } catch (error) {
     next(error);

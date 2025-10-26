@@ -68,6 +68,10 @@ jest.mock('../lib/contract-execution', () => ({
   }),
 }));
 
+jest.mock('../lib/contract-execution-queue', () => ({
+  queueContractExecution: jest.fn().mockResolvedValue(undefined),
+}));
+
 import app from '../index.js';
 
 describe('Contract API Routes', () => {
@@ -259,7 +263,7 @@ describe('Contract API Routes', () => {
       expect(prisma.signature.create).toHaveBeenCalled();
     });
 
-    it('should execute contract when both parties sign', async () => {
+    it('should queue contract execution when both parties sign', async () => {
       const mockContract = {
         id: 'contract-123',
         status: 'PENDING_SIGNATURE',
@@ -279,10 +283,10 @@ describe('Contract API Routes', () => {
         { userId: 'buyer-123' },
         { userId: 'seller-123' },
       ]);
-      (prisma.contract.update as jest.Mock).mockResolvedValue({
-        id: 'contract-123',
-        status: 'EXECUTED',
-      });
+
+      const { queueContractExecution } = await import(
+        '../lib/contract-execution-queue.js'
+      );
 
       const response = await request(app)
         .post('/api/contracts/contract-123/sign')
@@ -290,12 +294,12 @@ describe('Contract API Routes', () => {
         .expect(200);
 
       expect(response.body.bothPartiesSigned).toBe(true);
-      expect(response.body.contractStatus).toBe('EXECUTED');
-      expect(prisma.contract.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: { status: 'EXECUTED' },
-        })
-      );
+      // Status should still be PENDING_SIGNATURE (will be updated asynchronously)
+      expect(response.body.contractStatus).toBe('PENDING_SIGNATURE');
+      expect(response.body.message).toContain('execution has been queued');
+      // Verify that queueContractExecution was called
+      expect(queueContractExecution).toHaveBeenCalledWith('contract-123');
+      expect(prisma.contract.update).not.toHaveBeenCalled(); // Should not update synchronously
     });
 
     it('should reject unauthorized user', async () => {
