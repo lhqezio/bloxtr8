@@ -128,23 +128,51 @@ export interface ApiError {
  */
 async function parseErrorResponse(response: Response): Promise<ApiError> {
   try {
-    const responseData = (await response.json()) as {
-      message?: string;
-      errors?: string[];
-    };
+    // Get the response text first (can only be called once)
+    const responseText = await response.text();
+    
+    // Check if the content type indicates JSON
+    const contentType = response.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
+    
+    if (isJson) {
+      try {
+        // Attempt to parse as JSON
+        const responseData = JSON.parse(responseText) as {
+          message?: string;
+          errors?: string[];
+        };
+        return {
+          message:
+            responseData.message ||
+            `HTTP ${response.status}: ${response.statusText}`,
+          errors: responseData.errors?.map(error => ({
+            field: 'general',
+            message: error,
+          })),
+        };
+      } catch {
+        // JSON parsing failed for content-type: application/json
+        // Return the raw response text with context
+        return {
+          message: `HTTP ${response.status}: ${response.statusText}. Invalid JSON in response body: ${responseText.substring(0, 200)}${responseText.length > 200 ? '...' : ''}`,
+        };
+      }
+    } else {
+      // Non-JSON response (HTML, plain text, etc.)
+      // Preserve the actual response body for debugging
+      const truncatedBody = responseText.length > 500 
+        ? responseText.substring(0, 500) + '...' 
+        : responseText;
+      return {
+        message: `HTTP ${response.status}: ${response.statusText}. Response body: ${truncatedBody}`,
+      };
+    }
+  } catch (error) {
+    // If we can't read the response at all, include the error details
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
-      message:
-        responseData.message ||
-        `HTTP ${response.status}: ${response.statusText}`,
-      errors: responseData.errors?.map(error => ({
-        field: 'general',
-        message: error,
-      })),
-    };
-  } catch {
-    // If we can't parse the error response, create a generic error
-    return {
-      message: `HTTP ${response.status}: ${response.statusText}`,
+      message: `HTTP ${response.status}: ${response.statusText}. Failed to read response: ${errorMessage}`,
     };
   }
 }
