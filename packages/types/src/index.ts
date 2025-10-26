@@ -17,7 +17,7 @@ export interface Listing {
   id: string;
   title: string;
   summary: string;
-  price: number; // in cents
+  price: string; // in cents (stored as BigInt, serialized as string)
   category: string;
   status: 'ACTIVE' | 'INACTIVE' | 'SOLD';
   userId: string;
@@ -27,7 +27,7 @@ export interface Listing {
 
 export interface Offer {
   id: string;
-  amount: number; // in cents
+  amount: string; // in cents (stored as BigInt, serialized as string)
   currency: 'USD' | 'USDC';
   conditions?: string;
   expiry: Date;
@@ -44,7 +44,12 @@ export interface Contract {
   id: string;
   pdfUrl?: string;
   sha256?: string;
-  status: 'PENDING_SIGNATURE' | 'EXECUTED' | 'VOID';
+  status:
+    | 'PENDING_SIGNATURE'
+    | 'EXECUTING'
+    | 'EXECUTED'
+    | 'EXECUTION_FAILED'
+    | 'VOID';
   offerId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -53,7 +58,7 @@ export interface Contract {
 export interface Escrow {
   id: string;
   rail: 'STRIPE' | 'USDC_BASE';
-  amount: number; // in cents
+  amount: string; // in cents (stored as BigInt, serialized as string)
   currency: 'USD' | 'USDC';
   status:
     | 'AWAIT_FUNDS'
@@ -145,4 +150,5 @@ export interface Environment {
   AWS_S3_BUCKET: string;
   TRM_API_KEY: string;
   CHAINALYSIS_API_KEY: string;
+  TRUSTED_PROXIES?: string; // Comma-separated list of trusted proxy IPs/CIDR ranges
 }

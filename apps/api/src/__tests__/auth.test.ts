@@ -18,11 +18,15 @@ const mockPrismaClient: any = {
     findFirst: jest.fn(),
     create: jest.fn(),
   },
+  linkEvent: {
+    create: jest.fn(),
+  },
   $transaction: jest.fn((callback: any): any => {
     // Execute the callback with a mock transaction client that has the same methods
     return callback({
       account: mockPrismaClient.account,
       user: mockPrismaClient.user,
+      linkEvent: mockPrismaClient.linkEvent,
     });
   }),
   $disconnect: jest.fn(),
@@ -406,6 +410,9 @@ describe('Auth API Routes', () => {
       mockPrismaClient.user.update.mockResolvedValue({
         ...mockUser,
         kycTier: 'TIER_1',
+      });
+      mockPrismaClient.linkEvent.create.mockResolvedValue({
+        id: 'link-event-123',
       });
       mockPrismaClient.linkToken.deleteMany.mockResolvedValue({ count: 0 });
 

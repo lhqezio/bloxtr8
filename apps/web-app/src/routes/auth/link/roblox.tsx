@@ -171,8 +171,8 @@ function RobloxLinkPage() {
           return
         }
 
-        const userData = await userResponse.json()
-        const discordAcc = userData.accounts?.find(
+        const fetchedUserData = await userResponse.json()
+        const discordAcc = fetchedUserData.accounts?.find(
           (account: any) => account.providerId === 'discord',
         )
 

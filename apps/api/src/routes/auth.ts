@@ -278,6 +278,16 @@ router.get('/roblox/callback', async (req, res, _next) => {
             });
           }
 
+          // Create link event for notification service
+          await tx.linkEvent.create({
+            data: {
+              userId: user.id,
+              providerId: 'roblox',
+              accountId: robloxUserId,
+              notified: false,
+            },
+          });
+
           return 'linked';
         });
 
