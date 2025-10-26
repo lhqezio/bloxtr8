@@ -221,7 +221,7 @@ router.get('/contracts/:id', async (req, res, next) => {
 router.post('/contracts/:id/sign', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { userId, ipAddress, userAgent, signatureMethod = 'DISCORD_NATIVE' } = req.body;
+    const { userId, ipAddress, userAgent, signatureMethod = 'DISCORD_NATIVE', token } = req.body;
 
     if (!userId) {
       throw new AppError('User ID is required', 400);
@@ -261,6 +261,29 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
       throw new AppError('User has already signed this contract', 400);
     }
 
+    // If signing with a web token, validate it hasn't been used
+    if (token && signatureMethod === 'WEB_BASED') {
+      const signToken = await prisma.contractSignToken.findUnique({
+        where: { token },
+      });
+
+      if (!signToken) {
+        throw new AppError('Invalid signing token', 401);
+      }
+
+      if (signToken.used) {
+        throw new AppError('Signing token has already been used', 401);
+      }
+
+      if (signToken.contractId !== id) {
+        throw new AppError('Token does not match this contract', 401);
+      }
+
+      if (signToken.userId !== userId) {
+        throw new AppError('Token does not match this user', 401);
+      }
+    }
+
     // Create signature
     const signature = await prisma.signature.create({
       data: {
@@ -271,6 +294,14 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
         signatureMethod,
       },
     });
+
+    // Mark token as used AFTER signature is successfully created
+    if (token && signatureMethod === 'WEB_BASED') {
+      await prisma.contractSignToken.update({
+        where: { token },
+        data: { used: true },
+      });
+    }
 
     // Check if both parties have signed
     const allSignatures = await prisma.signature.findMany({
@@ -511,16 +542,12 @@ router.post('/contracts/validate-token', async (req, res, next) => {
     }
 
     // Check if token has already been used
-    if (signToken.usedAt) {
+    if (signToken.used) {
       throw new AppError('Token has already been used', 401);
     }
 
-    // Mark token as used
-    await prisma.contractSignToken.update({
-      where: { token },
-      data: { usedAt: new Date() },
-    });
-
+    // Do NOT mark token as used here - it will be marked as used only after
+    // the signature is successfully recorded in the /contracts/:id/sign endpoint
     res.json({
       contractId: signToken.contractId,
       userId: signToken.userId,
