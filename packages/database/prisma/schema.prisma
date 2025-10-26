@@ -251,15 +251,34 @@ model Contract {
   updatedAt       DateTime       @updatedAt
 
   // Relations
-  offerId    String
-  offer      Offer       @relation(fields: [offerId], references: [id])
-  signatures Signature[]
-  escrows    Escrow[]
-  deliveries Delivery[]
+  offerId         String
+  offer           Offer                   @relation(fields: [offerId], references: [id])
+  signatures      Signature[]
+  escrows         Escrow[]
+  deliveries      Delivery[]
+  executionJobs   ContractExecutionJob[]
 
   @@index([offerId])
   @@index([status])
   @@map("contracts")
+}
+
+model ContractExecutionJob {
+  id          String   @id @default(cuid())
+  contractId  String
+  contract    Contract @relation(fields: [contractId], references: [id])
+  status      JobStatus @default(PENDING)
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  lastError   String?
+  nextRetryAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+  
+  @@index([contractId])
+  @@index([status, nextRetryAt])
+  @@map("contract_execution_jobs")
 }
 
 model Signature {
@@ -605,6 +624,13 @@ enum SignatureMethod {
   DISCORD_NATIVE // Quick sign via Discord button
   WEB_BASED // Full review and sign via web app
   API // Programmatic signature (future)
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }
 
 // Link events for tracking when users link accounts (for DM notifications)

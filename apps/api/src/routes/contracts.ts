@@ -4,7 +4,7 @@ import { prisma } from '@bloxtr8/database';
 import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 import { Router, type Router as ExpressRouter } from 'express';
 
-import { queueContractExecution } from '../lib/contract-execution-queue.js';
+import { createExecutionJob } from '../lib/contract-execution-queue.js';
 import { executeContract } from '../lib/contract-execution.js';
 import { generateContract, verifyContract } from '../lib/contract-generator.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -358,16 +358,18 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
       allSignatures.some(sig => sig.userId === contract.offer.buyerId) &&
       allSignatures.some(sig => sig.userId === contract.offer.sellerId);
 
-    // Queue contract execution asynchronously if both parties have signed
-    // This prevents blocking the signature response
+    // Create execution job if both parties have signed
     if (bothSigned) {
       console.log(
-        `Contract ${id} has both signatures. Queuing contract execution...`
+        `Contract ${id} has both signatures. Creating execution job...`
       );
-      // Don't await - let it run in background
-      queueContractExecution(id).catch(error => {
-        console.error(`Failed to queue contract execution for ${id}:`, error);
-      });
+      try {
+        await createExecutionJob(id);
+        console.log(`Execution job created for contract ${id}`);
+      } catch (error) {
+        console.error(`Failed to create execution job for contract ${id}:`, error);
+        // Continue anyway - the user should still be able to sign
+      }
     }
 
     // Respond immediately with the signature details

@@ -284,7 +284,7 @@ describe('Contract API Routes', () => {
         { userId: 'seller-123' },
       ]);
 
-      const { queueContractExecution } = await import(
+      const { createExecutionJob } = await import(
         '../lib/contract-execution-queue.js'
       );
 
@@ -297,8 +297,8 @@ describe('Contract API Routes', () => {
       // Status should still be PENDING_SIGNATURE (will be updated asynchronously)
       expect(response.body.contractStatus).toBe('PENDING_SIGNATURE');
       expect(response.body.message).toContain('execution has been queued');
-      // Verify that queueContractExecution was called
-      expect(queueContractExecution).toHaveBeenCalledWith('contract-123');
+      // Verify that createExecutionJob was called
+      expect(createExecutionJob).toHaveBeenCalledWith('contract-123');
       expect(prisma.contract.update).not.toHaveBeenCalled(); // Should not update synchronously
     });
 
