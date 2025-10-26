@@ -48,7 +48,10 @@ async function processExecutionJob(jobId: string): Promise<void> {
     // Mark job as processing
     await prisma.contractExecutionJob.update({
       where: { id: jobId },
-      data: { status: 'PROCESSING' },
+      data: { 
+        status: 'PROCESSING',
+        processingStartedAt: new Date()
+      },
     });
 
     // Execute the contract
@@ -61,6 +64,7 @@ async function processExecutionJob(jobId: string): Promise<void> {
         data: {
           status: 'COMPLETED',
           completedAt: new Date(),
+          processingStartedAt: null,
         },
       });
 
@@ -84,6 +88,7 @@ async function processExecutionJob(jobId: string): Promise<void> {
             status: 'FAILED',
             lastError: executionResult.error || 'Unknown error',
             completedAt: new Date(),
+            processingStartedAt: null,
           },
         });
 
@@ -108,6 +113,7 @@ async function processExecutionJob(jobId: string): Promise<void> {
             attempts: nextAttempt,
             lastError: executionResult.error || 'Unknown error',
             nextRetryAt,
+            processingStartedAt: null,
           },
         });
 
@@ -130,6 +136,7 @@ async function processExecutionJob(jobId: string): Promise<void> {
           status: 'FAILED',
           lastError: errorMessage,
           completedAt: new Date(),
+          processingStartedAt: null,
         },
       });
 
@@ -153,6 +160,7 @@ async function processExecutionJob(jobId: string): Promise<void> {
           attempts: nextAttempt,
           lastError: errorMessage,
           nextRetryAt,
+          processingStartedAt: null,
         },
       });
 
@@ -176,12 +184,23 @@ export function initializeContractExecutionProcessor(): void {
 
       // Find all PENDING or PROCESSING jobs that are due for execution
       const now = new Date();
+      const PROCESSING_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+      const timeoutThreshold = new Date(now.getTime() - PROCESSING_TIMEOUT_MS);
+
       const pendingJobs = await prisma.contractExecutionJob.findMany({
         where: {
-          status: {
-            in: ['PENDING', 'PROCESSING'],
-          },
-          OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }],
+          OR: [
+            // Normal PENDING jobs ready for retry
+            {
+              status: 'PENDING',
+              OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }],
+            },
+            // Stuck PROCESSING jobs (timeout exceeded)
+            {
+              status: 'PROCESSING',
+              processingStartedAt: { lte: timeoutThreshold },
+            },
+          ],
         },
         select: {
           id: true,
@@ -230,12 +249,23 @@ export async function manuallyProcessJobs(): Promise<{
   jobIds: string[];
 }> {
   const now = new Date();
+  const PROCESSING_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+  const timeoutThreshold = new Date(now.getTime() - PROCESSING_TIMEOUT_MS);
+
   const pendingJobs = await prisma.contractExecutionJob.findMany({
     where: {
-      status: {
-        in: ['PENDING', 'PROCESSING'],
-      },
-      OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }],
+      OR: [
+        // Normal PENDING jobs ready for retry
+        {
+          status: 'PENDING',
+          OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }],
+        },
+        // Stuck PROCESSING jobs (timeout exceeded)
+        {
+          status: 'PROCESSING',
+          processingStartedAt: { lte: timeoutThreshold },
+        },
+      ],
     },
     select: {
       id: true,

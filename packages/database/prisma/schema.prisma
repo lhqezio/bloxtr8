@@ -264,17 +264,18 @@ model Contract {
 }
 
 model ContractExecutionJob {
-  id          String   @id @default(cuid())
-  contractId  String
-  contract    Contract @relation(fields: [contractId], references: [id])
-  status      JobStatus @default(PENDING)
-  attempts    Int      @default(0)
-  maxAttempts Int      @default(3)
-  lastError   String?
-  nextRetryAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  completedAt DateTime?
+  id                  String   @id @default(cuid())
+  contractId          String
+  contract            Contract @relation(fields: [contractId], references: [id])
+  status              JobStatus @default(PENDING)
+  attempts            Int      @default(0)
+  maxAttempts         Int      @default(3)
+  lastError           String?
+  nextRetryAt         DateTime?
+  processingStartedAt DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  completedAt         DateTime?
   
   @@index([contractId])
   @@index([status, nextRetryAt])
