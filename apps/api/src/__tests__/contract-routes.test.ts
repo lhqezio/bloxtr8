@@ -69,10 +69,11 @@ jest.mock('../lib/contract-execution', () => ({
 }));
 
 jest.mock('../lib/contract-execution-queue', () => ({
-  queueContractExecution: jest.fn().mockResolvedValue(undefined),
+  createExecutionJob: jest.fn().mockResolvedValue('job-123'),
 }));
 
 import app from '../index.js';
+import { createExecutionJob } from '../lib/contract-execution-queue.js';
 
 describe('Contract API Routes', () => {
   beforeEach(() => {
@@ -283,10 +284,6 @@ describe('Contract API Routes', () => {
         { userId: 'seller-123' },
       ]);
 
-      const { createExecutionJob } = await import(
-        '../lib/contract-execution-queue.js'
-      );
-
       const response = await request(app)
         .post('/api/contracts/contract-123/sign')
         .send({ userId: 'seller-123' })
@@ -297,7 +294,9 @@ describe('Contract API Routes', () => {
       expect(response.body.contractStatus).toBe('PENDING_SIGNATURE');
       expect(response.body.message).toContain('execution has been queued');
       // Verify that createExecutionJob was called
-      expect(createExecutionJob).toHaveBeenCalledWith('contract-123');
+      expect(createExecutionJob as jest.Mock).toHaveBeenCalledWith(
+        'contract-123'
+      );
       expect(prisma.contract.update).not.toHaveBeenCalled(); // Should not update synchronously
     });
 
