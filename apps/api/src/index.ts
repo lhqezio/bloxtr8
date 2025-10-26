@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import pkg from 'pg';
 
 import { auth } from './lib/auth.js';
+import { initializeContractExecutionProcessor } from './lib/contract-execution-processor.js';
 import { validateEnvironment } from './lib/env-validation.js';
 import { initializeOfferExpiryJob } from './lib/offer-expiry.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
@@ -29,6 +30,20 @@ try {
 }
 
 const app: express.Application = express();
+
+// Trust proxy configuration for proper IP extraction
+// This prevents IP spoofing by only trusting headers from trusted proxies
+if (process.env.TRUSTED_PROXIES) {
+  app.set(
+    'trust proxy',
+    process.env.TRUSTED_PROXIES.split(',').map(ip => ip.trim())
+  );
+} else if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', true); // Trust first proxy in production
+} else {
+  app.set('trust proxy', 'loopback'); // Only trust localhost in development
+}
+
 app.use(compress());
 const port = process.env.PORT || 3000;
 
@@ -82,6 +97,7 @@ app.use(errorHandler);
 if (process.env.NODE_ENV !== 'test') {
   // Initialize background jobs
   initializeOfferExpiryJob();
+  initializeContractExecutionProcessor();
 
   app.listen(port, () => {
     console.log(`🚀 Bloxtr8 API running on http://localhost:${port}`);

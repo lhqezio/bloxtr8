@@ -149,26 +149,121 @@ model Offer {
 
 ### Contract
 
-Legal agreements with PDF storage.
+Legal agreements with PDF storage and execution tracking.
 
 ```prisma
 model Contract {
-  id        String         @id @default(cuid())
-  pdfUrl    String?        // S3 URL
-  sha256    String?        // File hash for integrity
-  status    ContractStatus @default(PENDING_SIGNATURE)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id              String         @id @default(cuid())
+  pdfUrl          String?        // S3 URL
+  sha256          String?        // File hash for integrity
+  status          ContractStatus @default(PENDING_SIGNATURE)
+  robloxAssetData Json?          // Snapshot of Roblox asset details at contract time
+  templateVersion String         @default("1.0.0") // Contract template version used
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  offerId    String
-  offer      Offer       @relation(fields: [offerId], references: [id])
-  signatures Signature[]
-  escrows    Escrow[]
-  deliveries Delivery[]
+  offerId       String
+  offer         Offer                  @relation(fields: [offerId], references: [id])
+  signatures    Signature[]
+  escrows       Escrow[]
+  deliveries    Delivery[]
+  executionJobs ContractExecutionJob[]
 }
 ```
 
 **Indexes**: `offerId`, `status`
+
+**State Flow**:
+
+```
+PENDING_SIGNATURE → EXECUTING → EXECUTED
+                        ↓
+                   EXECUTION_FAILED
+                        ↓
+                      VOID
+```
+
+**Fields**:
+
+- `robloxAssetData`: JSON snapshot preserving asset details at time of contract generation
+- `templateVersion`: Tracks which contract template version was used for legal compliance
+- `executionJobs`: One-to-many relation for queue-based contract execution
+
+### ContractExecutionJob
+
+Queue-based contract execution with automatic retry logic.
+
+```prisma
+model ContractExecutionJob {
+  id                  String    @id @default(cuid())
+  contractId          String
+  contract            Contract  @relation(fields: [contractId], references: [id])
+  status              JobStatus @default(PENDING)
+  attempts            Int       @default(0)
+  maxAttempts         Int       @default(3)
+  lastError           String?
+  nextRetryAt         DateTime?
+  processingStartedAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  completedAt         DateTime?
+
+  @@unique([contractId])
+  @@index([contractId])
+  @@index([status, nextRetryAt])
+}
+```
+
+**Indexes**: `contractId`, `status + nextRetryAt` (composite)
+
+**Unique Constraint**: One job per contract (prevents duplicate execution)
+
+**Purpose**:
+
+- Prevents race conditions when both parties sign simultaneously
+- Automatic retry with exponential backoff (up to 3 attempts)
+- Tracks execution status and errors for debugging
+- Queue-based processing ensures reliable contract execution
+
+**State Flow**:
+
+```
+PENDING → PROCESSING → COMPLETED
+             ↓
+          FAILED (retries if attempts < maxAttempts)
+```
+
+### Signature
+
+Contract signatures with enhanced audit trail.
+
+```prisma
+model Signature {
+  id              String          @id @default(cuid())
+  userId          String
+  user            User            @relation(fields: [userId], references: [id])
+  contractId      String
+  contract        Contract        @relation(fields: [contractId], references: [id])
+  signedAt        DateTime        @default(now())
+  ipAddress       String?         // IP address at time of signing
+  userAgent       String?         // Browser/client user agent
+  signatureMethod SignatureMethod @default(DISCORD_NATIVE)
+
+  @@unique([userId, contractId])
+  @@index([userId])
+  @@index([contractId])
+}
+```
+
+**Indexes**: `userId`, `contractId`
+
+**Unique Constraint**: One signature per user per contract
+
+**Audit Fields**:
+
+- `ipAddress`: Captures IP address for legal compliance
+- `userAgent`: Records client/browser information
+- `signatureMethod`: Tracks how signature was captured (Discord native vs web-based)
 
 ### Escrow
 
@@ -318,6 +413,73 @@ model AuditLog {
 
 **Indexes**: `userId`, `escrowId`, `action`, `createdAt`
 
+### ContractTemplate
+
+Versioned contract legal terms for compliance and updates.
+
+```prisma
+model ContractTemplate {
+  id           String    @id @default(cuid())
+  version      String    @unique // e.g., "1.0.0", "1.1.0"
+  name         String    // e.g., "Roblox Asset Sale Agreement"
+  terms        Json      // Contract terms and clauses
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deprecatedAt DateTime? // When this version was deprecated
+}
+```
+
+**Indexes**: `version`, `isActive`
+
+**Unique Constraint**: `version` - Each version is unique
+
+**Purpose**:
+
+- Maintains multiple contract template versions for legal compliance
+- Allows updating terms while preserving historical contracts
+- Tracks when templates are deprecated
+- JSON storage allows flexible term structures
+
+**Versioning**:
+
+- Semantic versioning (e.g., "1.0.0", "1.1.0", "2.0.0")
+- Only one active template at a time
+- Historical templates remain for reference
+
+### ContractSignToken
+
+One-time magic link tokens for secure web-based contract signing.
+
+```prisma
+model ContractSignToken {
+  id         String    @id @default(cuid())
+  token      String    @unique
+  contractId String
+  userId     String
+  expiresAt  DateTime
+  usedAt     DateTime? // Timestamp when the token was used
+  createdAt  DateTime  @default(now())
+}
+```
+
+**Indexes**: `token`, `contractId`, `userId`, `expiresAt`
+
+**Unique Constraint**: `token` - Each token is globally unique
+
+**Security Features**:
+
+- **Single-use**: Token is marked as used (`usedAt`) after first use
+- **Time-limited**: 15-minute expiry from creation
+- **User-specific**: Bound to specific user and contract
+- **Cryptographically secure**: Generated with 32-byte random token
+
+**Purpose**:
+
+- Enables secure web-based contract signing via magic links
+- Prevents unauthorized access to contract signing
+- Automatic cleanup of expired/used tokens
+
 ## Enums
 
 ### KycTier
@@ -368,9 +530,11 @@ enum OfferStatus {
 
 ```prisma
 enum ContractStatus {
-  PENDING_SIGNATURE
-  EXECUTED
-  VOID
+  PENDING_SIGNATURE  // Awaiting one or both signatures
+  EXECUTING          // Both signed, processing contract execution
+  EXECUTED           // Successfully executed and active
+  EXECUTION_FAILED   // Execution failed, may retry
+  VOID               // Contract cancelled or expired
 }
 ```
 
@@ -418,6 +582,35 @@ enum GameOwnershipType {
 }
 ```
 
+### SignatureMethod
+
+```prisma
+enum SignatureMethod {
+  DISCORD_NATIVE  // Quick sign via Discord button (type "I AGREE")
+  WEB_BASED       // Full review and sign via web app (magic link)
+  API             // Programmatic signature (future use)
+}
+```
+
+**Usage**:
+
+- `DISCORD_NATIVE`: Fast signing directly in Discord with confirmation modal
+- `WEB_BASED`: Detailed review with full contract preview before signing
+- `API`: Reserved for future programmatic signing capabilities
+
+### JobStatus
+
+```prisma
+enum JobStatus {
+  PENDING      // Waiting to be processed
+  PROCESSING   // Currently being executed
+  COMPLETED    // Successfully finished
+  FAILED       // Failed after max retry attempts
+}
+```
+
+**Usage**: Tracks contract execution job lifecycle in the queue system.
+
 ## Relationships
 
 ### User Relationships
@@ -436,12 +629,21 @@ Listing
   ↓
 Offer (PENDING → ACCEPTED)
   ↓
-Contract (PENDING_SIGNATURE → EXECUTED)
+Contract (PENDING_SIGNATURE → EXECUTING → EXECUTED)
+  ↓
+ContractExecutionJob (PENDING → PROCESSING → COMPLETED)
   ↓
 Escrow (AWAIT_FUNDS → FUNDS_HELD → DELIVERED → RELEASED)
   ↓
 Delivery (PENDING → DELIVERED → CONFIRMED)
 ```
+
+**Contract Execution**:
+
+- Both parties sign → Contract status: EXECUTING
+- Execution job created → Process in queue
+- On success → Contract status: EXECUTED, proceed to escrow
+- On failure → Contract status: EXECUTION_FAILED, retry up to 3 times
 
 ## Indexes
 
@@ -453,6 +655,12 @@ All foreign keys are indexed by default. Additional indexes:
 - `Listing.category` - Category browsing
 - `Offer.status` - Filter by offer state
 - `Offer.expiry` - Find expired offers
+- `Contract.status` - Filter by contract state
+- `ContractExecutionJob.status + nextRetryAt` - Queue processing and retry scheduling
+- `ContractTemplate.version` - Unique index for template versioning
+- `ContractTemplate.isActive` - Find active template
+- `ContractSignToken.token` - Unique index for token lookup
+- `ContractSignToken.expiresAt` - Cleanup expired tokens
 - `Escrow.status` - Filter by escrow state
 - `AssetVerification.verificationStatus` - Find verified games
 - `AuditLog.action` - Query by action type

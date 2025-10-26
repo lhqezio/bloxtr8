@@ -10,7 +10,12 @@ import {
   type ModalSubmitInteraction,
 } from 'discord.js';
 
-import { acceptOffer, counterOffer, declineOffer } from '../utils/apiClient.js';
+import {
+  acceptOffer,
+  counterOffer,
+  declineOffer,
+  generateContract,
+} from '../utils/apiClient.js';
 import { verify } from '../utils/userVerification.js';
 
 /**
@@ -456,6 +461,64 @@ export async function handleConfirmAcceptOffer(
       return;
     }
 
+    // Clean up notification messages
+    try {
+      // Update the interaction message to show final status
+      if (interaction.message && interaction.message.editable) {
+        const finalEmbed = new EmbedBuilder()
+          .setTitle('✅ Offer Accepted')
+          .setDescription(`Offer has been accepted`)
+          .setColor(0x10b981)
+          .addFields(
+            {
+              name: '🆔 Offer ID',
+              value: offerId,
+              inline: true,
+            },
+            {
+              name: '📅 Accepted',
+              value: new Date().toLocaleString(),
+              inline: true,
+            }
+          )
+          .setFooter({
+            text: 'Bloxtr8 - Secure Trading',
+          });
+
+        try {
+          await interaction.message.edit({
+            embeds: [finalEmbed],
+            components: [], // Remove all buttons
+          });
+        } catch (editError) {
+          // Handle specific Discord API errors
+          if (
+            editError &&
+            typeof editError === 'object' &&
+            'code' in editError
+          ) {
+            if (editError.code === 10008) {
+              console.warn(
+                'Original message no longer exists (Unknown Message)'
+              );
+            } else if (editError.code === 50013) {
+              console.warn('Missing permissions to edit message');
+            } else if (editError.code === 50035) {
+              console.warn('Invalid form body when editing message');
+            } else {
+              console.error('Could not update original message:', editError);
+            }
+          } else {
+            console.error('Could not update original message:', editError);
+          }
+        }
+      } else {
+        console.warn('Original message is not editable or does not exist');
+      }
+    } catch (cleanupError) {
+      console.error('Error cleaning up offer messages:', cleanupError);
+      // Don't fail the main operation if cleanup fails
+    }
     // Success! Show confirmation
     const successEmbed = new EmbedBuilder()
       .setTitle('✅ Offer Accepted Successfully!')
@@ -486,13 +549,98 @@ export async function handleConfirmAcceptOffer(
       embeds: [successEmbed],
     });
 
-    // Update the original message to remove buttons
+    // Generate contract automatically in the background
     try {
-      await interaction.message.edit({
-        components: [],
+      console.log(`Generating contract for accepted offer ${offerId}...`);
+      const contractResult = await generateContract(offerId);
+
+      if (contractResult.success) {
+        console.log(
+          `Contract generated successfully: ${contractResult.data.contractId}`
+        );
+        console.log(
+          `Contract ready for signatures: ${contractResult.data.pdfUrl}`
+        );
+      } else {
+        console.error(
+          `Failed to generate contract for offer ${offerId}:`,
+          contractResult.error.message
+        );
+
+        // Update success embed to inform user about contract generation failure
+        const updatedEmbed = new EmbedBuilder()
+          .setTitle('⚠️ Offer Accepted - Contract Generation Failed')
+          .setDescription(
+            '**Offer Status:** Accepted ✅\n**Contract Status:** Failed ❌\n\n' +
+              'The offer has been accepted, but there was an issue creating the contract PDF. ' +
+              'Please contact support for assistance.'
+          )
+          .setColor(0xf59e0b)
+          .addFields(
+            {
+              name: '🆔 Offer ID',
+              value: offerId,
+              inline: true,
+            },
+            {
+              name: '⚠️ Action Required',
+              value:
+                'A contract must be generated before proceeding with the sale. Please reach out to support to resolve this issue.',
+              inline: false,
+            },
+            {
+              name: '📞 Support',
+              value: 'Contact the Bloxtr8 team immediately to prevent delays.',
+              inline: false,
+            }
+          )
+          .setFooter({
+            text: 'Bloxtr8 - Support Needed',
+          })
+          .setTimestamp();
+
+        await interaction.editReply({
+          embeds: [updatedEmbed],
+        });
+      }
+    } catch (contractError) {
+      console.error('Error generating contract:', contractError);
+
+      // Update success embed to inform user about contract generation failure
+      const updatedEmbed = new EmbedBuilder()
+        .setTitle('⚠️ Offer Accepted - Contract Generation Failed')
+        .setDescription(
+          '**Offer Status:** Accepted ✅\n**Contract Status:** Failed ❌\n\n' +
+            'The offer has been accepted, but an error occurred while creating the contract. ' +
+            'Please contact support for assistance.'
+        )
+        .setColor(0xf59e0b)
+        .addFields(
+          {
+            name: '🆔 Offer ID',
+            value: offerId,
+            inline: true,
+          },
+          {
+            name: '⚠️ Action Required',
+            value:
+              'A contract must be generated before proceeding with the sale. Please reach out to support to resolve this issue.',
+            inline: false,
+          },
+          {
+            name: '📞 Support',
+            value: 'Contact the Bloxtr8 team immediately to prevent delays.',
+            inline: false,
+          }
+        )
+        .setFooter({
+          text: 'Bloxtr8 - Support Needed',
+        })
+        .setTimestamp();
+
+      await interaction.editReply({
+        embeds: [updatedEmbed],
       });
-    } catch (error) {
-      console.error('Could not update original message:', error);
     }
   } catch (error) {
     console.error('Error in handleConfirmAcceptOffer:', error);
@@ -566,6 +714,64 @@ export async function handleConfirmDeclineOffer(
       return;
     }
 
+    // Clean up notification messages
+    try {
+      // Update the interaction message to show final status
+      if (interaction.message && interaction.message.editable) {
+        const finalEmbed = new EmbedBuilder()
+          .setTitle('❌ Offer Declined')
+          .setDescription(`Offer has been declined`)
+          .setColor(0xef4444)
+          .addFields(
+            {
+              name: '🆔 Offer ID',
+              value: offerId,
+              inline: true,
+            },
+            {
+              name: '📅 Declined',
+              value: new Date().toLocaleString(),
+              inline: true,
+            }
+          )
+          .setFooter({
+            text: 'Bloxtr8 - Secure Trading',
+          });
+
+        try {
+          await interaction.message.edit({
+            embeds: [finalEmbed],
+            components: [], // Remove all buttons
+          });
+        } catch (editError) {
+          // Handle specific Discord API errors
+          if (
+            editError &&
+            typeof editError === 'object' &&
+            'code' in editError
+          ) {
+            if (editError.code === 10008) {
+              console.warn(
+                'Original message no longer exists (Unknown Message)'
+              );
+            } else if (editError.code === 50013) {
+              console.warn('Missing permissions to edit message');
+            } else if (editError.code === 50035) {
+              console.warn('Invalid form body when editing message');
+            } else {
+              console.error('Could not update original message:', editError);
+            }
+          } else {
+            console.error('Could not update original message:', editError);
+          }
+        }
+      } else {
+        console.warn('Original message is not editable or does not exist');
+      }
+    } catch (cleanupError) {
+      console.error('Error cleaning up offer messages:', cleanupError);
+      // Don't fail the main operation if cleanup fails
+    }
     // Success! Show confirmation
     const successEmbed = new EmbedBuilder()
       .setTitle('❌ Offer Declined')
@@ -587,15 +793,6 @@ export async function handleConfirmDeclineOffer(
       content: null,
       embeds: [successEmbed],
     });
-
-    // Update the original message to remove buttons
-    try {
-      await interaction.message.edit({
-        components: [],
-      });
-    } catch (error) {
-      console.error('Could not update original message:', error);
-    }
   } catch (error) {
     console.error('Error in handleConfirmDeclineOffer:', error);
     if (!interaction.replied && !interaction.deferred) {
@@ -684,6 +881,69 @@ export async function handleConfirmCounterOffer(
       return;
     }
 
+    // Clean up notification messages
+    try {
+      // Update the interaction message to show final status
+      if (interaction.message && interaction.message.editable) {
+        const finalEmbed = new EmbedBuilder()
+          .setTitle('🔄 Offer Countered')
+          .setDescription(`Offer has been countered`)
+          .setColor(0xf59e0b)
+          .addFields(
+            {
+              name: '🆔 Original Offer ID',
+              value: offerId,
+              inline: true,
+            },
+            {
+              name: '💰 Counter Amount',
+              value: `$${counterAmount.toFixed(2)}`,
+              inline: true,
+            },
+            {
+              name: '📅 Countered',
+              value: new Date().toLocaleString(),
+              inline: true,
+            }
+          )
+          .setFooter({
+            text: 'Bloxtr8 - Secure Trading',
+          });
+
+        try {
+          await interaction.message.edit({
+            embeds: [finalEmbed],
+            components: [], // Remove all buttons
+          });
+        } catch (editError) {
+          // Handle specific Discord API errors
+          if (
+            editError &&
+            typeof editError === 'object' &&
+            'code' in editError
+          ) {
+            if (editError.code === 10008) {
+              console.warn(
+                'Original message no longer exists (Unknown Message)'
+              );
+            } else if (editError.code === 50013) {
+              console.warn('Missing permissions to edit message');
+            } else if (editError.code === 50035) {
+              console.warn('Invalid form body when editing message');
+            } else {
+              console.error('Could not update original message:', editError);
+            }
+          } else {
+            console.error('Could not update original message:', editError);
+          }
+        }
+      } else {
+        console.warn('Original message is not editable or does not exist');
+      }
+    } catch (cleanupError) {
+      console.error('Error cleaning up offer messages:', cleanupError);
+      // Don't fail the main operation if cleanup fails
+    }
     // Success! Show confirmation
     const successEmbed = new EmbedBuilder()
       .setTitle('🔄 Counter Offer Sent Successfully!')
@@ -728,15 +988,6 @@ export async function handleConfirmCounterOffer(
       content: null,
       embeds: [successEmbed],
     });
-
-    // Update the original message to remove buttons
-    try {
-      await interaction.message.edit({
-        components: [],
-      });
-    } catch (error) {
-      console.error('Could not update original message:', error);
-    }
   } catch (error) {
     console.error('Error in handleConfirmCounterOffer:', error);
     if (!interaction.replied && !interaction.deferred) {
