@@ -9,6 +9,7 @@ import { executeContract } from '../lib/contract-execution.js';
 import { generateContract, verifyContract } from '../lib/contract-generator.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { serializeBigInt } from '../utils/bigint.js';
+import { getClientIpAddress } from '../utils/ip-address.js';
 
 const router: ExpressRouter = Router();
 
@@ -247,7 +248,6 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
     const { id } = req.params;
     const {
       userId,
-      ipAddress,
       userAgent,
       signatureMethod = 'DISCORD_NATIVE',
       token,
@@ -257,14 +257,11 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
       throw new AppError('User ID is required', 400);
     }
 
-    // Validate audit trail parameters
+    // Extract IP address from request headers (server-side)
+    const ipAddress = getClientIpAddress(req);
+
+    // Validate audit trail parameters for web-based signatures
     if (signatureMethod === 'WEB_BASED') {
-      if (!ipAddress) {
-        throw new AppError(
-          'IP address is required for web-based signatures',
-          400
-        );
-      }
       if (!userAgent) {
         throw new AppError(
           'User agent is required for web-based signatures',

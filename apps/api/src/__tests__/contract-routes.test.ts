@@ -253,7 +253,6 @@ describe('Contract API Routes', () => {
         .post('/api/contracts/contract-123/sign')
         .send({
           userId: 'buyer-123',
-          ipAddress: '192.168.1.1',
           userAgent: 'Test Browser',
         })
         .expect(200);

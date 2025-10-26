@@ -94,31 +94,6 @@ export async function fetchContract(contractId: string, signal?: AbortSignal) {
 }
 
 /**
- * Get client IP address
- */
-async function getClientIpAddress(): Promise<string> {
-  try {
-    // Try to get IP from a service
-    const response = await fetch('https://api.ipify.org?format=json', {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    })
-
-    if (response.ok) {
-      const data = await response.json()
-      return data.ip
-    }
-  } catch (error) {
-    console.error('Error fetching IP address:', error)
-  }
-
-  // Fallback to unknown if we can't fetch IP
-  return 'unknown'
-}
-
-/**
  * Sign contract via web app
  */
 export async function signContractWeb(
@@ -130,9 +105,7 @@ export async function signContractWeb(
     // Get user agent from browser
     const userAgent = navigator.userAgent
 
-    // Get IP address (may take a moment)
-    const ipAddress = await getClientIpAddress()
-
+    // IP address is now extracted server-side from request headers
     const response = await fetch(
       `${API_BASE_URL}/api/contracts/${contractId}/sign`,
       {
@@ -144,7 +117,6 @@ export async function signContractWeb(
           userId,
           signatureMethod: 'WEB_BASED',
           token, // Include token for validation
-          ipAddress,
           userAgent,
         }),
       },
