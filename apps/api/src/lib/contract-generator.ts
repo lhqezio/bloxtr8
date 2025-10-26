@@ -52,6 +52,8 @@ export interface GenerateContractOptions {
     conditions?: string;
     acceptedAt: Date;
   };
+  debugMode?: boolean; // Flag to indicate debug mode
+  sameUser?: boolean; // Flag to indicate same user as buyer/seller
 }
 
 export interface ContractGenerationResult {
@@ -100,8 +102,11 @@ export async function generateContract(
     // Generate contract content
     const contentLines = template.generateContent(contractData);
 
-    // Create PDF
-    const pdfBytes = await createPDF(contentLines, contractData);
+    // Create PDF with debug options
+    const pdfBytes = await createPDF(contentLines, contractData, {
+      debugMode: options.debugMode,
+      sameUser: options.sameUser,
+    });
 
     // Calculate SHA-256 hash
     const hash = crypto.createHash('sha256');
@@ -135,7 +140,8 @@ export async function generateContract(
  */
 async function createPDF(
   contentLines: string[],
-  contractData: ContractData
+  contractData: ContractData,
+  options?: { debugMode?: boolean; sameUser?: boolean }
 ): Promise<Uint8Array> {
   // Create a new PDF document
   const pdfDoc = await PDFDocument.create();
@@ -316,6 +322,25 @@ async function createPDF(
         font: monoFont,
         color: rgb(0.5, 0.5, 0.5),
       });
+
+      // Add debug watermark if in debug mode
+      if (options?.debugMode && options?.sameUser) {
+        const watermarkText = '🔧 DEBUG MODE - TEST CONTRACT';
+        const watermarkWidth = boldFont.widthOfTextAtSize(watermarkText, 32);
+        const watermarkX = (pageWidth - watermarkWidth) / 2;
+        const watermarkY = pageHeight / 2;
+
+        // Draw watermark with transparency
+        currentPage.drawText(watermarkText, {
+          x: watermarkX,
+          y: watermarkY,
+          size: 32,
+          font: boldFont,
+          color: rgb(1, 0.7, 0), // Orange color
+          opacity: 0.2,
+          // Note: pdf-lib doesn't support rotation in drawText, so we'll just center it
+        });
+      }
     }
   }
 

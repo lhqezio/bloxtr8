@@ -1,5 +1,7 @@
 import { prisma } from '@bloxtr8/database';
 
+import { isDebugMode } from '../lib/env-validation.js';
+
 /**
  * Handle contract execution when both parties have signed
  * This is triggered after a signature is added and both parties have signed
@@ -118,6 +120,16 @@ export async function executeContract(contractId: string): Promise<{
       }
     }
 
+    // Check if debug mode
+    const debugMode = isDebugMode();
+    const sameUser = contract.offer.buyerId === contract.offer.sellerId;
+
+    if (debugMode) {
+      console.warn(
+        `🔧 DEBUG MODE: Skipping real payment processing for contract ${contractId}`
+      );
+    }
+
     // Determine escrow rail based on amount
     // Stripe for amounts ≤ $10,000, USDC on Base for > $10,000
     const amountInDollars = Number(contract.offer.amount) / 100;
@@ -131,28 +143,45 @@ export async function executeContract(contractId: string): Promise<{
         rail: escrowRail,
         amount: contract.offer.amount,
         currency: contract.offer.currency,
-        status: 'AWAIT_FUNDS',
+        // In debug mode with same user, skip AWAIT_FUNDS and go directly to FUNDS_HELD
+        status: debugMode && sameUser ? 'FUNDS_HELD' : 'AWAIT_FUNDS',
       },
     });
 
     // Create rail-specific escrow record
     if (escrowRail === 'STRIPE') {
-      // Note: Actual Stripe integration would happen here
-      // For now, we just create a placeholder record
+      const paymentIntentId = debugMode
+        ? `pi_debug_test_${escrow.id}`
+        : `pi_placeholder_${escrow.id}`;
+
+      if (debugMode) {
+        console.warn(
+          `🔧 DEBUG MODE: Using mock Stripe Payment Intent ID: ${paymentIntentId}`
+        );
+      }
+
       await prisma.stripeEscrow.create({
         data: {
           escrowId: escrow.id,
-          paymentIntentId: `pi_placeholder_${escrow.id}`, // Would be real Stripe Payment Intent ID
+          paymentIntentId,
         },
       });
     } else {
-      // USDC_BASE - generate deposit address
-      // Note: Actual blockchain integration would happen here
+      const depositAddr = debugMode
+        ? `0x_debug_test_${escrow.id}`
+        : `0x_placeholder_${escrow.id}`;
+
+      if (debugMode) {
+        console.warn(
+          `🔧 DEBUG MODE: Using mock USDC deposit address: ${depositAddr}`
+        );
+      }
+
       await prisma.stablecoinEscrow.create({
         data: {
           escrowId: escrow.id,
           chain: 'BASE',
-          depositAddr: `0x_placeholder_${escrow.id}`, // Would be real blockchain address
+          depositAddr,
         },
       });
     }
@@ -169,6 +198,8 @@ export async function executeContract(contractId: string): Promise<{
           amount: contract.offer.amount.toString(),
           buyerId: contract.offer.buyerId,
           sellerId: contract.offer.sellerId,
+          debugMode: debugMode && sameUser ? true : undefined,
+          sameUser: sameUser ? true : undefined,
         },
         escrowId: escrow.id,
       },

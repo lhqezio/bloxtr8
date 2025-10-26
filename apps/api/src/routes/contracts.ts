@@ -7,6 +7,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 import { createExecutionJob } from '../lib/contract-execution-queue.js';
 import { executeContract } from '../lib/contract-execution.js';
 import { generateContract, verifyContract } from '../lib/contract-generator.js';
+import { isDebugMode } from '../lib/env-validation.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { serializeBigInt } from '../utils/bigint.js';
 import { getClientIpAddress } from '../utils/ip-address.js';
@@ -82,6 +83,17 @@ router.post('/contracts/generate', async (req, res, next) => {
       },
     });
 
+    // Check if debug mode and same user scenario
+    const debugMode = isDebugMode();
+    const sameUser = offer.buyerId === offer.sellerId;
+    const isDebugSameUser = debugMode && sameUser;
+
+    if (isDebugSameUser) {
+      console.warn(
+        `🔧 DEBUG MODE: Generating contract with same buyer and seller (User: ${offer.buyerId})`
+      );
+    }
+
     try {
       // Prepare Roblox asset data from snapshot
       const robloxSnapshot = offer.listing.robloxSnapshots[0];
@@ -133,6 +145,8 @@ router.post('/contracts/generate', async (req, res, next) => {
           conditions: offer.conditions || undefined,
           acceptedAt: offer.updatedAt,
         },
+        debugMode: isDebugSameUser,
+        sameUser,
       });
 
       if (!result.success) {
@@ -346,6 +360,39 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
       });
     }
 
+    // DEBUG MODE: Auto-sign for same user scenario
+    const debugMode = isDebugMode();
+    const sameUser = contract.offer.buyerId === contract.offer.sellerId;
+    let autoSignedSecondParty = false;
+
+    if (debugMode && sameUser) {
+      // If same user, they need to sign as both buyer and seller
+      // Create a second signature for the same user acting as the other party
+      const otherParty = userId === contract.offer.buyerId ? 'seller' : 'buyer';
+
+      // Check if they haven't already signed as the other party
+      const hasSignedAsOtherParty = contract.signatures.some(
+        sig => sig.userId === userId
+      );
+
+      // Only create second signature if signing for the first time
+      if (!hasSignedAsOtherParty) {
+        await prisma.signature.create({
+          data: {
+            userId,
+            contractId: id,
+            ipAddress,
+            userAgent,
+            signatureMethod: 'API', // Using API method for debug auto-signatures
+          },
+        });
+        autoSignedSecondParty = true;
+        console.warn(
+          `🔧 DEBUG MODE: Auto-created second signature for same user as ${otherParty}`
+        );
+      }
+    }
+
     // Check if both parties have signed
     const allSignatures = await prisma.signature.findMany({
       where: { contractId: id },
@@ -377,9 +424,12 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
       signature: serializeBigInt(signature),
       contractStatus: 'PENDING_SIGNATURE', // Status will be updated asynchronously
       bothPartiesSigned: bothSigned,
-      message: bothSigned
-        ? 'Contract execution has been queued and will be processed shortly'
-        : 'Waiting for counterparty signature',
+      debugMode: debugMode && sameUser,
+      message: autoSignedSecondParty
+        ? '🔧 DEBUG MODE: Both signatures auto-created for same user'
+        : bothSigned
+          ? 'Contract execution has been queued and will be processed shortly'
+          : 'Waiting for counterparty signature',
     });
   } catch (error) {
     next(error);
