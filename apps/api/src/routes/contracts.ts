@@ -388,10 +388,10 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
           allSignatures.some(sig => sig.userId === contract.offer.sellerId);
       }
 
-      // Create execution job atomically if both parties have signed
+      // Create execution job and update contract status atomically if both parties have signed
       if (bothSigned) {
         console.log(
-          `Contract ${id} has both signatures. Creating execution job...`
+          `Contract ${id} has both signatures. Creating execution job and updating status...`
         );
         try {
           // Try to create execution job - will fail gracefully if it already exists due to unique constraint
@@ -417,15 +417,31 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
             // Continue anyway - the user should still be able to sign
           }
         }
+
+        // Update contract status to EXECUTING within the same transaction
+        await tx.contract.update({
+          where: { id },
+          data: { status: 'EXECUTING' },
+        });
+        console.log(`Contract ${id} status updated to EXECUTING`);
       }
 
-      return firstSignature;
+      // Fetch the updated contract to get the current status
+      const updatedContract = await tx.contract.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+
+      return {
+        signature: firstSignature,
+        contractStatus: updatedContract?.status || 'PENDING_SIGNATURE',
+      };
     });
 
     // Respond immediately with the signature details
     res.json({
-      signature: serializeBigInt(signature),
-      contractStatus: 'PENDING_SIGNATURE', // Status will be updated asynchronously
+      signature: serializeBigInt(signature.signature),
+      contractStatus: signature.contractStatus, // Updated status (PENDING_SIGNATURE or EXECUTING)
       bothPartiesSigned: bothSigned,
       debugMode: debugMode && sameUser,
       message: autoSignedSecondParty

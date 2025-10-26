@@ -57,6 +57,10 @@ jest.mock('@bloxtr8/database', () => {
       contractSignToken: {
         update: mockPrisma.contractSignToken.update,
       },
+      contract: {
+        update: jest.fn(),
+        findUnique: jest.fn().mockResolvedValue({ status: 'EXECUTING' }),
+      },
       contractExecutionJob: {
         create: jest.fn(),
       },
@@ -309,11 +313,9 @@ describe('Contract API Routes', () => {
         .expect(200);
 
       expect(response.body.bothPartiesSigned).toBe(true);
-      // Status should still be PENDING_SIGNATURE (will be updated asynchronously)
-      expect(response.body.contractStatus).toBe('PENDING_SIGNATURE');
+      // Status should now be EXECUTING (updated synchronously when both parties sign)
+      expect(response.body.contractStatus).toBe('EXECUTING');
       expect(response.body.message).toContain('execution has been queued');
-      // The new implementation creates jobs inside transaction, not via createExecutionJob
-      expect(prisma.contract.update).not.toHaveBeenCalled(); // Should not update synchronously
     });
 
     it('should handle duplicate execution job creation gracefully', async () => {
@@ -338,21 +340,28 @@ describe('Contract API Routes', () => {
       ]);
 
       // Mock the transaction to simulate a duplicate job creation
-      const mockTx = (prisma.$transaction as jest.Mock).mock.calls[0][0]({
-        signature: {
-          create: prisma.signature.create as jest.Mock,
-          findMany: prisma.signature.findMany as jest.Mock,
-        },
-        contractSignToken: {
-          update: jest.fn(),
-        },
-        contractExecutionJob: {
-          create: jest.fn().mockImplementation(() => {
-            const error = new Error('Unique constraint failed');
-            (error as any).code = 'P2002';
-            throw error;
-          }),
-        },
+      (prisma.$transaction as jest.Mock).mockImplementation(async callback => {
+        const mockTx = {
+          signature: {
+            create: prisma.signature.create as jest.Mock,
+            findMany: prisma.signature.findMany as jest.Mock,
+          },
+          contractSignToken: {
+            update: jest.fn(),
+          },
+          contract: {
+            update: jest.fn(),
+            findUnique: jest.fn().mockResolvedValue({ status: 'EXECUTING' }),
+          },
+          contractExecutionJob: {
+            create: jest.fn().mockImplementation(() => {
+              const error = new Error('Unique constraint failed');
+              (error as any).code = 'P2002';
+              throw error;
+            }),
+          },
+        };
+        return callback(mockTx);
       });
 
       const response = await request(app)
@@ -362,7 +371,8 @@ describe('Contract API Routes', () => {
 
       // Should still succeed despite duplicate job
       expect(response.body.bothPartiesSigned).toBe(true);
-      expect(response.body.contractStatus).toBe('PENDING_SIGNATURE');
+      // Status should be EXECUTING even if job creation had an error
+      expect(response.body.contractStatus).toBe('EXECUTING');
     });
 
     it('should reject unauthorized user', async () => {

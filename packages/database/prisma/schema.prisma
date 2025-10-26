@@ -556,6 +556,7 @@ enum OfferStatus {
 
 enum ContractStatus {
   PENDING_SIGNATURE
+  EXECUTING
   EXECUTED
   EXECUTION_FAILED
   VOID
