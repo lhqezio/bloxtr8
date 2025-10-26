@@ -48,7 +48,7 @@ jest.mock('@bloxtr8/database', () => {
   };
 
   // Setup transaction mock to return a mock transaction client
-  mockPrisma.$transaction.mockImplementation(async (callback) => {
+  mockPrisma.$transaction.mockImplementation(async callback => {
     const mockTx = {
       signature: {
         create: mockPrisma.signature.create,
