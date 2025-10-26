@@ -46,7 +46,7 @@ jest.mock('../lib/contract-execution', () => ({
 }));
 
 import { prisma } from '@bloxtr8/database';
-import app from '../index';
+import app from '../index.js';
 
 describe('Contract API Routes', () => {
   beforeEach(() => {

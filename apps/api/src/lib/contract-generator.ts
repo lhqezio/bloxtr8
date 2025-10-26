@@ -300,21 +300,23 @@ async function createPDF(
 
   for (let i = 0; i < totalPages; i++) {
     const currentPage = pages[i];
-    currentPage.drawText(`Page ${i + 1} of ${totalPages}`, {
-      x: margin,
-      y: margin / 2,
-      size: smallFontSize,
-      font: regularFont,
-      color: rgb(0.5, 0.5, 0.5),
-    });
+    if (currentPage) {
+      currentPage.drawText(`Page ${i + 1} of ${totalPages}`, {
+        x: margin,
+        y: margin / 2,
+        size: smallFontSize,
+        font: regularFont,
+        color: rgb(0.5, 0.5, 0.5),
+      });
 
-    currentPage.drawText(`Contract ID: ${contractData.contractId}`, {
-      x: pageWidth - margin - 150,
-      y: margin / 2,
-      size: smallFontSize,
-      font: monoFont,
-      color: rgb(0.5, 0.5, 0.5),
-    });
+      currentPage.drawText(`Contract ID: ${contractData.contractId}`, {
+        x: pageWidth - margin - 150,
+        y: margin / 2,
+        size: smallFontSize,
+        font: monoFont,
+        color: rgb(0.5, 0.5, 0.5),
+      });
+    }
   }
 
   // Serialize the PDF

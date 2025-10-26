@@ -1,5 +1,5 @@
-import { generateContract, verifyContract } from '../lib/contract-generator';
-import type { GenerateContractOptions } from '../lib/contract-generator';
+import { generateContract, verifyContract } from '../lib/contract-generator.js';
+import type { GenerateContractOptions } from '../lib/contract-generator.js';
 
 // Mock storage module
 jest.mock('@bloxtr8/storage', () => ({
