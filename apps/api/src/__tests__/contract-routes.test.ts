@@ -20,6 +20,7 @@ jest.mock('@bloxtr8/database', () => {
     contractSignToken: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      update: jest.fn(),
     },
     escrow: {
       findFirst: jest.fn(),
@@ -43,7 +44,21 @@ jest.mock('@bloxtr8/database', () => {
     auditLog: {
       create: jest.fn(),
     },
+    $transaction: jest.fn(),
   };
+
+  // Setup transaction mock to return a mock transaction client
+  mockPrisma.$transaction.mockImplementation(async (callback) => {
+    const mockTx = {
+      signature: {
+        create: mockPrisma.signature.create,
+      },
+      contractSignToken: {
+        update: mockPrisma.contractSignToken.update,
+      },
+    };
+    return callback(mockTx);
+  });
 
   return {
     prisma: mockPrisma,
