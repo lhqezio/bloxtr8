@@ -397,7 +397,7 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
     // In debug mode with same user, we can determine bothSigned without querying
     // since we created both signatures in this transaction
     let bothSigned = false;
-    
+
     if (debugMode && sameUser && autoSignedSecondParty) {
       // Both signatures were created in this transaction, so both parties have signed
       bothSigned = true;

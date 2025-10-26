@@ -48,9 +48,9 @@ async function processExecutionJob(jobId: string): Promise<void> {
     // Mark job as processing
     await prisma.contractExecutionJob.update({
       where: { id: jobId },
-      data: { 
+      data: {
         status: 'PROCESSING',
-        processingStartedAt: new Date()
+        processingStartedAt: new Date(),
       },
     });
 
