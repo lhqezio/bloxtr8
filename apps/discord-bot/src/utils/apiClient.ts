@@ -127,52 +127,64 @@ export interface ApiError {
  * Helper function to parse error responses from the API
  */
 async function parseErrorResponse(response: Response): Promise<ApiError> {
+  let responseText = '';
+  let textReadError: Error | null = null;
+  
+  // Attempt to read response text first
   try {
-    // Get the response text first (can only be called once)
-    const responseText = await response.text();
-    
-    // Check if the content type indicates JSON
-    const contentType = response.headers.get('content-type') || '';
-    const isJson = contentType.includes('application/json');
-    
-    if (isJson) {
-      try {
-        // Attempt to parse as JSON
-        const responseData = JSON.parse(responseText) as {
-          message?: string;
-          errors?: string[];
-        };
-        return {
-          message:
-            responseData.message ||
-            `HTTP ${response.status}: ${response.statusText}`,
-          errors: responseData.errors?.map(error => ({
-            field: 'general',
-            message: error,
-          })),
-        };
-      } catch {
-        // JSON parsing failed for content-type: application/json
-        // Return the raw response text with context
-        return {
-          message: `HTTP ${response.status}: ${response.statusText}. Invalid JSON in response body: ${responseText.substring(0, 200)}${responseText.length > 200 ? '...' : ''}`,
-        };
-      }
-    } else {
-      // Non-JSON response (HTML, plain text, etc.)
-      // Preserve the actual response body for debugging
-      const truncatedBody = responseText.length > 500 
-        ? responseText.substring(0, 500) + '...' 
+    responseText = await response.text();
+  } catch (error) {
+    // Store the error but don't fail yet - we might be able to provide useful context
+    textReadError = error instanceof Error ? error : new Error(String(error));
+  }
+  
+  // Check if the content type indicates JSON
+  const contentType = response.headers.get('content-type') || '';
+  const isJson = contentType.includes('application/json');
+  
+  // If we couldn't read the response body, return early with error details
+  if (textReadError) {
+    return {
+      message: `HTTP ${response.status}: ${response.statusText}. Failed to read response body: ${textReadError.message}. Content-Type: ${contentType || 'unknown'}`,
+    };
+  }
+  
+  // Handle JSON responses
+  if (isJson) {
+    try {
+      // Attempt to parse as JSON
+      const responseData = JSON.parse(responseText) as {
+        message?: string;
+        errors?: string[];
+      };
+      return {
+        message:
+          responseData.message ||
+          `HTTP ${response.status}: ${response.statusText}`,
+        errors: responseData.errors?.map(error => ({
+          field: 'general',
+          message: error,
+        })),
+      };
+    } catch (jsonError) {
+      // JSON parsing failed for content-type: application/json
+      // This is unusual - we expected JSON but got invalid JSON
+      const errorDetail = jsonError instanceof Error ? jsonError.message : String(jsonError);
+      const truncatedBody = responseText.length > 300 
+        ? responseText.substring(0, 300) + '...' 
         : responseText;
       return {
-        message: `HTTP ${response.status}: ${response.statusText}. Response body: ${truncatedBody}`,
+        message: `HTTP ${response.status}: ${response.statusText}. Content-Type indicates JSON but parsing failed: ${errorDetail}. Response body: ${truncatedBody}`,
       };
     }
-  } catch (error) {
-    // If we can't read the response at all, include the error details
-    const errorMessage = error instanceof Error ? error.message : String(error);
+  } else {
+    // Non-JSON response (HTML, plain text, etc.)
+    // Preserve the actual response body for debugging
+    const truncatedBody = responseText.length > 500 
+      ? responseText.substring(0, 500) + '...' 
+      : responseText;
     return {
-      message: `HTTP ${response.status}: ${response.statusText}. Failed to read response: ${errorMessage}`,
+      message: `HTTP ${response.status}: ${response.statusText}. Non-JSON response (Content-Type: ${contentType}). Response body: ${truncatedBody}`,
     };
   }
 }
@@ -852,7 +864,7 @@ export async function getContract(
     });
 
     if (!response.ok) {
-      const errorData = (await response.json()) as ApiError;
+      const errorData = await parseErrorResponse(response);
       return {
         success: false,
         error: errorData,
@@ -901,7 +913,7 @@ export async function signContract(
     );
 
     if (!response.ok) {
-      const errorData = (await response.json()) as ApiError;
+      const errorData = await parseErrorResponse(response);
       return {
         success: false,
         error: errorData,
@@ -947,7 +959,7 @@ export async function generateContractSignToken(
     );
 
     if (!response.ok) {
-      const errorData = (await response.json()) as ApiError;
+      const errorData = await parseErrorResponse(response);
       return {
         success: false,
         error: errorData,
@@ -989,7 +1001,7 @@ export async function generateContract(
     });
 
     if (!response.ok) {
-      const errorData = (await response.json()) as ApiError;
+      const errorData = await parseErrorResponse(response);
       return {
         success: false,
         error: errorData,
