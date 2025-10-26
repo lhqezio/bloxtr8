@@ -50,7 +50,10 @@ function ContractSignPage() {
         }
 
         // Validate token
-        const authResult = await validateSignToken(token, abortController.signal)
+        const authResult = await validateSignToken(
+          token,
+          abortController.signal,
+        )
 
         if (!authResult.success) {
           if (!isMounted) return
@@ -67,15 +70,12 @@ function ContractSignPage() {
           contractId,
           abortController.signal,
         )
-        if (!isMounted) return
         setContract(contractData)
 
         // Get PDF URL
         const url = await getContractPdfUrl(contractId, abortController.signal)
-        if (!isMounted) return
         setPdfUrl(url)
 
-        if (!isMounted) return
         setLoading(false)
       } catch (err) {
         // Don't set state if component is unmounted

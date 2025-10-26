@@ -62,7 +62,8 @@ export async function executeContract(contractId: string): Promise<{
         );
         return {
           success: false,
-          error: 'Contract is marked as executed but has no escrow. This indicates a previous execution failure.',
+          error:
+            'Contract is marked as executed but has no escrow. This indicates a previous execution failure.',
         };
       }
 
@@ -78,7 +79,7 @@ export async function executeContract(contractId: string): Promise<{
       console.warn(
         `Contract ${contractId} has existing escrows. This might indicate a previous partial execution.`
       );
-      
+
       // If we have existing escrows, clean them up before proceeding
       for (const escrow of contract.escrows) {
         try {
@@ -109,7 +110,8 @@ export async function executeContract(contractId: string): Promise<{
           // Return error rather than proceeding with orphaned escrows
           return {
             success: false,
-            error: 'Failed to clean up existing escrows from previous execution attempt',
+            error:
+              'Failed to clean up existing escrows from previous execution attempt',
           };
         }
       }

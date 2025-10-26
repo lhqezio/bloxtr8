@@ -4,9 +4,9 @@ import { prisma } from '@bloxtr8/database';
 import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 import { Router, type Router as ExpressRouter } from 'express';
 
-import { generateContract, verifyContract } from '../lib/contract-generator.js';
-import { executeContract } from '../lib/contract-execution.js';
 import { queueContractExecution } from '../lib/contract-execution-queue.js';
+import { executeContract } from '../lib/contract-execution.js';
+import { generateContract, verifyContract } from '../lib/contract-generator.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { serializeBigInt } from '../utils/bigint.js';
 
@@ -631,7 +631,7 @@ router.post('/contracts/:id/retry-execution', async (req, res, next) => {
       console.log(
         `Cleaning up ${contract.escrows.length} existing escrow(s) before retry`
       );
-      
+
       for (const escrow of contract.escrows) {
         try {
           // Delete rail-specific escrow records first
@@ -693,7 +693,7 @@ router.post('/contracts/:id/retry-execution', async (req, res, next) => {
       }
     } catch (executionError) {
       console.error('Error retrying contract execution:', executionError);
-      
+
       // Ensure status stays as EXECUTION_FAILED
       await prisma.contract.update({
         where: { id },

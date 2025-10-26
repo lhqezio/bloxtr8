@@ -400,10 +400,7 @@ describe('Contract API Routes', () => {
           buyerId: 'buyer-123',
           sellerId: 'seller-123',
         },
-        signatures: [
-          { userId: 'buyer-123' },
-          { userId: 'seller-123' },
-        ],
+        signatures: [{ userId: 'buyer-123' }, { userId: 'seller-123' }],
         escrows: [],
       };
 
@@ -438,13 +435,8 @@ describe('Contract API Routes', () => {
           buyerId: 'buyer-123',
           sellerId: 'seller-123',
         },
-        signatures: [
-          { userId: 'buyer-123' },
-          { userId: 'seller-123' },
-        ],
-        escrows: [
-          { id: 'escrow-123', rail: 'STRIPE' },
-        ],
+        signatures: [{ userId: 'buyer-123' }, { userId: 'seller-123' }],
+        escrows: [{ id: 'escrow-123', rail: 'STRIPE' }],
       };
 
       (prisma.contract.findUnique as jest.Mock).mockResolvedValue(mockContract);
@@ -477,10 +469,7 @@ describe('Contract API Routes', () => {
           buyerId: 'buyer-123',
           sellerId: 'seller-123',
         },
-        signatures: [
-          { userId: 'buyer-123' },
-          { userId: 'seller-123' },
-        ],
+        signatures: [{ userId: 'buyer-123' }, { userId: 'seller-123' }],
         escrows: [],
       };
 
@@ -502,10 +491,7 @@ describe('Contract API Routes', () => {
           buyerId: 'buyer-123',
           sellerId: 'seller-123',
         },
-        signatures: [
-          { userId: 'buyer-123' },
-          { userId: 'seller-123' },
-        ],
+        signatures: [{ userId: 'buyer-123' }, { userId: 'seller-123' }],
         escrows: [],
       };
 
@@ -527,10 +513,7 @@ describe('Contract API Routes', () => {
           buyerId: 'buyer-123',
           sellerId: 'seller-123',
         },
-        signatures: [
-          { userId: 'buyer-123' },
-          { userId: 'seller-123' },
-        ],
+        signatures: [{ userId: 'buyer-123' }, { userId: 'seller-123' }],
         escrows: [],
       };
 
@@ -548,7 +531,10 @@ describe('Contract API Routes', () => {
         .expect(200);
 
       expect(response.body).toHaveProperty('success', false);
-      expect(response.body).toHaveProperty('contractStatus', 'EXECUTION_FAILED');
+      expect(response.body).toHaveProperty(
+        'contractStatus',
+        'EXECUTION_FAILED'
+      );
     });
   });
 });
