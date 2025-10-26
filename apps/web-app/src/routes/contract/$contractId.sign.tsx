@@ -11,10 +11,10 @@ import {
 } from '../../components/ui/card'
 import { Checkbox } from '../../components/ui/checkbox'
 import {
-  validateSignToken,
   fetchContract,
-  signContractWeb,
   getContractPdfUrl,
+  signContractWeb,
+  validateSignToken,
 } from '../../lib/contractAuth'
 
 export const Route = createFileRoute('/contract/$contractId/sign')({
