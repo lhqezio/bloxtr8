@@ -227,6 +227,16 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
       throw new AppError('User ID is required', 400);
     }
 
+    // Validate audit trail parameters
+    if (signatureMethod === 'WEB_BASED') {
+      if (!ipAddress) {
+        throw new AppError('IP address is required for web-based signatures', 400);
+      }
+      if (!userAgent) {
+        throw new AppError('User agent is required for web-based signatures', 400);
+      }
+    }
+
     // Fetch contract with offer details
     const contract = await prisma.contract.findUnique({
       where: { id },
