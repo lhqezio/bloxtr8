@@ -370,27 +370,21 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
       // Create a second signature for the same user acting as the other party
       const otherParty = userId === contract.offer.buyerId ? 'seller' : 'buyer';
 
-      // Check if they haven't already signed as the other party
-      const hasSignedAsOtherParty = contract.signatures.some(
-        sig => sig.userId === userId
-      );
-
       // Only create second signature if signing for the first time
-      if (!hasSignedAsOtherParty) {
-        await prisma.signature.create({
-          data: {
-            userId,
-            contractId: id,
-            ipAddress,
-            userAgent,
-            signatureMethod: 'API', // Using API method for debug auto-signatures
-          },
-        });
-        autoSignedSecondParty = true;
-        console.warn(
-          `🔧 DEBUG MODE: Auto-created second signature for same user as ${otherParty}`
-        );
-      }
+      // (We just created the first signature above, so we know no second signature exists)
+      await prisma.signature.create({
+        data: {
+          userId,
+          contractId: id,
+          ipAddress,
+          userAgent,
+          signatureMethod, // Use the same signature method as the first signature
+        },
+      });
+      autoSignedSecondParty = true;
+      console.warn(
+        `🔧 DEBUG MODE: Auto-created second signature for same user as ${otherParty}`
+      );
     }
 
     // Check if both parties have signed
