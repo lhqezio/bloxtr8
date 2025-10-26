@@ -124,7 +124,7 @@ export async function executeContract(contractId: string): Promise<{
     const debugMode = isDebugMode();
     const sameUser = contract.offer.buyerId === contract.offer.sellerId;
 
-    if (debugMode) {
+    if (debugMode && sameUser) {
       console.warn(
         `🔧 DEBUG MODE: Skipping real payment processing for contract ${contractId}`
       );
