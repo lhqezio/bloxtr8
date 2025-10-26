@@ -330,16 +330,24 @@ async function createPDF(
         const watermarkX = (pageWidth - watermarkWidth) / 2;
         const watermarkY = pageHeight / 2;
 
-        // Draw watermark with transparency
-        currentPage.drawText(watermarkText, {
+        // Draw watermark with transparency using graphics state
+        // pdf-lib doesn't support opacity directly in drawText, so we use graphics state
+        const watermarkGState = pdfDoc.context.obj({
+          Type: 'ExtGState',
+          ca: 0.2, // Fill alpha (transparency)
+        });
+        const watermarkGStateKey = pdfDoc.context.register(watermarkGState);
+
+        // Use type assertion to work around outdated TypeScript definitions
+        const drawOptions: any = {
           x: watermarkX,
           y: watermarkY,
           size: 32,
           font: boldFont,
           color: rgb(1, 0.7, 0), // Orange color
-          opacity: 0.2,
-          // Note: pdf-lib doesn't support rotation in drawText, so we'll just center it
-        });
+          graphicsState: watermarkGStateKey,
+        };
+        currentPage.drawText(watermarkText, drawOptions);
       }
     }
   }
