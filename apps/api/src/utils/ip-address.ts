@@ -45,4 +45,3 @@ export function getClientIpAddress(req: Request): string {
 
   return 'unknown';
 }
-

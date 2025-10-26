@@ -364,7 +364,10 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
         await createExecutionJob(id);
         console.log(`Execution job created for contract ${id}`);
       } catch (error) {
-        console.error(`Failed to create execution job for contract ${id}:`, error);
+        console.error(
+          `Failed to create execution job for contract ${id}:`,
+          error
+        );
         // Continue anyway - the user should still be able to sign
       }
     }

@@ -82,7 +82,7 @@ export async function executeContract(contractId: string): Promise<{
 
       try {
         // Use transaction to ensure all-or-nothing cleanup
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async tx => {
           for (const escrow of contract.escrows) {
             // Delete rail-specific escrow records first
             if (escrow.rail === 'STRIPE') {

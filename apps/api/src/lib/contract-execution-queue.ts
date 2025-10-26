@@ -4,9 +4,7 @@ import { prisma } from '@bloxtr8/database';
  * Create a contract execution job in the database
  * This will be processed by the contract execution processor
  */
-export async function createExecutionJob(
-  contractId: string
-): Promise<string> {
+export async function createExecutionJob(contractId: string): Promise<string> {
   try {
     const job = await prisma.contractExecutionJob.create({
       data: {

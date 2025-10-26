@@ -181,10 +181,7 @@ export function initializeContractExecutionProcessor(): void {
           status: {
             in: ['PENDING', 'PROCESSING'],
           },
-          OR: [
-            { nextRetryAt: null },
-            { nextRetryAt: { lte: now } },
-          ],
+          OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }],
         },
         select: {
           id: true,

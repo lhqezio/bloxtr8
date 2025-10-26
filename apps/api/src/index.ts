@@ -8,8 +8,8 @@ import helmet from 'helmet';
 import pkg from 'pg';
 
 import { auth } from './lib/auth.js';
-import { validateEnvironment } from './lib/env-validation.js';
 import { initializeContractExecutionProcessor } from './lib/contract-execution-processor.js';
+import { validateEnvironment } from './lib/env-validation.js';
 import { initializeOfferExpiryJob } from './lib/offer-expiry.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
