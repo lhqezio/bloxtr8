@@ -21,6 +21,28 @@ jest.mock('@bloxtr8/database', () => {
       create: jest.fn(),
       findUnique: jest.fn(),
     },
+    escrow: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
+    },
+    stripeEscrow: {
+      create: jest.fn(),
+      deleteMany: jest.fn(),
+    },
+    stablecoinEscrow: {
+      create: jest.fn(),
+      deleteMany: jest.fn(),
+    },
+    milestoneEscrow: {
+      create: jest.fn(),
+      deleteMany: jest.fn(),
+    },
+    auditLog: {
+      create: jest.fn(),
+    },
   };
 
   return {
@@ -362,6 +384,167 @@ describe('Contract API Routes', () => {
         .expect(403);
 
       expect(response.body.detail).toContain('not authorized');
+    });
+  });
+
+  describe('POST /api/contracts/:id/retry-execution', () => {
+    it('should successfully retry execution for EXECUTION_FAILED contract', async () => {
+      const mockContract = {
+        id: 'contract-123',
+        status: 'EXECUTION_FAILED',
+        offer: {
+          buyerId: 'buyer-123',
+          sellerId: 'seller-123',
+        },
+        signatures: [
+          { userId: 'buyer-123' },
+          { userId: 'seller-123' },
+        ],
+        escrows: [],
+      };
+
+      (prisma.contract.findUnique as jest.Mock).mockResolvedValue(mockContract);
+      (prisma.contract.update as jest.Mock).mockResolvedValue({
+        id: 'contract-123',
+        status: 'EXECUTED',
+      });
+
+      // Import executeContract after mocks
+      const { executeContract } = await import('../lib/contract-execution.js');
+      jest.mocked(executeContract).mockResolvedValue({
+        success: true,
+        escrowId: 'escrow-123',
+      });
+
+      const response = await request(app)
+        .post('/api/contracts/contract-123/retry-execution')
+        .send({ userId: 'buyer-123' })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('contractStatus', 'EXECUTED');
+      expect(response.body).toHaveProperty('escrowId');
+    });
+
+    it('should clean up existing escrows before retry', async () => {
+      const mockContract = {
+        id: 'contract-123',
+        status: 'EXECUTION_FAILED',
+        offer: {
+          buyerId: 'buyer-123',
+          sellerId: 'seller-123',
+        },
+        signatures: [
+          { userId: 'buyer-123' },
+          { userId: 'seller-123' },
+        ],
+        escrows: [
+          { id: 'escrow-123', rail: 'STRIPE' },
+        ],
+      };
+
+      (prisma.contract.findUnique as jest.Mock).mockResolvedValue(mockContract);
+      (prisma.contract.update as jest.Mock).mockResolvedValue({
+        id: 'contract-123',
+        status: 'EXECUTED',
+      });
+
+      const { executeContract } = await import('../lib/contract-execution.js');
+      jest.mocked(executeContract).mockResolvedValue({
+        success: true,
+        escrowId: 'escrow-456',
+      });
+
+      const response = await request(app)
+        .post('/api/contracts/contract-123/retry-execution')
+        .send({ userId: 'buyer-123' })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(prisma.stripeEscrow.deleteMany).toHaveBeenCalled();
+      expect(prisma.escrow.delete).toHaveBeenCalled();
+    });
+
+    it('should reject retry for non-EXECUTION_FAILED contracts', async () => {
+      const mockContract = {
+        id: 'contract-123',
+        status: 'PENDING_SIGNATURE',
+        offer: {
+          buyerId: 'buyer-123',
+          sellerId: 'seller-123',
+        },
+        signatures: [
+          { userId: 'buyer-123' },
+          { userId: 'seller-123' },
+        ],
+        escrows: [],
+      };
+
+      (prisma.contract.findUnique as jest.Mock).mockResolvedValue(mockContract);
+
+      const response = await request(app)
+        .post('/api/contracts/contract-123/retry-execution')
+        .send({ userId: 'buyer-123' })
+        .expect(400);
+
+      expect(response.body.detail).toContain('EXECUTION_FAILED');
+    });
+
+    it('should reject retry for unauthorized user', async () => {
+      const mockContract = {
+        id: 'contract-123',
+        status: 'EXECUTION_FAILED',
+        offer: {
+          buyerId: 'buyer-123',
+          sellerId: 'seller-123',
+        },
+        signatures: [
+          { userId: 'buyer-123' },
+          { userId: 'seller-123' },
+        ],
+        escrows: [],
+      };
+
+      (prisma.contract.findUnique as jest.Mock).mockResolvedValue(mockContract);
+
+      const response = await request(app)
+        .post('/api/contracts/contract-123/retry-execution')
+        .send({ userId: 'unauthorized-user' })
+        .expect(403);
+
+      expect(response.body.detail).toContain('not authorized');
+    });
+
+    it('should handle retry failure gracefully', async () => {
+      const mockContract = {
+        id: 'contract-123',
+        status: 'EXECUTION_FAILED',
+        offer: {
+          buyerId: 'buyer-123',
+          sellerId: 'seller-123',
+        },
+        signatures: [
+          { userId: 'buyer-123' },
+          { userId: 'seller-123' },
+        ],
+        escrows: [],
+      };
+
+      (prisma.contract.findUnique as jest.Mock).mockResolvedValue(mockContract);
+
+      const { executeContract } = await import('../lib/contract-execution.js');
+      jest.mocked(executeContract).mockResolvedValue({
+        success: false,
+        error: 'Failed to create escrow',
+      });
+
+      const response = await request(app)
+        .post('/api/contracts/contract-123/retry-execution')
+        .send({ userId: 'buyer-123' })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', false);
+      expect(response.body).toHaveProperty('contractStatus', 'EXECUTION_FAILED');
     });
   });
 });

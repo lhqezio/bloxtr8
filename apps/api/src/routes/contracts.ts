@@ -606,4 +606,153 @@ router.post('/contracts/validate-token', async (req, res, next) => {
   }
 });
 
+// Retry contract execution for EXECUTION_FAILED contracts
+router.post('/contracts/:id/retry-execution', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      throw new AppError('User ID is required', 400);
+    }
+
+    // Fetch contract with offer details
+    const contract = await prisma.contract.findUnique({
+      where: { id },
+      include: {
+        offer: true,
+        signatures: true,
+        escrows: true,
+      },
+    });
+
+    if (!contract) {
+      throw new AppError('Contract not found', 404);
+    }
+
+    // Verify user is buyer or seller
+    if (
+      userId !== contract.offer.buyerId &&
+      userId !== contract.offer.sellerId
+    ) {
+      throw new AppError(
+        'User is not authorized to retry contract execution',
+        403
+      );
+    }
+
+    // Verify contract status is EXECUTION_FAILED
+    if (contract.status !== 'EXECUTION_FAILED') {
+      throw new AppError(
+        'Contract execution can only be retried for EXECUTION_FAILED contracts',
+        400
+      );
+    }
+
+    // Verify both parties have signed
+    const buyerSignature = contract.signatures.find(
+      sig => sig.userId === contract.offer.buyerId
+    );
+    const sellerSignature = contract.signatures.find(
+      sig => sig.userId === contract.offer.sellerId
+    );
+
+    if (!buyerSignature || !sellerSignature) {
+      throw new AppError(
+        'Both parties must have signed before retrying execution',
+        400
+      );
+    }
+
+    // Clean up any partial escrows from previous failed execution
+    if (contract.escrows.length > 0) {
+      console.log(
+        `Cleaning up ${contract.escrows.length} existing escrow(s) before retry`
+      );
+      
+      for (const escrow of contract.escrows) {
+        try {
+          // Delete rail-specific escrow records first
+          if (escrow.rail === 'STRIPE') {
+            await prisma.stripeEscrow.deleteMany({
+              where: { escrowId: escrow.id },
+            });
+          } else if (escrow.rail === 'USDC_BASE') {
+            await prisma.stablecoinEscrow.deleteMany({
+              where: { escrowId: escrow.id },
+            });
+          }
+
+          // Delete milestone escrows if any
+          await prisma.milestoneEscrow.deleteMany({
+            where: { escrowId: escrow.id },
+          });
+
+          // Delete the escrow
+          await prisma.escrow.delete({
+            where: { id: escrow.id },
+          });
+
+          console.log(`Deleted escrow ${escrow.id}`);
+        } catch (cleanupError) {
+          console.error(`Failed to cleanup escrow ${escrow.id}:`, cleanupError);
+          // Continue with cleanup attempt
+        }
+      }
+    }
+
+    // Retry contract execution
+    try {
+      const executionResult = await executeContract(id);
+
+      if (executionResult.success) {
+        // Update contract status to EXECUTED
+        await prisma.contract.update({
+          where: { id },
+          data: {
+            status: 'EXECUTED',
+          },
+        });
+
+        res.json({
+          success: true,
+          contractStatus: 'EXECUTED',
+          escrowId: executionResult.escrowId,
+          message: 'Contract execution retry successful',
+        });
+      } else {
+        // Keep status as EXECUTION_FAILED
+        res.json({
+          success: false,
+          contractStatus: 'EXECUTION_FAILED',
+          error: executionResult.error,
+          message: 'Contract execution retry failed',
+        });
+      }
+    } catch (executionError) {
+      console.error('Error retrying contract execution:', executionError);
+      
+      // Ensure status stays as EXECUTION_FAILED
+      await prisma.contract.update({
+        where: { id },
+        data: {
+          status: 'EXECUTION_FAILED',
+        },
+      });
+
+      res.status(500).json({
+        success: false,
+        contractStatus: 'EXECUTION_FAILED',
+        error:
+          executionError instanceof Error
+            ? executionError.message
+            : 'Unknown error',
+        message: 'Contract execution retry failed',
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
