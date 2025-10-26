@@ -86,7 +86,15 @@ export async function handleContractView(
     const embed = new EmbedBuilder()
       .setTitle('📄 Your Contract')
       .setDescription(`Contract ID: \`${contractId}\``)
-      .setColor(contract.status === 'EXECUTED' ? 0x10b981 : 0xfbbf24)
+      .setColor(
+        contract.status === 'EXECUTED'
+          ? 0x10b981
+          : contract.status === 'EXECUTION_FAILED'
+            ? 0xef4444
+            : contract.status === 'VOID'
+              ? 0x6b7280
+              : 0xfbbf24
+      )
       .addFields(
         {
           name: '📦 Asset',
@@ -122,9 +130,11 @@ export async function handleContractView(
           value:
             contract.status === 'EXECUTED'
               ? '✅ Fully Executed'
-              : contract.status === 'VOID'
-                ? '❌ Void'
-                : '⏳ Pending Signatures',
+              : contract.status === 'EXECUTION_FAILED'
+                ? '❌ Execution Failed'
+                : contract.status === 'VOID'
+                  ? '❌ Void'
+                  : '⏳ Pending Signatures',
           inline: true,
         }
       );

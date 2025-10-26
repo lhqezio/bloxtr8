@@ -231,7 +231,15 @@ export function createContractSummaryEmbed(contractData: {
   const embed = new EmbedBuilder()
     .setTitle('📄 Contract Summary')
     .setDescription(`Contract ID: \`${contractData.contractId}\``)
-    .setColor(contractData.status === 'EXECUTED' ? 0x10b981 : 0xfbbf24)
+    .setColor(
+      contractData.status === 'EXECUTED'
+        ? 0x10b981
+        : contractData.status === 'EXECUTION_FAILED'
+          ? 0xef4444
+          : contractData.status === 'VOID'
+            ? 0x6b7280
+            : 0xfbbf24
+    )
     .addFields(
       {
         name: '📦 Asset',
@@ -263,7 +271,11 @@ export function createContractSummaryEmbed(contractData: {
         value:
           contractData.status === 'EXECUTED'
             ? '✅ Executed'
-            : '⏳ Pending Signatures',
+            : contractData.status === 'EXECUTION_FAILED'
+              ? '❌ Execution Failed'
+              : contractData.status === 'VOID'
+                ? '❌ Void'
+                : '⏳ Pending Signatures',
         inline: true,
       }
     );
