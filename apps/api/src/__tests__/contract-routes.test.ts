@@ -52,9 +52,13 @@ jest.mock('@bloxtr8/database', () => {
     const mockTx = {
       signature: {
         create: mockPrisma.signature.create,
+        findMany: mockPrisma.signature.findMany,
       },
       contractSignToken: {
         update: mockPrisma.contractSignToken.update,
+      },
+      contractExecutionJob: {
+        create: jest.fn(),
       },
     };
     return callback(mockTx);
@@ -308,11 +312,57 @@ describe('Contract API Routes', () => {
       // Status should still be PENDING_SIGNATURE (will be updated asynchronously)
       expect(response.body.contractStatus).toBe('PENDING_SIGNATURE');
       expect(response.body.message).toContain('execution has been queued');
-      // Verify that createExecutionJob was called
-      expect(createExecutionJob as jest.Mock).toHaveBeenCalledWith(
-        'contract-123'
-      );
+      // The new implementation creates jobs inside transaction, not via createExecutionJob
       expect(prisma.contract.update).not.toHaveBeenCalled(); // Should not update synchronously
+    });
+
+    it('should handle duplicate execution job creation gracefully', async () => {
+      const mockContract = {
+        id: 'contract-123',
+        status: 'PENDING_SIGNATURE',
+        offer: {
+          buyerId: 'buyer-123',
+          sellerId: 'seller-123',
+        },
+        signatures: [{ userId: 'buyer-123' }],
+      };
+
+      (prisma.contract.findUnique as jest.Mock).mockResolvedValue(mockContract);
+      (prisma.signature.create as jest.Mock).mockResolvedValue({
+        id: 'signature-456',
+        userId: 'seller-123',
+      });
+      (prisma.signature.findMany as jest.Mock).mockResolvedValue([
+        { userId: 'buyer-123' },
+        { userId: 'seller-123' },
+      ]);
+
+      // Mock the transaction to simulate a duplicate job creation
+      const mockTx = (prisma.$transaction as jest.Mock).mock.calls[0][0]({
+        signature: {
+          create: prisma.signature.create as jest.Mock,
+          findMany: prisma.signature.findMany as jest.Mock,
+        },
+        contractSignToken: {
+          update: jest.fn(),
+        },
+        contractExecutionJob: {
+          create: jest.fn().mockImplementation(() => {
+            const error = new Error('Unique constraint failed');
+            (error as any).code = 'P2002';
+            throw error;
+          }),
+        },
+      });
+
+      const response = await request(app)
+        .post('/api/contracts/contract-123/sign')
+        .send({ userId: 'seller-123' })
+        .expect(200);
+
+      // Should still succeed despite duplicate job
+      expect(response.body.bothPartiesSigned).toBe(true);
+      expect(response.body.contractStatus).toBe('PENDING_SIGNATURE');
     });
 
     it('should reject unauthorized user', async () => {

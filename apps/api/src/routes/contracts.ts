@@ -345,8 +345,9 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
     const debugMode = isDebugMode();
     const sameUser = contract.offer.buyerId === contract.offer.sellerId;
     let autoSignedSecondParty = false;
+    let bothSigned = false;
 
-    // Wrap signature creation(s) and token usage in a transaction to ensure atomicity
+    // Wrap signature creation, token usage, and execution job creation in a transaction to ensure atomicity
     const signature = await prisma.$transaction(async tx => {
       // Create first signature
       const firstSignature = await tx.signature.create({
@@ -367,58 +368,59 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
         });
       }
 
-      // DEBUG MODE: Auto-sign for same user scenario
+      // Check if both parties will have signed after this signature is added
+      // In debug mode with same user, we can determine bothSigned without querying
       if (debugMode && sameUser) {
-        // If same user, they need to sign as both buyer and seller
-        // In debug mode, we treat the single signature as sufficient
-        const otherParty =
-          userId === contract.offer.buyerId ? 'seller' : 'buyer';
-
-        // Set flag without creating duplicate signature (would violate unique constraint)
+        // In debug mode with same user, treat single signature as both parties
         autoSignedSecondParty = true;
+        bothSigned = true;
         console.warn(
-          `🔧 DEBUG MODE: Treating single signature as both parties for same user (${otherParty})`
+          `🔧 DEBUG MODE: Treating single signature as both parties for same user`
         );
+      } else {
+        // Normal case: Check if both parties have signed by querying all signatures
+        const allSignatures = await tx.signature.findMany({
+          where: { contractId: id },
+        });
+
+        bothSigned =
+          allSignatures.some(sig => sig.userId === contract.offer.buyerId) &&
+          allSignatures.some(sig => sig.userId === contract.offer.sellerId);
+      }
+
+      // Create execution job atomically if both parties have signed
+      if (bothSigned) {
+        console.log(
+          `Contract ${id} has both signatures. Creating execution job...`
+        );
+        try {
+          // Try to create execution job - will fail gracefully if it already exists due to unique constraint
+          await tx.contractExecutionJob.create({
+            data: {
+              contractId: id,
+              status: 'PENDING',
+              nextRetryAt: new Date(),
+            },
+          });
+          console.log(`Execution job created for contract ${id}`);
+        } catch (error: any) {
+          // If job already exists (unique constraint violation), that's fine
+          if (error.code === 'P2002') {
+            console.log(
+              `Execution job already exists for contract ${id} (race condition handled)`
+            );
+          } else {
+            console.error(
+              `Failed to create execution job for contract ${id}:`,
+              error
+            );
+            // Continue anyway - the user should still be able to sign
+          }
+        }
       }
 
       return firstSignature;
     });
-
-    // Check if both parties have signed
-    // In debug mode with same user, we can determine bothSigned without querying
-    // since we treat the single signature as representing both parties
-    let bothSigned = false;
-
-    if (debugMode && sameUser && autoSignedSecondParty) {
-      // In debug mode with same user, treat single signature as both parties
-      bothSigned = true;
-    } else {
-      // Normal case: query the database to check if both parties have signed
-      const allSignatures = await prisma.signature.findMany({
-        where: { contractId: id },
-      });
-
-      bothSigned =
-        allSignatures.some(sig => sig.userId === contract.offer.buyerId) &&
-        allSignatures.some(sig => sig.userId === contract.offer.sellerId);
-    }
-
-    // Create execution job if both parties have signed
-    if (bothSigned) {
-      console.log(
-        `Contract ${id} has both signatures. Creating execution job...`
-      );
-      try {
-        await createExecutionJob(id);
-        console.log(`Execution job created for contract ${id}`);
-      } catch (error) {
-        console.error(
-          `Failed to create execution job for contract ${id}:`,
-          error
-        );
-        // Continue anyway - the user should still be able to sign
-      }
-    }
 
     // Respond immediately with the signature details
     res.json({

@@ -19,7 +19,19 @@ export async function createExecutionJob(contractId: string): Promise<string> {
     );
 
     return job.id;
-  } catch (error) {
+  } catch (error: any) {
+    // Handle duplicate key error gracefully (P2002 is Prisma's unique constraint violation code)
+    if (error.code === 'P2002') {
+      console.log(
+        `[Contract Execution Queue] Execution job already exists for contract ${contractId}`
+      );
+      // Find and return existing job
+      const existingJob = await prisma.contractExecutionJob.findFirst({
+        where: { contractId },
+      });
+      return existingJob!.id;
+    }
+
     console.error(
       `[Contract Execution Queue] Failed to create execution job for contract ${contractId}:`,
       error
