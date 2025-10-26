@@ -370,24 +370,14 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
       // DEBUG MODE: Auto-sign for same user scenario
       if (debugMode && sameUser) {
         // If same user, they need to sign as both buyer and seller
-        // Create a second signature for the same user acting as the other party
+        // In debug mode, we treat the single signature as sufficient
         const otherParty =
           userId === contract.offer.buyerId ? 'seller' : 'buyer';
 
-        // Only create second signature if signing for the first time
-        // (We just created the first signature above, so we know no second signature exists)
-        await tx.signature.create({
-          data: {
-            userId,
-            contractId: id,
-            ipAddress,
-            userAgent,
-            signatureMethod, // Use the same signature method as the first signature
-          },
-        });
+        // Set flag without creating duplicate signature (would violate unique constraint)
         autoSignedSecondParty = true;
         console.warn(
-          `🔧 DEBUG MODE: Auto-created second signature for same user as ${otherParty}`
+          `🔧 DEBUG MODE: Treating single signature as both parties for same user (${otherParty})`
         );
       }
 
@@ -396,11 +386,11 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
 
     // Check if both parties have signed
     // In debug mode with same user, we can determine bothSigned without querying
-    // since we created both signatures in this transaction
+    // since we treat the single signature as representing both parties
     let bothSigned = false;
 
     if (debugMode && sameUser && autoSignedSecondParty) {
-      // Both signatures were created in this transaction, so both parties have signed
+      // In debug mode with same user, treat single signature as both parties
       bothSigned = true;
     } else {
       // Normal case: query the database to check if both parties have signed
@@ -437,7 +427,7 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
       bothPartiesSigned: bothSigned,
       debugMode: debugMode && sameUser,
       message: autoSignedSecondParty
-        ? '🔧 DEBUG MODE: Both signatures auto-created for same user'
+        ? '🔧 DEBUG MODE: Single signature treated as both parties for same user'
         : bothSigned
           ? 'Contract execution has been queued and will be processed shortly'
           : 'Waiting for counterparty signature',
