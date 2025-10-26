@@ -341,51 +341,58 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
       }
     }
 
-    // Create signature
-    const signature = await prisma.signature.create({
-      data: {
-        userId,
-        contractId: id,
-        ipAddress,
-        userAgent,
-        signatureMethod,
-      },
-    });
-
-    // Mark token as used AFTER signature is successfully created
-    if (token && signatureMethod === 'WEB_BASED') {
-      await prisma.contractSignToken.update({
-        where: { token },
-        data: { usedAt: new Date() },
-      });
-    }
-
     // DEBUG MODE: Auto-sign for same user scenario
     const debugMode = isDebugMode();
     const sameUser = contract.offer.buyerId === contract.offer.sellerId;
     let autoSignedSecondParty = false;
 
-    if (debugMode && sameUser) {
-      // If same user, they need to sign as both buyer and seller
-      // Create a second signature for the same user acting as the other party
-      const otherParty = userId === contract.offer.buyerId ? 'seller' : 'buyer';
-
-      // Only create second signature if signing for the first time
-      // (We just created the first signature above, so we know no second signature exists)
-      await prisma.signature.create({
+    // Wrap signature creation(s) and token usage in a transaction to ensure atomicity
+    const signature = await prisma.$transaction(async tx => {
+      // Create first signature
+      const firstSignature = await tx.signature.create({
         data: {
           userId,
           contractId: id,
           ipAddress,
           userAgent,
-          signatureMethod, // Use the same signature method as the first signature
+          signatureMethod,
         },
       });
-      autoSignedSecondParty = true;
-      console.warn(
-        `🔧 DEBUG MODE: Auto-created second signature for same user as ${otherParty}`
-      );
-    }
+
+      // Mark token as used in the same transaction (if using web-based signing)
+      if (token && signatureMethod === 'WEB_BASED') {
+        await tx.contractSignToken.update({
+          where: { token },
+          data: { usedAt: new Date() },
+        });
+      }
+
+      // DEBUG MODE: Auto-sign for same user scenario
+      if (debugMode && sameUser) {
+        // If same user, they need to sign as both buyer and seller
+        // Create a second signature for the same user acting as the other party
+        const otherParty =
+          userId === contract.offer.buyerId ? 'seller' : 'buyer';
+
+        // Only create second signature if signing for the first time
+        // (We just created the first signature above, so we know no second signature exists)
+        await tx.signature.create({
+          data: {
+            userId,
+            contractId: id,
+            ipAddress,
+            userAgent,
+            signatureMethod, // Use the same signature method as the first signature
+          },
+        });
+        autoSignedSecondParty = true;
+        console.warn(
+          `🔧 DEBUG MODE: Auto-created second signature for same user as ${otherParty}`
+        );
+      }
+
+      return firstSignature;
+    });
 
     // Check if both parties have signed
     // In debug mode with same user, we can determine bothSigned without querying
