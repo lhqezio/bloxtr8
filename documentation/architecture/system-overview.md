@@ -264,7 +264,102 @@ GameVerificationService → Store metadata + game details
 API ← Verification result with game details
 ```
 
-### 5. Payment Escrow Flow (Stripe)
+### 5. Contract Generation & Signing Flow
+
+```
+Offer ACCEPTED
+    ↓
+POST /api/contracts/generate
+    ↓
+API → Fetch offer + listing + parties + Roblox snapshots
+    ↓
+API → Generate PDF contract with all details
+    ↓
+API → Upload PDF to S3
+    ↓
+API → Calculate SHA-256 hash for integrity verification
+    ↓
+API → Create Contract (status: PENDING_SIGNATURE)
+    ↓
+API → Store robloxAssetData JSON snapshot
+    ↓
+Discord Bot → Send contract notifications to both parties
+    ↓
+Users receive DMs with buttons:
+  - ✍️ Quick Sign (Discord native)
+  - 🌐 Web Sign (magic link)
+  - 📄 Review Contract (download PDF)
+```
+
+**Quick Sign Flow (Discord Native)**:
+
+```
+User → Clicks "Quick Sign" button
+    ↓
+Bot → Show confirmation modal
+    ↓
+User → Types "I AGREE" to confirm
+    ↓
+POST /api/contracts/:id/sign
+  { userId, signatureMethod: "DISCORD_NATIVE", ipAddress, userAgent }
+    ↓
+API → Create Signature record with metadata
+    ↓
+API → Check if both parties signed
+    ↓
+If both signed → Update Contract.status = EXECUTED
+    ↓
+Notify both parties → Proceed to escrow
+```
+
+**Web Sign Flow**:
+
+```
+User → Clicks "Web Sign" button
+    ↓
+POST /api/contracts/:id/sign-token
+    ↓
+API → Generate secure token (32 bytes, 15min expiry)
+    ↓
+API → Create magic link: /contract/:id/sign?token=...
+    ↓
+User → Opens link in browser
+    ↓
+Web App → Validates token (checks expiry, single-use)
+    ↓
+Web App → Displays contract preview
+    ↓
+User → Confirms signature
+    ↓
+POST /api/contracts/:id/sign
+  { userId, signatureMethod: "WEB_BASED", ipAddress, userAgent }
+    ↓
+API → Create Signature record
+    ↓
+API → Clean up used token
+    ↓
+If both signed → Contract EXECUTED
+    ↓
+Web App → Show success page
+    ↓
+Discord Bot → Send confirmation DM
+```
+
+**Signature Metadata Captured**:
+
+- User ID and contract ID
+- Timestamp (signedAt)
+- IP address and user agent (audit trail)
+- Signature method (DISCORD_NATIVE or WEB_BASED)
+- Immutable once recorded
+
+**Contract States**:
+
+- `PENDING_SIGNATURE`: Awaiting one or both signatures
+- `EXECUTED`: Both parties signed, proceeds to escrow
+- `VOID`: Contract cancelled or expired
+
+### 6. Payment Escrow Flow (Stripe)
 
 ```
 Offer accepted → Create Contract
