@@ -82,79 +82,101 @@ router.post('/contracts/generate', async (req, res, next) => {
       },
     });
 
-    // Prepare Roblox asset data from snapshot
-    const robloxSnapshot = offer.listing.robloxSnapshots[0];
-    const robloxData = robloxSnapshot
-      ? {
-          gameId: robloxSnapshot.gameId,
-          gameName: robloxSnapshot.gameName,
-          gameDescription: robloxSnapshot.gameDescription || undefined,
-          thumbnailUrl: robloxSnapshot.thumbnailUrl || undefined,
-          playerCount: robloxSnapshot.playerCount || undefined,
-          visits: robloxSnapshot.visits || undefined,
-          verifiedOwnership: robloxSnapshot.verifiedOwnership,
-          ownershipType: robloxSnapshot.ownershipType,
-          verificationDate: robloxSnapshot.verificationDate || undefined,
-        }
-      : undefined;
+    try {
+      // Prepare Roblox asset data from snapshot
+      const robloxSnapshot = offer.listing.robloxSnapshots[0];
+      const robloxData = robloxSnapshot
+        ? {
+            gameId: robloxSnapshot.gameId,
+            gameName: robloxSnapshot.gameName,
+            gameDescription: robloxSnapshot.gameDescription || undefined,
+            thumbnailUrl: robloxSnapshot.thumbnailUrl || undefined,
+            playerCount: robloxSnapshot.playerCount || undefined,
+            visits: robloxSnapshot.visits || undefined,
+            verifiedOwnership: robloxSnapshot.verifiedOwnership,
+            ownershipType: robloxSnapshot.ownershipType,
+            verificationDate: robloxSnapshot.verificationDate || undefined,
+          }
+        : undefined;
 
-    // Generate PDF
-    const result = await generateContract({
-      contractId: contract.id,
-      offerId: offer.id,
-      listingId: offer.listing.id,
-      seller: {
-        id: offer.seller.id,
-        name: offer.seller.name || 'User ' + offer.seller.id,
-        email: offer.seller.email,
-        kycTier: offer.seller.kycTier,
-        robloxAccountId: offer.seller.accounts[0]?.accountId,
-      },
-      buyer: {
-        id: offer.buyer.id,
-        name: offer.buyer.name || 'User ' + offer.buyer.id,
-        email: offer.buyer.email,
-        kycTier: offer.buyer.kycTier,
-        robloxAccountId: offer.buyer.accounts[0]?.accountId,
-      },
-      asset: {
-        title: offer.listing.title,
-        description: offer.listing.summary,
-        category: offer.listing.category,
-        robloxData,
-      },
-      financial: {
-        amountCents: offer.amount,
-        currency: offer.currency,
-      },
-      offer: {
-        id: offer.id,
-        conditions: offer.conditions || undefined,
-        acceptedAt: offer.updatedAt,
-      },
-    });
+      // Generate PDF
+      const result = await generateContract({
+        contractId: contract.id,
+        offerId: offer.id,
+        listingId: offer.listing.id,
+        seller: {
+          id: offer.seller.id,
+          name: offer.seller.name || 'User ' + offer.seller.id,
+          email: offer.seller.email,
+          kycTier: offer.seller.kycTier,
+          robloxAccountId: offer.seller.accounts[0]?.accountId,
+        },
+        buyer: {
+          id: offer.buyer.id,
+          name: offer.buyer.name || 'User ' + offer.buyer.id,
+          email: offer.buyer.email,
+          kycTier: offer.buyer.kycTier,
+          robloxAccountId: offer.buyer.accounts[0]?.accountId,
+        },
+        asset: {
+          title: offer.listing.title,
+          description: offer.listing.summary,
+          category: offer.listing.category,
+          robloxData,
+        },
+        financial: {
+          amountCents: offer.amount,
+          currency: offer.currency,
+        },
+        offer: {
+          id: offer.id,
+          conditions: offer.conditions || undefined,
+          acceptedAt: offer.updatedAt,
+        },
+      });
 
-    if (!result.success) {
-      throw new AppError(`Failed to generate contract: ${result.error}`, 500);
+      if (!result.success) {
+        // Clean up the contract record since PDF generation failed
+        await prisma.contract.delete({
+          where: { id: contract.id },
+        });
+        throw new AppError(`Failed to generate contract: ${result.error}`, 500);
+      }
+
+      // Update contract with PDF details
+      const updatedContract = await prisma.contract.update({
+        where: { id: contract.id },
+        data: {
+          pdfUrl: result.pdfUrl,
+          sha256: result.sha256,
+          templateVersion: result.templateVersion,
+          robloxAssetData: robloxData as any,
+        },
+      });
+
+      res.json({
+        contractId: updatedContract.id,
+        status: updatedContract.status,
+        pdfUrl: updatedContract.pdfUrl,
+        sha256: updatedContract.sha256,
+      });
+    } catch (pdfError) {
+      // Clean up the contract record if PDF generation fails
+      try {
+        await prisma.contract.delete({
+          where: { id: contract.id },
+        });
+      } catch (cleanupError) {
+        console.error('Failed to clean up contract record:', cleanupError);
+        // Continue to throw the original error
+      }
+      
+      // Re-throw the original error or wrap it
+      if (pdfError instanceof AppError) {
+        throw pdfError;
+      }
+      throw new AppError(`Failed to generate contract: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`, 500);
     }
-
-    // Update contract with PDF details
-    const updatedContract = await prisma.contract.update({
-      where: { id: contract.id },
-      data: {
-        pdfUrl: result.pdfUrl,
-        sha256: result.sha256,
-        templateVersion: result.templateVersion,
-        robloxAssetData: robloxData as any,
-      },
-    });
-
-    res.json({
-      contractId: updatedContract.id,
-      status: updatedContract.status,
-      pdfUrl: updatedContract.pdfUrl,
-      sha256: updatedContract.sha256,
-    });
   } catch (error) {
     next(error);
   }

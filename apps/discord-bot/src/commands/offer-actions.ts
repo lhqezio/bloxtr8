@@ -586,23 +586,85 @@ export async function handleConfirmAcceptOffer(
         console.log(
           `Contract generated successfully: ${contractResult.data.contractId}`
         );
-
-        // Get offer data to send notifications (we'll fetch from API to get all details)
-        // Note: In a production system, we might want to fetch the full offer details
-        // including buyer/seller Discord IDs to send proper notifications
-        // For now, we'll log success and rely on a notification service to pick this up
         console.log(`Contract ready for signatures: ${contractResult.data.pdfUrl}`);
       } else {
         console.error(
           `Failed to generate contract for offer ${offerId}:`,
           contractResult.error.message
         );
-        // Don't fail the whole operation if contract generation fails
-        // The contract can be generated manually later if needed
+        
+        // Update success embed to inform user about contract generation failure
+        const updatedEmbed = new EmbedBuilder()
+          .setTitle('⚠️ Offer Accepted - Contract Generation Failed')
+          .setDescription(
+            '**Offer Status:** Accepted ✅\n**Contract Status:** Failed ❌\n\n' +
+            'The offer has been accepted, but there was an issue creating the contract PDF. ' +
+            'Please contact support for assistance.'
+          )
+          .setColor(0xf59e0b)
+          .addFields(
+            {
+              name: '🆔 Offer ID',
+              value: offerId,
+              inline: true,
+            },
+            {
+              name: '⚠️ Action Required',
+              value: 'A contract must be generated before proceeding with the sale. Please reach out to support to resolve this issue.',
+              inline: false,
+            },
+            {
+              name: '📞 Support',
+              value: 'Contact the Bloxtr8 team immediately to prevent delays.',
+              inline: false,
+            }
+          )
+          .setFooter({
+            text: 'Bloxtr8 - Support Needed',
+          })
+          .setTimestamp();
+
+        await interaction.editReply({
+          embeds: [updatedEmbed],
+        });
       }
     } catch (contractError) {
       console.error('Error generating contract:', contractError);
-      // Continue execution - contract generation failure shouldn't block offer acceptance
+      
+      // Update success embed to inform user about contract generation failure
+      const updatedEmbed = new EmbedBuilder()
+        .setTitle('⚠️ Offer Accepted - Contract Generation Failed')
+        .setDescription(
+          '**Offer Status:** Accepted ✅\n**Contract Status:** Failed ❌\n\n' +
+          'The offer has been accepted, but an error occurred while creating the contract. ' +
+          'Please contact support for assistance.'
+        )
+        .setColor(0xf59e0b)
+        .addFields(
+          {
+            name: '🆔 Offer ID',
+            value: offerId,
+            inline: true,
+          },
+          {
+            name: '⚠️ Action Required',
+            value: 'A contract must be generated before proceeding with the sale. Please reach out to support to resolve this issue.',
+            inline: false,
+          },
+          {
+            name: '📞 Support',
+            value: 'Contact the Bloxtr8 team immediately to prevent delays.',
+            inline: false,
+          }
+        )
+        .setFooter({
+          text: 'Bloxtr8 - Support Needed',
+        })
+        .setTimestamp();
+
+      await interaction.editReply({
+        embeds: [updatedEmbed],
+      });
     }
   } catch (error) {
     console.error('Error in handleConfirmAcceptOffer:', error);
