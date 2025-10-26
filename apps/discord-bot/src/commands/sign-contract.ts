@@ -16,7 +16,11 @@ import {
   generateContractSignToken,
 } from '../utils/apiClient.js';
 import { verify } from '../utils/userVerification.js';
-import { createContractSummaryEmbed } from './contract-notifications.js';
+
+interface ContractSignature {
+  userId: string;
+  signedAt: string | Date;
+}
 
 /**
  * Handle quick sign button click
@@ -82,7 +86,7 @@ export async function handleQuickSignButton(
 
     // Check if already signed
     const userSignature = contract.signatures?.find(
-      (sig: any) => sig.userId === userData.user.id
+      (sig: ContractSignature) => sig.userId === userData.user.id
     );
 
     if (userSignature) {
@@ -131,8 +135,9 @@ export async function handleSignConfirmationModal(
 ): Promise<void> {
   try {
     const contractId = interaction.customId.replace('confirm_sign_', '');
-    const confirmation =
-      interaction.fields.getTextInputValue('confirmation').toUpperCase();
+    const confirmation = interaction.fields
+      .getTextInputValue('confirmation')
+      .toUpperCase();
 
     if (confirmation !== 'I AGREE') {
       await interaction.reply({
@@ -404,8 +409,7 @@ export async function handleWebSignButton(
       .addFields(
         {
           name: '🔒 Secure Link',
-          value:
-            'This link is valid for 15 minutes and can only be used once.',
+          value: 'This link is valid for 15 minutes and can only be used once.',
           inline: false,
         },
         {
@@ -437,6 +441,3 @@ export async function handleWebSignButton(
     }
   }
 }
-
-
-

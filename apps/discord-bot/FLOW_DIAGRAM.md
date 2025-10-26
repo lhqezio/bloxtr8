@@ -294,39 +294,39 @@ flowchart TD
     E --> F[Calculate SHA-256 hash]
     F --> G[Create Contract record]
     G --> H[Status: PENDING_SIGNATURE]
-    
+
     H --> I[Send DM to buyer]
     H --> J[Send DM to seller]
-    
+
     I --> K[Buyer sees contract notification]
     J --> L[Seller sees contract notification]
-    
+
     K --> M{Buyer chooses}
     L --> N{Seller chooses}
-    
+
     M -->|Quick Sign| O[Show modal: Type 'I AGREE']
     M -->|Web Sign| P[Generate magic link]
     M -->|Review| Q[Download PDF]
-    
+
     N -->|Quick Sign| O
     N -->|Web Sign| P
     N -->|Review| Q
-    
+
     O --> R[Confirm signature]
     P --> S[Open web app]
     Q --> T[User reviews PDF]
-    
+
     S --> U[Web: Contract signing page]
     U --> V[User confirms signature]
-    
+
     R --> W[POST /contracts/:id/sign]
     V --> W
-    
+
     W --> X{Both signed?}
-    
+
     X -->|NO| Y[Update: Waiting for other party]
     X -->|YES| Z[Status: EXECUTED]
-    
+
     Z --> AA[Notify both parties]
     Z --> AB[Proceed to escrow]
 ```
@@ -336,13 +336,13 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[Contract Ready] --> B{User Action}
-    
+
     B -->|Quick Sign| C[Click Sign button]
     C --> D[Show confirmation modal]
     D --> E[User types 'I AGREE']
     E --> F[Submit signature]
     F --> G[Method: DISCORD_NATIVE]
-    
+
     B -->|Web Sign| H[Click Web Sign button]
     H --> I[Generate magic link token]
     I --> J[Token expires in 15min]
@@ -351,21 +351,21 @@ flowchart TD
     L --> M[User confirms]
     M --> N[Submit signature]
     N --> O[Method: WEB_BASED]
-    
+
     B -->|Review| P[Click Review button]
     P --> Q[Get presigned PDF URL]
     Q --> R[Download contract]
     R --> S[User reviews locally]
     S --> T[Return to sign]
-    
+
     G --> U[Record signature metadata]
     O --> U
-    
+
     U --> V[Save: userId, timestamp]
     V --> W[Save: IP, user agent]
     W --> X[Save: signature method]
     X --> Y[Check both parties signed]
-    
+
     Y -->|YES| Z[Execute contract]
     Y -->|NO| AA[Wait for counterparty]
 ```
@@ -375,26 +375,26 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[User clicks 'Sign Contract'] --> B{Already signed?}
-    
+
     B -->|YES| C[Show: Already signed]
     B -->|NO| D{Authorized?}
-    
+
     D -->|NO| E[Error: Not authorized]
     D -->|YES| F[Show confirmation modal]
-    
+
     F --> G[Input: 'I AGREE']
     G --> H{Valid input?}
-    
+
     H -->|NO| I[Error: Must type 'I AGREE']
     H -->|YES| J[Submit to API]
-    
+
     J --> K[POST /contracts/:id/sign]
     K --> L[Record signature]
     L --> M{Both parties signed?}
-    
+
     M -->|NO| N[Show: Waiting for other party]
     M -->|YES| O[Show: Contract executed]
-    
+
     O --> P[Update contract status]
     P --> Q[Remove sign buttons]
     Q --> R[Notify both parties]

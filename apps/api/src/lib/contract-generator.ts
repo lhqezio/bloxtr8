@@ -1,7 +1,7 @@
 import crypto from 'crypto';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 import { uploadBuffer, getPublicUrl } from '@bloxtr8/storage';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 import type { ContractData } from '../templates/contract-terms.js';
 import {
@@ -351,6 +351,3 @@ export function getContractHash(contractId: string, pdfHash: string): string {
   hash.update(data);
   return hash.digest('hex');
 }
-
-
-

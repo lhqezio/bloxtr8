@@ -16,7 +16,6 @@ import {
   declineOffer,
   generateContract,
 } from '../utils/apiClient.js';
-import { sendContractSigningNotification } from './contract-notifications.js';
 import { verify } from '../utils/userVerification.js';
 
 /**
@@ -586,20 +585,22 @@ export async function handleConfirmAcceptOffer(
         console.log(
           `Contract generated successfully: ${contractResult.data.contractId}`
         );
-        console.log(`Contract ready for signatures: ${contractResult.data.pdfUrl}`);
+        console.log(
+          `Contract ready for signatures: ${contractResult.data.pdfUrl}`
+        );
       } else {
         console.error(
           `Failed to generate contract for offer ${offerId}:`,
           contractResult.error.message
         );
-        
+
         // Update success embed to inform user about contract generation failure
         const updatedEmbed = new EmbedBuilder()
           .setTitle('⚠️ Offer Accepted - Contract Generation Failed')
           .setDescription(
             '**Offer Status:** Accepted ✅\n**Contract Status:** Failed ❌\n\n' +
-            'The offer has been accepted, but there was an issue creating the contract PDF. ' +
-            'Please contact support for assistance.'
+              'The offer has been accepted, but there was an issue creating the contract PDF. ' +
+              'Please contact support for assistance.'
           )
           .setColor(0xf59e0b)
           .addFields(
@@ -610,7 +611,8 @@ export async function handleConfirmAcceptOffer(
             },
             {
               name: '⚠️ Action Required',
-              value: 'A contract must be generated before proceeding with the sale. Please reach out to support to resolve this issue.',
+              value:
+                'A contract must be generated before proceeding with the sale. Please reach out to support to resolve this issue.',
               inline: false,
             },
             {
@@ -630,14 +632,14 @@ export async function handleConfirmAcceptOffer(
       }
     } catch (contractError) {
       console.error('Error generating contract:', contractError);
-      
+
       // Update success embed to inform user about contract generation failure
       const updatedEmbed = new EmbedBuilder()
         .setTitle('⚠️ Offer Accepted - Contract Generation Failed')
         .setDescription(
           '**Offer Status:** Accepted ✅\n**Contract Status:** Failed ❌\n\n' +
-          'The offer has been accepted, but an error occurred while creating the contract. ' +
-          'Please contact support for assistance.'
+            'The offer has been accepted, but an error occurred while creating the contract. ' +
+            'Please contact support for assistance.'
         )
         .setColor(0xf59e0b)
         .addFields(
@@ -648,7 +650,8 @@ export async function handleConfirmAcceptOffer(
           },
           {
             name: '⚠️ Action Required',
-            value: 'A contract must be generated before proceeding with the sale. Please reach out to support to resolve this issue.',
+            value:
+              'A contract must be generated before proceeding with the sale. Please reach out to support to resolve this issue.',
             inline: false,
           },
           {

@@ -16,11 +16,13 @@ The web app serves as the browser-based interface for:
 ### OAuth Integration
 
 **Discord OAuth**:
+
 - Redirect endpoint: `/auth/callback`
 - Integrated with Better Auth
 - Session management with HTTP-only cookies
 
 **Roblox OAuth**:
+
 - Link flow: `/auth/link/roblox`
 - Success page: `/auth/link/success`
 - Error handling: `/auth/link/error`
@@ -29,11 +31,13 @@ The web app serves as the browser-based interface for:
 ### Contract Signing
 
 **Magic Link Authentication**:
+
 - Secure 15-minute tokens
 - Single-use tokens with automatic cleanup
 - No password required
 
 **Signing Pages**:
+
 - `/contract/:contractId/sign` - Contract preview and signing
 - `/contract/:contractId/complete` - Post-signature confirmation
 - Full contract details display
@@ -94,10 +98,12 @@ Landing page with links to Discord bot invite.
 Handles OAuth redirects from Discord and Roblox.
 
 **Query Parameters**:
+
 - `code` - OAuth authorization code
 - `state` - CSRF protection token
 
 **Flow**:
+
 1. Receive OAuth callback
 2. Exchange code for token
 3. Create/update user session
@@ -108,6 +114,7 @@ Handles OAuth redirects from Discord and Roblox.
 Initiated from Discord bot `/link` command.
 
 **Flow**:
+
 1. User clicks OAuth URL from Discord
 2. Roblox authentication
 3. Callback validation
@@ -120,9 +127,11 @@ Initiated from Discord bot `/link` command.
 Secure contract signing page accessed via magic link.
 
 **Query Parameters**:
+
 - `token` - Single-use signing token (15min expiry)
 
 **Features**:
+
 - Token validation
 - Contract preview
 - Sign button
@@ -130,6 +139,7 @@ Secure contract signing page accessed via magic link.
 - Captures audit metadata (IP, user agent)
 
 **Flow**:
+
 1. Validate magic link token
 2. Fetch contract details
 3. Display contract preview
@@ -142,6 +152,7 @@ Secure contract signing page accessed via magic link.
 Post-signature confirmation page.
 
 **Shows**:
+
 - Signature timestamp
 - Contract status (PENDING_SIGNATURE or EXECUTED)
 - Next steps (wait for counterparty or proceed to escrow)
@@ -151,6 +162,7 @@ Post-signature confirmation page.
 View user information and linked accounts.
 
 **Displays**:
+
 - Discord account
 - Roblox account (if linked)
 - KYC tier
@@ -273,13 +285,13 @@ Use `$` prefix for route parameters:
 // src/routes/contract/$contractId.sign.tsx
 export const Route = createFileRoute('/contract/$contractId/sign')({
   component: ContractSignPage,
-});
+})
 ```
 
 Access params in component:
 
 ```tsx
-const { contractId } = Route.useParams();
+const { contractId } = Route.useParams()
 ```
 
 ### Links
@@ -300,13 +312,13 @@ import { Link } from '@tanstack/react-router';
 ### Better Auth Client
 
 ```tsx
-import { authClient } from './lib/auth-client';
+import { authClient } from './lib/auth-client'
 
 // Get session
-const session = await authClient.getSession();
+const session = await authClient.getSession()
 
 // Sign out
-await authClient.signOut();
+await authClient.signOut()
 ```
 
 ### Protected Routes
@@ -316,13 +328,13 @@ Use route guards to protect authenticated pages:
 ```tsx
 export const Route = createFileRoute('/profile')({
   beforeLoad: async () => {
-    const session = await authClient.getSession();
+    const session = await authClient.getSession()
     if (!session) {
-      throw redirect({ to: '/login' });
+      throw redirect({ to: '/login' })
     }
   },
   component: ProfilePage,
-});
+})
 ```
 
 ## Styling
@@ -332,9 +344,7 @@ export const Route = createFileRoute('/profile')({
 Utility-first CSS framework configured out of the box.
 
 ```tsx
-<div className="bg-blue-500 text-white p-4 rounded-lg">
-  Hello World
-</div>
+<div className="bg-blue-500 text-white p-4 rounded-lg">Hello World</div>
 ```
 
 ### Custom Styles
@@ -377,6 +387,7 @@ pnpm check
 ### Audit Trail
 
 Each signature captures:
+
 - User ID
 - Timestamp
 - IP address
@@ -390,11 +401,11 @@ Each signature captures:
 const response = await fetch(`/api/contracts/${contractId}/validate-token`, {
   method: 'POST',
   body: JSON.stringify({ token }),
-});
+})
 
 if (!response.ok) {
   // Token expired or invalid
-  redirect('/auth/link/error');
+  redirect('/auth/link/error')
 }
 ```
 
@@ -405,11 +416,11 @@ if (!response.ok) {
 ```tsx
 const response = await fetch(`${API_URL}/api/contracts/${contractId}`, {
   headers: {
-    'Authorization': `Bearer ${token}`,
+    Authorization: `Bearer ${token}`,
   },
-});
+})
 
-const contract = await response.json();
+const contract = await response.json()
 ```
 
 ### Sign Contract
@@ -426,9 +437,9 @@ const response = await fetch(`${API_URL}/api/contracts/${contractId}/sign`, {
     ipAddress: clientIp,
     userAgent: navigator.userAgent,
   }),
-});
+})
 
-const result = await response.json();
+const result = await response.json()
 // result.bothPartiesSigned indicates if contract is fully executed
 ```
 

@@ -11,6 +11,7 @@ import {
 
 // Command handlers
 import { execute as handleAdminHelp } from './commands/admin-help.js';
+import { handleContractView, handleContractList } from './commands/contract.js';
 import { handleHelp } from './commands/help.js';
 import { handleLinkRoblox } from './commands/linkRoblox.js';
 import {
@@ -42,6 +43,12 @@ import {
 } from './commands/offer-actions.js';
 import { handlePing } from './commands/ping.js';
 import {
+  handleQuickSignButton,
+  handleSignConfirmationModal,
+  handleReviewContractButton,
+  handleWebSignButton,
+} from './commands/sign-contract.js';
+import {
   handleSignup,
   handleConsentAccept,
   handleConsentDecline,
@@ -50,13 +57,6 @@ import {
 import { execute as handleSyncListings } from './commands/sync-listings.js';
 import { handleVerify } from './commands/verify.js';
 import { handleViewOffersButton } from './commands/view-offers.js';
-import {
-  handleQuickSignButton,
-  handleSignConfirmationModal,
-  handleReviewContractButton,
-  handleWebSignButton,
-} from './commands/sign-contract.js';
-import { handleContractView, handleContractList } from './commands/contract.js';
 // Offer notification service
 import { LinkNotificationService } from './services/linkNotifications.js';
 import { OfferNotificationService } from './services/offerNotifications.js';
@@ -169,16 +169,11 @@ client.once('ready', async () => {
           .setName('view')
           .setDescription('View a specific contract')
           .addStringOption(option =>
-            option
-              .setName('id')
-              .setDescription('Contract ID')
-              .setRequired(true)
+            option.setName('id').setDescription('Contract ID').setRequired(true)
           )
       )
       .addSubcommand(subcommand =>
-        subcommand
-          .setName('list')
-          .setDescription('List all your contracts')
+        subcommand.setName('list').setDescription('List all your contracts')
       )
       .toJSON(),
     new SlashCommandBuilder()

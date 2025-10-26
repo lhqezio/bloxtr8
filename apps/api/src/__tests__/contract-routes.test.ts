@@ -1,3 +1,4 @@
+import { prisma } from '@bloxtr8/database';
 import request from 'supertest';
 
 // Mock dependencies before importing app
@@ -45,7 +46,6 @@ jest.mock('../lib/contract-execution', () => ({
   }),
 }));
 
-import { prisma } from '@bloxtr8/database';
 import app from '../index.js';
 
 describe('Contract API Routes', () => {
@@ -365,6 +365,3 @@ describe('Contract API Routes', () => {
     });
   });
 });
-
-
-

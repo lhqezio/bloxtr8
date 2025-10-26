@@ -4,10 +4,8 @@ import {
   ButtonStyle,
   EmbedBuilder,
   type Client,
-  type User,
 } from 'discord.js';
 
-import { getContract } from '../utils/apiClient.js';
 import { formatPrice } from '../utils/marketplace.js';
 
 interface ContractNotificationData {
@@ -91,7 +89,7 @@ export async function sendContractSigningNotification(
         inline: false,
       },
       {
-        name: '📋 What\'s Next?',
+        name: "📋 What's Next?",
         value:
           data.role === 'buyer'
             ? '1. Review and sign the contract\n2. Fund the escrow within 48 hours\n3. Confirm delivery after receiving the asset'
@@ -280,6 +278,3 @@ export function createContractSummaryEmbed(contractData: {
 
   return embed;
 }
-
-
-

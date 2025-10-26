@@ -52,12 +52,12 @@ export async function uploadBuffer(
 export function getPublicUrl(key: string): string {
   const endpoint = process.env.STORAGE_ENDPOINT || 'http://localhost:9000';
   const bucket = storageClient.getBucket();
-  
+
   // For MinIO (local development), use path-style URL
   if (endpoint.includes('localhost') || endpoint.includes('127.0.0.1')) {
     return `${endpoint}/${bucket}/${key}`;
   }
-  
+
   // For S3, use virtual-hosted-style URL
   const region = process.env.STORAGE_REGION || 'us-east-1';
   return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;

@@ -8,7 +8,11 @@ import {
 
 import { getContract } from '../utils/apiClient.js';
 import { verify } from '../utils/userVerification.js';
-import { createContractSummaryEmbed } from './contract-notifications.js';
+
+interface ContractSignature {
+  userId: string;
+  signedAt: string | Date;
+}
 
 /**
  * Handle /contract view command
@@ -70,10 +74,10 @@ export async function handleContractView(
 
     // Check signature status
     const userSignature = contract.signatures?.find(
-      (sig: any) => sig.userId === userData.user.id
+      (sig: ContractSignature) => sig.userId === userData.user.id
     );
     const counterpartySignature = contract.signatures?.find(
-      (sig: any) =>
+      (sig: ContractSignature) =>
         sig.userId ===
         (role === 'buyer' ? contract.offer.sellerId : contract.offer.buyerId)
     );
@@ -126,7 +130,10 @@ export async function handleContractView(
       );
 
     if (contract.robloxAssetData) {
-      const robloxData = contract.robloxAssetData as any;
+      const robloxData = contract.robloxAssetData as {
+        gameName: string;
+        verifiedOwnership?: boolean;
+      };
       embed.addFields({
         name: '🎮 Roblox Game',
         value: `${robloxData.gameName}${robloxData.verifiedOwnership ? ' ✅ Verified' : ''}`,
@@ -197,6 +204,3 @@ export async function handleContractList(
     console.error('Error in handleContractList:', error);
   }
 }
-
-
-

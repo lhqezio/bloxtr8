@@ -1,6 +1,6 @@
-import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
-import { Button } from '../../components/ui/button';
+import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { Button } from '../../components/ui/button'
 import {
   Card,
   CardContent,
@@ -8,92 +8,92 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '../../components/ui/card';
-import { Checkbox } from '../../components/ui/checkbox';
+} from '../../components/ui/card'
+import { Checkbox } from '../../components/ui/checkbox'
 import {
   validateSignToken,
   fetchContract,
   signContractWeb,
   getContractPdfUrl,
-} from '../../lib/contractAuth';
+} from '../../lib/contractAuth'
 
 export const Route = createFileRoute('/contract/$contractId/sign')({
   component: ContractSignPage,
-});
+})
 
 function ContractSignPage() {
-  const { contractId } = Route.useParams();
-  const search = useSearch({ from: '/contract/$contractId/sign' });
-  const navigate = useNavigate();
-  
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [contract, setContract] = useState<any>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [agreed, setAgreed] = useState(false);
-  const [signing, setSigning] = useState(false);
+  const { contractId } = Route.useParams()
+  const search = useSearch({ from: '/contract/$contractId/sign' })
+  const navigate = useNavigate()
+
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [contract, setContract] = useState<any>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [agreed, setAgreed] = useState(false)
+  const [signing, setSigning] = useState(false)
 
   useEffect(() => {
     async function init() {
       try {
-        const token = (search as any)?.token;
-        
+        const token = (search as any)?.token
+
         if (!token) {
-          setError('No authentication token provided');
-          setLoading(false);
-          return;
+          setError('No authentication token provided')
+          setLoading(false)
+          return
         }
 
         // Validate token
-        const authResult = await validateSignToken(token);
-        
+        const authResult = await validateSignToken(token)
+
         if (!authResult.success) {
-          setError(authResult.error || 'Invalid or expired link');
-          setLoading(false);
-          return;
+          setError(authResult.error || 'Invalid or expired link')
+          setLoading(false)
+          return
         }
 
-        setUserId(authResult.userId || null);
+        setUserId(authResult.userId || null)
 
         // Fetch contract details
-        const contractData = await fetchContract(contractId);
-        setContract(contractData);
+        const contractData = await fetchContract(contractId)
+        setContract(contractData)
 
         // Get PDF URL
-        const url = await getContractPdfUrl(contractId);
-        setPdfUrl(url);
+        const url = await getContractPdfUrl(contractId)
+        setPdfUrl(url)
 
-        setLoading(false);
+        setLoading(false)
       } catch (err) {
-        console.error('Initialization error:', err);
-        setError('Failed to load contract');
-        setLoading(false);
+        console.error('Initialization error:', err)
+        setError('Failed to load contract')
+        setLoading(false)
       }
     }
 
-    init();
-  }, [contractId, search]);
+    init()
+  }, [contractId, search])
 
   const handleSign = async () => {
-    if (!userId || !agreed) return;
+    if (!userId || !agreed) return
 
-    setSigning(true);
+    setSigning(true)
     try {
-      const token = (search as any)?.token;
-      const result = await signContractWeb(contractId, userId, token);
+      const token = (search as any)?.token
+      const result = await signContractWeb(contractId, userId, token)
 
       if (result.success) {
-        navigate({ to: `/contract/${contractId}/complete` });
+        navigate({ to: `/contract/${contractId}/complete` })
       } else {
-        setError(result.error || 'Failed to sign contract');
+        setError(result.error || 'Failed to sign contract')
       }
     } catch (err) {
-      setError('An error occurred while signing');
+      setError('An error occurred while signing')
     } finally {
-      setSigning(false);
+      setSigning(false)
     }
-  };
+  }
 
   if (loading) {
     return (
@@ -104,7 +104,7 @@ function ContractSignPage() {
           </CardHeader>
         </Card>
       </div>
-    );
+    )
   }
 
   if (error) {
@@ -120,20 +120,19 @@ function ContractSignPage() {
           </CardFooter>
         </Card>
       </div>
-    );
+    )
   }
 
   if (!contract) {
-    return null;
+    return null
   }
 
-  const role =
-    contract.offer.buyerId === userId ? 'buyer' : 'seller';
+  const role = contract.offer.buyerId === userId ? 'buyer' : 'seller'
   const counterparty =
-    role === 'buyer' ? contract.offer.seller : contract.offer.buyer;
+    role === 'buyer' ? contract.offer.seller : contract.offer.buyer
   const alreadySigned = contract.signatures?.some(
-    (sig: any) => sig.userId === userId
-  );
+    (sig: any) => sig.userId === userId,
+  )
 
   if (alreadySigned) {
     return (
@@ -150,7 +149,7 @@ function ContractSignPage() {
           </CardFooter>
         </Card>
       </div>
-    );
+    )
   }
 
   return (
@@ -167,17 +166,13 @@ function ContractSignPage() {
           {/* Contract Summary */}
           <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Asset
-              </p>
+              <p className="text-sm font-medium text-muted-foreground">Asset</p>
               <p className="text-lg font-semibold">
                 {contract.offer.listing.title}
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Price
-              </p>
+              <p className="text-sm font-medium text-muted-foreground">Price</p>
               <p className="text-lg font-semibold">
                 ${(Number(contract.offer.amount) / 100).toFixed(2)}
               </p>
@@ -262,8 +257,5 @@ function ContractSignPage() {
         </CardFooter>
       </Card>
     </div>
-  );
+  )
 }
-
-
-

@@ -224,6 +224,3 @@ export async function getContractExecutionStatus(contractId: string): Promise<{
     };
   }
 }
-
-
-

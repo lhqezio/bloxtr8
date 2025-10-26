@@ -1,5 +1,5 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { Button } from '../../components/ui/button';
+import { createFileRoute } from '@tanstack/react-router'
+import { Button } from '../../components/ui/button'
 import {
   Card,
   CardContent,
@@ -7,14 +7,14 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '../../components/ui/card';
+} from '../../components/ui/card'
 
 export const Route = createFileRoute('/contract/$contractId/complete')({
   component: ContractCompletePage,
-});
+})
 
 function ContractCompletePage() {
-  const { contractId } = Route.useParams();
+  const { contractId } = Route.useParams()
 
   return (
     <div className="container mx-auto py-8 flex items-center justify-center min-h-screen">
@@ -68,8 +68,5 @@ function ContractCompletePage() {
         </CardFooter>
       </Card>
     </div>
-  );
+  )
 }
-
-
-

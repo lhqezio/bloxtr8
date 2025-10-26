@@ -71,7 +71,7 @@ export interface ContractTemplate {
 export const CONTRACT_TEMPLATE_V1: ContractTemplate = {
   version: '1.0.0',
   name: 'Roblox Asset Sale Agreement',
-  
+
   generateContent: (data: ContractData): string[] => {
     const sections: string[] = [];
 
@@ -79,7 +79,9 @@ export const CONTRACT_TEMPLATE_V1: ContractTemplate = {
     sections.push('ROBLOX ASSET SALE AGREEMENT');
     sections.push('');
     sections.push(`Contract ID: ${data.contractId}`);
-    sections.push(`Date: ${data.createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`);
+    sections.push(
+      `Date: ${data.createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`
+    );
     sections.push(`Version: ${data.templateVersion}`);
     sections.push('');
     sections.push('---');
@@ -91,7 +93,7 @@ export const CONTRACT_TEMPLATE_V1: ContractTemplate = {
     sections.push('This Agreement is entered into between:');
     sections.push('');
     sections.push('SELLER:');
-    sections.push(`  Name: ${data.seller.name || 'User ' + data.seller.id}`);
+    sections.push(`  Name: ${data.seller.name || `User ${data.seller.id}`}`);
     sections.push(`  Email: ${data.seller.email}`);
     sections.push(`  Platform ID: ${data.seller.id}`);
     sections.push(`  KYC Status: ${data.seller.kycTier}`);
@@ -100,7 +102,7 @@ export const CONTRACT_TEMPLATE_V1: ContractTemplate = {
     }
     sections.push('');
     sections.push('BUYER:');
-    sections.push(`  Name: ${data.buyer.name || 'User ' + data.buyer.id}`);
+    sections.push(`  Name: ${data.buyer.name || `User ${data.buyer.id}`}`);
     sections.push(`  Email: ${data.buyer.email}`);
     sections.push(`  Platform ID: ${data.buyer.id}`);
     sections.push(`  KYC Status: ${data.buyer.kycTier}`);
@@ -125,18 +127,28 @@ export const CONTRACT_TEMPLATE_V1: ContractTemplate = {
       sections.push(`  Game ID: ${data.asset.robloxData.gameId}`);
       sections.push(`  Game Name: ${data.asset.robloxData.gameName}`);
       if (data.asset.robloxData.gameDescription) {
-        sections.push(`  Game Description: ${data.asset.robloxData.gameDescription}`);
+        sections.push(
+          `  Game Description: ${data.asset.robloxData.gameDescription}`
+        );
       }
       if (data.asset.robloxData.playerCount !== undefined) {
-        sections.push(`  Current Players: ${data.asset.robloxData.playerCount.toLocaleString()}`);
+        sections.push(
+          `  Current Players: ${data.asset.robloxData.playerCount.toLocaleString()}`
+        );
       }
       if (data.asset.robloxData.visits !== undefined) {
-        sections.push(`  Total Visits: ${data.asset.robloxData.visits.toLocaleString()}`);
+        sections.push(
+          `  Total Visits: ${data.asset.robloxData.visits.toLocaleString()}`
+        );
       }
-      sections.push(`  Ownership Verified: ${data.asset.robloxData.verifiedOwnership ? 'YES' : 'NO'}`);
+      sections.push(
+        `  Ownership Verified: ${data.asset.robloxData.verifiedOwnership ? 'YES' : 'NO'}`
+      );
       sections.push(`  Ownership Type: ${data.asset.robloxData.ownershipType}`);
       if (data.asset.robloxData.verificationDate) {
-        sections.push(`  Verification Date: ${data.asset.robloxData.verificationDate.toLocaleDateString()}`);
+        sections.push(
+          `  Verification Date: ${data.asset.robloxData.verificationDate.toLocaleDateString()}`
+        );
       }
       sections.push('');
     }
@@ -144,9 +156,13 @@ export const CONTRACT_TEMPLATE_V1: ContractTemplate = {
     // Purchase Price
     sections.push('3. PURCHASE PRICE');
     sections.push('');
-    sections.push(`The total purchase price for the Asset is: ${data.financial.amountDisplay} ${data.financial.currency}`);
+    sections.push(
+      `The total purchase price for the Asset is: ${data.financial.amountDisplay} ${data.financial.currency}`
+    );
     sections.push('');
-    sections.push('Payment shall be held in escrow through the Bloxtr8 platform until successful delivery and confirmation.');
+    sections.push(
+      'Payment shall be held in escrow through the Bloxtr8 platform until successful delivery and confirmation.'
+    );
     sections.push('');
 
     // Offer Conditions
@@ -159,38 +175,64 @@ export const CONTRACT_TEMPLATE_V1: ContractTemplate = {
 
     // Representations and Warranties
     const warrantySection = data.offer.conditions ? 5 : 4;
-    sections.push(`${warrantySection}. SELLER'S REPRESENTATIONS AND WARRANTIES`);
+    sections.push(
+      `${warrantySection}. SELLER'S REPRESENTATIONS AND WARRANTIES`
+    );
     sections.push('');
     sections.push('Seller represents and warrants that:');
     sections.push('');
-    sections.push('a) Seller is the lawful owner of the Asset or has the legal authority to sell the Asset;');
+    sections.push(
+      'a) Seller is the lawful owner of the Asset or has the legal authority to sell the Asset;'
+    );
     sections.push('');
-    sections.push('b) The Asset is free from any liens, encumbrances, or claims by third parties;');
+    sections.push(
+      'b) The Asset is free from any liens, encumbrances, or claims by third parties;'
+    );
     sections.push('');
-    sections.push('c) Seller has full power and authority to enter into this Agreement and transfer the Asset;');
+    sections.push(
+      'c) Seller has full power and authority to enter into this Agreement and transfer the Asset;'
+    );
     sections.push('');
-    sections.push('d) All information provided about the Asset is accurate and complete to the best of Seller\'s knowledge;');
+    sections.push(
+      "d) All information provided about the Asset is accurate and complete to the best of Seller's knowledge;"
+    );
     sections.push('');
-    sections.push('e) The Asset complies with all applicable Roblox Terms of Service and Community Standards;');
+    sections.push(
+      'e) The Asset complies with all applicable Roblox Terms of Service and Community Standards;'
+    );
     sections.push('');
-    sections.push('f) Seller has not violated any Roblox policies or agreements in connection with the Asset.');
+    sections.push(
+      'f) Seller has not violated any Roblox policies or agreements in connection with the Asset.'
+    );
     sections.push('');
 
     // Transfer Obligations
     const transferSection = warrantySection + 1;
     sections.push(`${transferSection}. TRANSFER OBLIGATIONS`);
     sections.push('');
-    sections.push('Upon execution of this Agreement and receipt of payment in escrow:');
+    sections.push(
+      'Upon execution of this Agreement and receipt of payment in escrow:'
+    );
     sections.push('');
-    sections.push('a) Seller shall transfer full ownership and control of the Asset to Buyer through appropriate Roblox mechanisms;');
+    sections.push(
+      'a) Seller shall transfer full ownership and control of the Asset to Buyer through appropriate Roblox mechanisms;'
+    );
     sections.push('');
-    sections.push('b) Seller shall provide all necessary credentials, access codes, or transfer methods as required;');
+    sections.push(
+      'b) Seller shall provide all necessary credentials, access codes, or transfer methods as required;'
+    );
     sections.push('');
-    sections.push('c) Seller shall cooperate with Buyer to verify successful transfer of the Asset;');
+    sections.push(
+      'c) Seller shall cooperate with Buyer to verify successful transfer of the Asset;'
+    );
     sections.push('');
-    sections.push('d) Upon confirmation of successful transfer, funds held in escrow shall be released to Seller;');
+    sections.push(
+      'd) Upon confirmation of successful transfer, funds held in escrow shall be released to Seller;'
+    );
     sections.push('');
-    sections.push('e) Seller shall provide reasonable post-transfer support for a period of 7 days to address technical issues.');
+    sections.push(
+      'e) Seller shall provide reasonable post-transfer support for a period of 7 days to address technical issues.'
+    );
     sections.push('');
 
     // Buyer Obligations
@@ -199,68 +241,102 @@ export const CONTRACT_TEMPLATE_V1: ContractTemplate = {
     sections.push('');
     sections.push('Buyer agrees to:');
     sections.push('');
-    sections.push('a) Fund the escrow account with the full purchase price within 48 hours of contract execution;');
+    sections.push(
+      'a) Fund the escrow account with the full purchase price within 48 hours of contract execution;'
+    );
     sections.push('');
-    sections.push('b) Confirm receipt and successful transfer of the Asset within 72 hours of delivery;');
+    sections.push(
+      'b) Confirm receipt and successful transfer of the Asset within 72 hours of delivery;'
+    );
     sections.push('');
     sections.push('c) Cooperate with Seller during the transfer process;');
     sections.push('');
-    sections.push('d) Comply with all Roblox Terms of Service after taking ownership of the Asset.');
+    sections.push(
+      'd) Comply with all Roblox Terms of Service after taking ownership of the Asset.'
+    );
     sections.push('');
 
     // Escrow Terms
     const escrowSection = buyerSection + 1;
     sections.push(`${escrowSection}. ESCROW TERMS`);
     sections.push('');
-    sections.push('a) All funds shall be held in a secure escrow account managed by Bloxtr8 or its designated payment processor;');
+    sections.push(
+      'a) All funds shall be held in a secure escrow account managed by Bloxtr8 or its designated payment processor;'
+    );
     sections.push('');
-    sections.push('b) Funds shall be released to Seller only upon Buyer\'s confirmation of successful asset transfer;');
+    sections.push(
+      "b) Funds shall be released to Seller only upon Buyer's confirmation of successful asset transfer;"
+    );
     sections.push('');
-    sections.push('c) If Buyer does not confirm or dispute within 72 hours of delivery, funds may be automatically released;');
+    sections.push(
+      'c) If Buyer does not confirm or dispute within 72 hours of delivery, funds may be automatically released;'
+    );
     sections.push('');
-    sections.push('d) In case of dispute, funds shall remain in escrow pending resolution through the dispute process.');
+    sections.push(
+      'd) In case of dispute, funds shall remain in escrow pending resolution through the dispute process.'
+    );
     sections.push('');
 
     // Dispute Resolution
     const disputeSection = escrowSection + 1;
     sections.push(`${disputeSection}. DISPUTE RESOLUTION`);
     sections.push('');
-    sections.push('a) Any disputes arising from this Agreement shall be resolved through the Bloxtr8 dispute resolution process;');
+    sections.push(
+      'a) Any disputes arising from this Agreement shall be resolved through the Bloxtr8 dispute resolution process;'
+    );
     sections.push('');
-    sections.push('b) Both parties agree to provide all requested documentation and evidence in good faith;');
+    sections.push(
+      'b) Both parties agree to provide all requested documentation and evidence in good faith;'
+    );
     sections.push('');
-    sections.push('c) The decision of the Bloxtr8 dispute resolution team shall be final and binding;');
+    sections.push(
+      'c) The decision of the Bloxtr8 dispute resolution team shall be final and binding;'
+    );
     sections.push('');
-    sections.push('d) For disputes involving amounts over $10,000 USD, parties may request external arbitration.');
+    sections.push(
+      'd) For disputes involving amounts over $10,000 USD, parties may request external arbitration.'
+    );
     sections.push('');
 
     // Limitation of Liability
     const liabilitySection = disputeSection + 1;
     sections.push(`${liabilitySection}. LIMITATION OF LIABILITY`);
     sections.push('');
-    sections.push('Bloxtr8 acts solely as an intermediary platform and escrow service. Bloxtr8 makes no warranties regarding the Asset and shall not be liable for:');
+    sections.push(
+      'Bloxtr8 acts solely as an intermediary platform and escrow service. Bloxtr8 makes no warranties regarding the Asset and shall not be liable for:'
+    );
     sections.push('');
     sections.push('a) The quality, performance, or legality of the Asset;');
     sections.push('');
-    sections.push('b) Any actions taken by Roblox Corporation, including but not limited to asset removal, account suspension, or policy enforcement;');
+    sections.push(
+      'b) Any actions taken by Roblox Corporation, including but not limited to asset removal, account suspension, or policy enforcement;'
+    );
     sections.push('');
-    sections.push('c) Changes to the Asset\'s value or performance after transfer;');
+    sections.push(
+      "c) Changes to the Asset's value or performance after transfer;"
+    );
     sections.push('');
-    sections.push('d) Any consequential, indirect, or punitive damages arising from this transaction.');
+    sections.push(
+      'd) Any consequential, indirect, or punitive damages arising from this transaction.'
+    );
     sections.push('');
 
     // Governing Law
     const lawSection = liabilitySection + 1;
     sections.push(`${lawSection}. GOVERNING LAW`);
     sections.push('');
-    sections.push('This Agreement shall be governed by and construed in accordance with the laws of the State of Delaware, United States, without regard to its conflict of law provisions.');
+    sections.push(
+      'This Agreement shall be governed by and construed in accordance with the laws of the State of Delaware, United States, without regard to its conflict of law provisions.'
+    );
     sections.push('');
 
     // Entire Agreement
     const finalSection = lawSection + 1;
     sections.push(`${finalSection}. ENTIRE AGREEMENT`);
     sections.push('');
-    sections.push('This Agreement constitutes the entire agreement between the parties and supersedes all prior negotiations, representations, or agreements, whether written or oral.');
+    sections.push(
+      'This Agreement constitutes the entire agreement between the parties and supersedes all prior negotiations, representations, or agreements, whether written or oral.'
+    );
     sections.push('');
 
     // Signatures
@@ -268,22 +344,28 @@ export const CONTRACT_TEMPLATE_V1: ContractTemplate = {
     sections.push('');
     sections.push('SIGNATURES');
     sections.push('');
-    sections.push('By digitally signing this Agreement, both parties acknowledge that they have read, understood, and agree to be bound by all terms and conditions contained herein.');
+    sections.push(
+      'By digitally signing this Agreement, both parties acknowledge that they have read, understood, and agree to be bound by all terms and conditions contained herein.'
+    );
     sections.push('');
     sections.push(`Offer ID: ${data.offer.id}`);
-    sections.push(`Offer Accepted: ${data.offer.acceptedAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`);
+    sections.push(
+      `Offer Accepted: ${data.offer.acceptedAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+    );
     sections.push('');
     sections.push('SELLER SIGNATURE:');
-    sections.push(`Name: ${data.seller.name || 'User ' + data.seller.id}`);
+    sections.push(`Name: ${data.seller.name || `User ${data.seller.id}`}`);
     sections.push('Status: [To be signed]');
     sections.push('');
     sections.push('BUYER SIGNATURE:');
-    sections.push(`Name: ${data.buyer.name || 'User ' + data.buyer.id}`);
+    sections.push(`Name: ${data.buyer.name || `User ${data.buyer.id}`}`);
     sections.push('Status: [To be signed]');
     sections.push('');
     sections.push('---');
     sections.push('');
-    sections.push('Generated by Bloxtr8 - Secure Roblox Asset Trading Platform');
+    sections.push(
+      'Generated by Bloxtr8 - Secure Roblox Asset Trading Platform'
+    );
     sections.push(`Contract generated: ${data.createdAt.toISOString()}`);
 
     return sections;
@@ -300,13 +382,13 @@ export function getActiveContractTemplate(): ContractTemplate {
 /**
  * Format currency amount for display
  */
-export function formatCurrencyAmount(amountCents: string | bigint, currency = 'USD'): string {
+export function formatCurrencyAmount(
+  amountCents: string | bigint,
+  currency = 'USD'
+): string {
   const amount = Number(amountCents) / 100;
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
   }).format(amount);
 }
-
-
-

@@ -1,13 +1,11 @@
+import crypto from 'crypto';
+
 import { prisma } from '@bloxtr8/database';
 import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 import { Router, type Router as ExpressRouter } from 'express';
-import crypto from 'crypto';
 
-import {
-  generateContract,
-  verifyContract,
-} from '../lib/contract-generator.js';
 import { executeContract } from '../lib/contract-execution.js';
+import { generateContract, verifyContract } from '../lib/contract-generator.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { serializeBigInt } from '../utils/bigint.js';
 
@@ -106,14 +104,14 @@ router.post('/contracts/generate', async (req, res, next) => {
         listingId: offer.listing.id,
         seller: {
           id: offer.seller.id,
-          name: offer.seller.name || 'User ' + offer.seller.id,
+          name: offer.seller.name || `User ${offer.seller.id}`,
           email: offer.seller.email,
           kycTier: offer.seller.kycTier,
           robloxAccountId: offer.seller.accounts[0]?.accountId,
         },
         buyer: {
           id: offer.buyer.id,
-          name: offer.buyer.name || 'User ' + offer.buyer.id,
+          name: offer.buyer.name || `User ${offer.buyer.id}`,
           email: offer.buyer.email,
           kycTier: offer.buyer.kycTier,
           robloxAccountId: offer.buyer.accounts[0]?.accountId,
@@ -170,12 +168,15 @@ router.post('/contracts/generate', async (req, res, next) => {
         console.error('Failed to clean up contract record:', cleanupError);
         // Continue to throw the original error
       }
-      
+
       // Re-throw the original error or wrap it
       if (pdfError instanceof AppError) {
         throw pdfError;
       }
-      throw new AppError(`Failed to generate contract: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`, 500);
+      throw new AppError(
+        `Failed to generate contract: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`,
+        500
+      );
     }
   } catch (error) {
     next(error);
@@ -243,7 +244,13 @@ router.get('/contracts/:id', async (req, res, next) => {
 router.post('/contracts/:id/sign', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { userId, ipAddress, userAgent, signatureMethod = 'DISCORD_NATIVE', token } = req.body;
+    const {
+      userId,
+      ipAddress,
+      userAgent,
+      signatureMethod = 'DISCORD_NATIVE',
+      token,
+    } = req.body;
 
     if (!userId) {
       throw new AppError('User ID is required', 400);
@@ -252,10 +259,16 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
     // Validate audit trail parameters
     if (signatureMethod === 'WEB_BASED') {
       if (!ipAddress) {
-        throw new AppError('IP address is required for web-based signatures', 400);
+        throw new AppError(
+          'IP address is required for web-based signatures',
+          400
+        );
       }
       if (!userAgent) {
-        throw new AppError('User agent is required for web-based signatures', 400);
+        throw new AppError(
+          'User agent is required for web-based signatures',
+          400
+        );
       }
     }
 
@@ -353,7 +366,7 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
       try {
         // Execute contract synchronously to ensure escrow is created before responding
         const executionResult = await executeContract(id);
-        
+
         if (executionResult.success) {
           // Only mark as EXECUTED if escrow creation succeeded
           await prisma.contract.update({
@@ -377,7 +390,10 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
           });
           contractStatus = 'EXECUTION_FAILED';
           executionError = executionResult.error;
-          console.error(`Failed to execute contract ${id}:`, executionResult.error);
+          console.error(
+            `Failed to execute contract ${id}:`,
+            executionResult.error
+          );
         }
       } catch (error) {
         // Handle unexpected errors during contract execution
@@ -388,7 +404,8 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
           },
         });
         contractStatus = 'EXECUTION_FAILED';
-        executionError = error instanceof Error ? error.message : 'Unknown error';
+        executionError =
+          error instanceof Error ? error.message : 'Unknown error';
         console.error('Error executing contract:', error);
       }
     }

@@ -161,6 +161,3 @@ describe('Contract Generator', () => {
     });
   });
 });
-
-
-
