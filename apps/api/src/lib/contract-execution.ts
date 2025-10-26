@@ -80,40 +80,41 @@ export async function executeContract(contractId: string): Promise<{
         `Contract ${contractId} has existing escrows. This might indicate a previous partial execution.`
       );
 
-      // If we have existing escrows, clean them up before proceeding
-      for (const escrow of contract.escrows) {
-        try {
-          // Delete rail-specific escrow records first
-          if (escrow.rail === 'STRIPE') {
-            await prisma.stripeEscrow.deleteMany({
+      try {
+        // Use transaction to ensure all-or-nothing cleanup
+        await prisma.$transaction(async (tx) => {
+          for (const escrow of contract.escrows) {
+            // Delete rail-specific escrow records first
+            if (escrow.rail === 'STRIPE') {
+              await tx.stripeEscrow.deleteMany({
+                where: { escrowId: escrow.id },
+              });
+            } else if (escrow.rail === 'USDC_BASE') {
+              await tx.stablecoinEscrow.deleteMany({
+                where: { escrowId: escrow.id },
+              });
+            }
+
+            // Delete milestone escrows if any
+            await tx.milestoneEscrow.deleteMany({
               where: { escrowId: escrow.id },
             });
-          } else if (escrow.rail === 'USDC_BASE') {
-            await prisma.stablecoinEscrow.deleteMany({
-              where: { escrowId: escrow.id },
+
+            // Delete the escrow
+            await tx.escrow.delete({
+              where: { id: escrow.id },
             });
+
+            console.log(`Cleaned up escrow ${escrow.id} before new execution`);
           }
-
-          // Delete milestone escrows if any
-          await prisma.milestoneEscrow.deleteMany({
-            where: { escrowId: escrow.id },
-          });
-
-          // Delete the escrow
-          await prisma.escrow.delete({
-            where: { id: escrow.id },
-          });
-
-          console.log(`Cleaned up escrow ${escrow.id} before new execution`);
-        } catch (cleanupError) {
-          console.error(`Failed to cleanup escrow ${escrow.id}:`, cleanupError);
-          // Return error rather than proceeding with orphaned escrows
-          return {
-            success: false,
-            error:
-              'Failed to clean up existing escrows from previous execution attempt',
-          };
-        }
+        });
+      } catch (cleanupError) {
+        console.error(`Failed to cleanup escrows:`, cleanupError);
+        return {
+          success: false,
+          error:
+            'Failed to clean up existing escrows from previous execution attempt',
+        };
       }
     }
 
