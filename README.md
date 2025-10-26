@@ -14,7 +14,9 @@ Addresses the $300M+ Roblox trading market on Discord with enterprise-grade escr
 - **Secure Escrow**: Stripe ≤$10k, USDC on Base >$10k
 - **Roblox Game Verification**: Automated ownership verification
 - **Offer Negotiation**: Button-based offer system with accept/decline/counter options
-- **Digital Contracts**: DocuSign integration
+- **Offer Draft System**: Temporary storage prevents data loss during multi-step interactions
+- **Digital Contracts**: Discord native & web-based signing with magic links
+- **Contract Signing**: Quick Sign (type "I AGREE") or Web Sign (15min magic link)
 - **Wallet Screening**: TRM Labs, Chainalysis
 - **Discord Native**: Slash commands, buttons, rich interactions
 - **3-Tier KYC System**: TIER_0 → TIER_1 → TIER_2
