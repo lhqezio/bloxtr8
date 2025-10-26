@@ -35,37 +35,60 @@ function ContractSignPage() {
   const [signing, setSigning] = useState(false)
 
   useEffect(() => {
+    const abortController = new AbortController()
+    let isMounted = true
+
     async function init() {
       try {
         const token = (search as any)?.token
 
         if (!token) {
+          if (!isMounted) return
           setError('No authentication token provided')
           setLoading(false)
           return
         }
 
         // Validate token
-        const authResult = await validateSignToken(token)
+        const authResult = await validateSignToken(token, abortController.signal)
 
         if (!authResult.success) {
+          if (!isMounted) return
           setError(authResult.error || 'Invalid or expired link')
           setLoading(false)
           return
         }
 
+        if (!isMounted) return
         setUserId(authResult.userId || null)
 
         // Fetch contract details
-        const contractData = await fetchContract(contractId)
+        const contractData = await fetchContract(
+          contractId,
+          abortController.signal,
+        )
+        if (!isMounted) return
         setContract(contractData)
 
         // Get PDF URL
-        const url = await getContractPdfUrl(contractId)
+        const url = await getContractPdfUrl(contractId, abortController.signal)
+        if (!isMounted) return
         setPdfUrl(url)
 
+        if (!isMounted) return
         setLoading(false)
       } catch (err) {
+        // Don't set state if component is unmounted
+        if (!isMounted) return
+
+        // Don't show error if request was aborted (expected on cleanup)
+        if (
+          err instanceof Error &&
+          (err.message.includes('cancelled') || err.name === 'AbortError')
+        ) {
+          return
+        }
+
         console.error('Initialization error:', err)
         setError('Failed to load contract')
         setLoading(false)
@@ -73,6 +96,12 @@ function ContractSignPage() {
     }
 
     init()
+
+    // Cleanup function
+    return () => {
+      isMounted = false
+      abortController.abort()
+    }
   }, [contractId, search])
 
   const handleSign = async () => {

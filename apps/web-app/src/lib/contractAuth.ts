@@ -18,6 +18,7 @@ export interface ContractAuthResult {
  */
 export async function validateSignToken(
   token: string,
+  signal?: AbortSignal,
 ): Promise<ContractAuthResult> {
   try {
     const response = await fetch(
@@ -28,6 +29,7 @@ export async function validateSignToken(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ token }),
+        signal,
       },
     )
 
@@ -46,6 +48,12 @@ export async function validateSignToken(
       userId: data.userId,
     }
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return {
+        success: false,
+        error: 'Request was cancelled',
+      }
+    }
     console.error('Error validating sign token:', error)
     return {
       success: false,
@@ -57,7 +65,10 @@ export async function validateSignToken(
 /**
  * Fetch contract details
  */
-export async function fetchContract(contractId: string) {
+export async function fetchContract(
+  contractId: string,
+  signal?: AbortSignal,
+) {
   try {
     const response = await fetch(
       `${API_BASE_URL}/api/contracts/${contractId}`,
@@ -66,6 +77,7 @@ export async function fetchContract(contractId: string) {
         headers: {
           'Content-Type': 'application/json',
         },
+        signal,
       },
     )
 
@@ -76,6 +88,9 @@ export async function fetchContract(contractId: string) {
 
     return await response.json()
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request was cancelled')
+    }
     console.error('Error fetching contract:', error)
     throw error
   }
@@ -126,7 +141,10 @@ export async function signContractWeb(
 /**
  * Get contract PDF URL
  */
-export async function getContractPdfUrl(contractId: string): Promise<string> {
+export async function getContractPdfUrl(
+  contractId: string,
+  signal?: AbortSignal,
+): Promise<string> {
   try {
     const response = await fetch(
       `${API_BASE_URL}/api/contracts/${contractId}/pdf`,
@@ -135,6 +153,7 @@ export async function getContractPdfUrl(contractId: string): Promise<string> {
         headers: {
           'Content-Type': 'application/json',
         },
+        signal,
       },
     )
 
@@ -145,6 +164,9 @@ export async function getContractPdfUrl(contractId: string): Promise<string> {
     const data = await response.json()
     return data.downloadUrl
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request was cancelled')
+    }
     console.error('Error getting PDF URL:', error)
     throw error
   }
