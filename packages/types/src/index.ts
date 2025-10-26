@@ -44,7 +44,12 @@ export interface Contract {
   id: string;
   pdfUrl?: string;
   sha256?: string;
-  status: 'PENDING_SIGNATURE' | 'EXECUTING' | 'EXECUTED' | 'EXECUTION_FAILED' | 'VOID';
+  status:
+    | 'PENDING_SIGNATURE'
+    | 'EXECUTING'
+    | 'EXECUTED'
+    | 'EXECUTION_FAILED'
+    | 'VOID';
   offerId: string;
   createdAt: Date;
   updatedAt: Date;

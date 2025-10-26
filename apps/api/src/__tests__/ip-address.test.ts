@@ -1,4 +1,5 @@
 import type { Request } from 'express';
+
 import { getClientIpAddress } from '../utils/ip-address.js';
 
 describe('IP Address Extraction', () => {
@@ -252,4 +253,3 @@ describe('IP Address Extraction', () => {
     });
   });
 });
-

@@ -96,7 +96,6 @@ jest.mock('../lib/contract-execution-queue', () => ({
 }));
 
 import app from '../index.js';
-import { createExecutionJob } from '../lib/contract-execution-queue.js';
 
 describe('Contract API Routes', () => {
   beforeEach(() => {

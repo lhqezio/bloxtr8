@@ -4,7 +4,6 @@ import { prisma } from '@bloxtr8/database';
 import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 import { Router, type Router as ExpressRouter } from 'express';
 
-import { createExecutionJob } from '../lib/contract-execution-queue.js';
 import { executeContract } from '../lib/contract-execution.js';
 import { generateContract, verifyContract } from '../lib/contract-generator.js';
 import { isDebugMode } from '../lib/env-validation.js';

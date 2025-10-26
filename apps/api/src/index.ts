@@ -34,7 +34,10 @@ const app: express.Application = express();
 // Trust proxy configuration for proper IP extraction
 // This prevents IP spoofing by only trusting headers from trusted proxies
 if (process.env.TRUSTED_PROXIES) {
-  app.set('trust proxy', process.env.TRUSTED_PROXIES.split(',').map(ip => ip.trim()));
+  app.set(
+    'trust proxy',
+    process.env.TRUSTED_PROXIES.split(',').map(ip => ip.trim())
+  );
 } else if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', true); // Trust first proxy in production
 } else {
