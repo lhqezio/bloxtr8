@@ -394,13 +394,23 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
     }
 
     // Check if both parties have signed
-    const allSignatures = await prisma.signature.findMany({
-      where: { contractId: id },
-    });
+    // In debug mode with same user, we can determine bothSigned without querying
+    // since we created both signatures in this transaction
+    let bothSigned = false;
+    
+    if (debugMode && sameUser && autoSignedSecondParty) {
+      // Both signatures were created in this transaction, so both parties have signed
+      bothSigned = true;
+    } else {
+      // Normal case: query the database to check if both parties have signed
+      const allSignatures = await prisma.signature.findMany({
+        where: { contractId: id },
+      });
 
-    const bothSigned =
-      allSignatures.some(sig => sig.userId === contract.offer.buyerId) &&
-      allSignatures.some(sig => sig.userId === contract.offer.sellerId);
+      bothSigned =
+        allSignatures.some(sig => sig.userId === contract.offer.buyerId) &&
+        allSignatures.some(sig => sig.userId === contract.offer.sellerId);
+    }
 
     // Create execution job if both parties have signed
     if (bothSigned) {
