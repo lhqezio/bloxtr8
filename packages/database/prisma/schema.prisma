@@ -641,13 +641,13 @@ model ContractTemplate {
 
 // One-time tokens for contract signing authentication
 model ContractSignToken {
-  id         String   @id @default(cuid())
-  token      String   @unique
+  id         String    @id @default(cuid())
+  token      String    @unique
   contractId String
   userId     String
   expiresAt  DateTime
-  used       Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  usedAt     DateTime? // Timestamp when the token was used
+  createdAt  DateTime  @default(now())
 
   @@index([token])
   @@index([contractId])

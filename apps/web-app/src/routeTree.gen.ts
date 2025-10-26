@@ -15,6 +15,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as AuthLinkIndexRouteImport } from './routes/auth/link/index'
+import { Route as ContractContractIdSignRouteImport } from './routes/contract/$contractId.sign'
+import { Route as ContractContractIdCompleteRouteImport } from './routes/contract/$contractId.complete'
 import { Route as AuthLinkSuccessRouteImport } from './routes/auth/link/success'
 import { Route as AuthLinkRobloxRouteImport } from './routes/auth/link/roblox'
 import { Route as AuthLinkErrorRouteImport } from './routes/auth/link/error'
@@ -49,6 +51,17 @@ const AuthLinkIndexRoute = AuthLinkIndexRouteImport.update({
   path: '/auth/link/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContractContractIdSignRoute = ContractContractIdSignRouteImport.update({
+  id: '/contract/$contractId/sign',
+  path: '/contract/$contractId/sign',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContractContractIdCompleteRoute =
+  ContractContractIdCompleteRouteImport.update({
+    id: '/contract/$contractId/complete',
+    path: '/contract/$contractId/complete',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthLinkSuccessRoute = AuthLinkSuccessRouteImport.update({
   id: '/auth/link/success',
   path: '/auth/link/success',
@@ -74,6 +87,8 @@ export interface FileRoutesByFullPath {
   '/auth/link/error': typeof AuthLinkErrorRoute
   '/auth/link/roblox': typeof AuthLinkRobloxRoute
   '/auth/link/success': typeof AuthLinkSuccessRoute
+  '/contract/$contractId/complete': typeof ContractContractIdCompleteRoute
+  '/contract/$contractId/sign': typeof ContractContractIdSignRoute
   '/auth/link': typeof AuthLinkIndexRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +100,8 @@ export interface FileRoutesByTo {
   '/auth/link/error': typeof AuthLinkErrorRoute
   '/auth/link/roblox': typeof AuthLinkRobloxRoute
   '/auth/link/success': typeof AuthLinkSuccessRoute
+  '/contract/$contractId/complete': typeof ContractContractIdCompleteRoute
+  '/contract/$contractId/sign': typeof ContractContractIdSignRoute
   '/auth/link': typeof AuthLinkIndexRoute
 }
 export interface FileRoutesById {
@@ -97,6 +114,8 @@ export interface FileRoutesById {
   '/auth/link/error': typeof AuthLinkErrorRoute
   '/auth/link/roblox': typeof AuthLinkRobloxRoute
   '/auth/link/success': typeof AuthLinkSuccessRoute
+  '/contract/$contractId/complete': typeof ContractContractIdCompleteRoute
+  '/contract/$contractId/sign': typeof ContractContractIdSignRoute
   '/auth/link/': typeof AuthLinkIndexRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +129,8 @@ export interface FileRouteTypes {
     | '/auth/link/error'
     | '/auth/link/roblox'
     | '/auth/link/success'
+    | '/contract/$contractId/complete'
+    | '/contract/$contractId/sign'
     | '/auth/link'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +142,8 @@ export interface FileRouteTypes {
     | '/auth/link/error'
     | '/auth/link/roblox'
     | '/auth/link/success'
+    | '/contract/$contractId/complete'
+    | '/contract/$contractId/sign'
     | '/auth/link'
   id:
     | '__root__'
@@ -132,6 +155,8 @@ export interface FileRouteTypes {
     | '/auth/link/error'
     | '/auth/link/roblox'
     | '/auth/link/success'
+    | '/contract/$contractId/complete'
+    | '/contract/$contractId/sign'
     | '/auth/link/'
   fileRoutesById: FileRoutesById
 }
@@ -144,6 +169,8 @@ export interface RootRouteChildren {
   AuthLinkErrorRoute: typeof AuthLinkErrorRoute
   AuthLinkRobloxRoute: typeof AuthLinkRobloxRoute
   AuthLinkSuccessRoute: typeof AuthLinkSuccessRoute
+  ContractContractIdCompleteRoute: typeof ContractContractIdCompleteRoute
+  ContractContractIdSignRoute: typeof ContractContractIdSignRoute
   AuthLinkIndexRoute: typeof AuthLinkIndexRoute
 }
 
@@ -191,6 +218,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthLinkIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/contract/$contractId/sign': {
+      id: '/contract/$contractId/sign'
+      path: '/contract/$contractId/sign'
+      fullPath: '/contract/$contractId/sign'
+      preLoaderRoute: typeof ContractContractIdSignRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contract/$contractId/complete': {
+      id: '/contract/$contractId/complete'
+      path: '/contract/$contractId/complete'
+      fullPath: '/contract/$contractId/complete'
+      preLoaderRoute: typeof ContractContractIdCompleteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/link/success': {
       id: '/auth/link/success'
       path: '/auth/link/success'
@@ -224,6 +265,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthLinkErrorRoute: AuthLinkErrorRoute,
   AuthLinkRobloxRoute: AuthLinkRobloxRoute,
   AuthLinkSuccessRoute: AuthLinkSuccessRoute,
+  ContractContractIdCompleteRoute: ContractContractIdCompleteRoute,
+  ContractContractIdSignRoute: ContractContractIdSignRoute,
   AuthLinkIndexRoute: AuthLinkIndexRoute,
 }
 export const routeTree = rootRouteImport

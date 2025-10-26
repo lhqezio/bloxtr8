@@ -303,7 +303,7 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
         throw new AppError('Invalid signing token', 401);
       }
 
-      if (signToken.used) {
+      if (signToken.usedAt) {
         throw new AppError('Signing token has already been used', 401);
       }
 
@@ -331,7 +331,7 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
     if (token && signatureMethod === 'WEB_BASED') {
       await prisma.contractSignToken.update({
         where: { token },
-        data: { used: true },
+        data: { usedAt: new Date() },
       });
     }
 
@@ -574,7 +574,7 @@ router.post('/contracts/validate-token', async (req, res, next) => {
     }
 
     // Check if token has already been used
-    if (signToken.used) {
+    if (signToken.usedAt) {
       throw new AppError('Token has already been used', 401);
     }
 
