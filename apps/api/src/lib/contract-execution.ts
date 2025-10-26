@@ -55,9 +55,20 @@ export async function executeContract(contractId: string): Promise<{
         where: { contractId: contract.id },
       });
 
+      // If contract is EXECUTED but no escrow exists, this is an inconsistent state
+      if (!existingEscrow) {
+        console.error(
+          `Contract ${contractId} is marked as EXECUTED but has no escrow. This indicates a previous execution failure.`
+        );
+        return {
+          success: false,
+          error: 'Contract is marked as executed but has no escrow. This indicates a previous execution failure.',
+        };
+      }
+
       return {
         success: true,
-        escrowId: existingEscrow?.id,
+        escrowId: existingEscrow.id,
       };
     }
 
