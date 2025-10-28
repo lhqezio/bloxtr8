@@ -735,21 +735,36 @@ router.post('/contracts/:id/retry-execution', async (req, res, next) => {
 
     // Retry contract execution
     try {
-      const executionResult = await executeContract(id);
+      // Execute contract and update status atomically within a transaction
+      const result = await prisma.$transaction(async tx => {
+        const executionResult = await executeContract(id, tx);
 
-      if (executionResult.success) {
-        // Update contract status to EXECUTED
-        await prisma.contract.update({
-          where: { id },
-          data: {
-            status: 'EXECUTED',
-          },
-        });
+        if (executionResult.success) {
+          // Update contract status to EXECUTED within the same transaction
+          await tx.contract.update({
+            where: { id },
+            data: {
+              status: 'EXECUTED',
+            },
+          });
 
+          return {
+            success: true as const,
+            escrowId: executionResult.escrowId,
+          };
+        } else {
+          return {
+            success: false as const,
+            error: executionResult.error,
+          };
+        }
+      });
+
+      if (result.success) {
         res.json({
           success: true,
           contractStatus: 'EXECUTED',
-          escrowId: executionResult.escrowId,
+          escrowId: result.escrowId,
           message: 'Contract execution retry successful',
         });
       } else {
@@ -757,7 +772,7 @@ router.post('/contracts/:id/retry-execution', async (req, res, next) => {
         res.json({
           success: false,
           contractStatus: 'EXECUTION_FAILED',
-          error: executionResult.error,
+          error: result.error,
           message: 'Contract execution retry failed',
         });
       }
@@ -834,24 +849,43 @@ router.get('/contracts/:id/escrow', async (req, res, next) => {
     // If no escrow exists yet, try to execute the contract
     if (contract.escrows.length === 0) {
       if (contract.status !== 'EXECUTED') {
-        // Try to execute the contract
-        const executionResult = await executeContract(id);
-        
-        if (!executionResult.success) {
-          throw new AppError(
-            `Failed to execute contract: ${executionResult.error}`,
-            500
-          );
-        }
+        // Execute contract and update status atomically within a transaction
+        const escrowId = await prisma.$transaction(async tx => {
+          // Check if an escrow was created while we were waiting (race condition protection)
+          const currentEscrows = await tx.escrow.findMany({
+            where: { contractId: id },
+          });
 
-        // Update contract status to EXECUTED
-        await prisma.contract.update({
-          where: { id },
-          data: { status: 'EXECUTED' },
+          if (currentEscrows.length > 0) {
+            // Someone else already created an escrow, return it
+            const existingEscrow = currentEscrows[0];
+            if (!existingEscrow) {
+              throw new AppError('Unexpected error: escrow array not empty but first element is undefined', 500);
+            }
+            return existingEscrow.id;
+          }
+
+          // Execute contract within transaction
+          const result = await executeContract(id, tx);
+          
+          if (!result.success || !result.escrowId) {
+            throw new AppError(
+              `Failed to execute contract: ${result.error || 'Escrow ID not returned'}`,
+              500
+            );
+          }
+
+          // Update contract status to EXECUTED within the same transaction
+          await tx.contract.update({
+            where: { id },
+            data: { status: 'EXECUTED' },
+          });
+
+          return result.escrowId;
         });
 
         // Fetch the newly created escrow
-        const escrowInit = await getEscrowPaymentInit(executionResult.escrowId!);
+        const escrowInit = await getEscrowPaymentInit(escrowId);
         
         if (!escrowInit) {
           throw new AppError('Failed to retrieve escrow data', 500);

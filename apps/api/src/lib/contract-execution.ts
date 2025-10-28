@@ -6,15 +6,21 @@ import { isDebugMode } from '../lib/env-validation.js';
 /**
  * Handle contract execution when both parties have signed
  * This is triggered after a signature is added and both parties have signed
+ * @param tx - Optional transaction client. If provided, all operations run within that transaction.
  */
-export async function executeContract(contractId: string): Promise<{
+export async function executeContract(
+  contractId: string,
+  tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+): Promise<{
   success: boolean;
   escrowId?: string;
   error?: string;
 }> {
+  const db = tx || prisma;
+
   try {
     // Fetch contract with all related data
-    const contract = await prisma.contract.findUnique({
+    const contract = await db.contract.findUnique({
       where: { id: contractId },
       include: {
         offer: {
@@ -54,7 +60,7 @@ export async function executeContract(contractId: string): Promise<{
     // Check if contract is already executed
     if (contract.status === 'EXECUTED') {
       // Check if escrow already exists
-      const existingEscrow = await prisma.escrow.findFirst({
+      const existingEscrow = await db.escrow.findFirst({
         where: { contractId: contract.id },
       });
 
@@ -84,33 +90,31 @@ export async function executeContract(contractId: string): Promise<{
       );
 
       try {
-        // Use transaction to ensure all-or-nothing cleanup
-        await prisma.$transaction(async tx => {
-          for (const escrow of contract.escrows) {
-            // Delete rail-specific escrow records first
-            if (escrow.rail === 'STRIPE') {
-              await tx.stripeEscrow.deleteMany({
-                where: { escrowId: escrow.id },
-              });
-            } else if (escrow.rail === 'USDC_BASE') {
-              await tx.stablecoinEscrow.deleteMany({
-                where: { escrowId: escrow.id },
-              });
-            }
-
-            // Delete milestone escrows if any
-            await tx.milestoneEscrow.deleteMany({
+        // Clean up existing escrows
+        for (const escrow of contract.escrows) {
+          // Delete rail-specific escrow records first
+          if (escrow.rail === 'STRIPE') {
+            await db.stripeEscrow.deleteMany({
               where: { escrowId: escrow.id },
             });
-
-            // Delete the escrow
-            await tx.escrow.delete({
-              where: { id: escrow.id },
+          } else if (escrow.rail === 'USDC_BASE') {
+            await db.stablecoinEscrow.deleteMany({
+              where: { escrowId: escrow.id },
             });
-
-            console.log(`Cleaned up escrow ${escrow.id} before new execution`);
           }
-        });
+
+          // Delete milestone escrows if any
+          await db.milestoneEscrow.deleteMany({
+            where: { escrowId: escrow.id },
+          });
+
+          // Delete the escrow
+          await db.escrow.delete({
+            where: { id: escrow.id },
+          });
+
+          console.log(`Cleaned up escrow ${escrow.id} before new execution`);
+        }
       } catch (cleanupError) {
         console.error(`Failed to cleanup escrows:`, cleanupError);
         return {
@@ -137,7 +141,7 @@ export async function executeContract(contractId: string): Promise<{
     const escrowRail = amountInDollars <= 10000 ? 'STRIPE' : 'USDC_BASE';
 
     // Create escrow
-    const escrow = await prisma.escrow.create({
+    const escrow = await db.escrow.create({
       data: {
         offerId: contract.offer.id,
         contractId: contract.id,
@@ -161,7 +165,7 @@ export async function executeContract(contractId: string): Promise<{
         );
       }
 
-      await prisma.stripeEscrow.create({
+      await db.stripeEscrow.create({
         data: {
           escrowId: escrow.id,
           paymentIntentId,
@@ -178,7 +182,7 @@ export async function executeContract(contractId: string): Promise<{
         );
       }
 
-      await prisma.stablecoinEscrow.create({
+      await db.stablecoinEscrow.create({
         data: {
           escrowId: escrow.id,
           chain: 'BASE',
@@ -188,7 +192,7 @@ export async function executeContract(contractId: string): Promise<{
     }
 
     // Create audit log entry
-    await prisma.auditLog.create({
+    await db.auditLog.create({
       data: {
         action: 'CONTRACT_EXECUTED',
         details: {
