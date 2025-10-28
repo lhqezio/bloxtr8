@@ -96,18 +96,18 @@ Small tweaks and recommendations for the schema:
 ### Public buyer/seller flows
 
 - `POST /offers/:id/accept` — seller accepts offer => creates `Escrow` (AWAIT_FUNDS) and returns `clientPaymentInfo`.
-- `POST /escrow/create/:rail` — internal endpoint to create an escrow (rail chosen). Idempotent (idempotency-key supported).
-- `GET /escrows/:id` — returns escrow state, linked contract/offer and delivery info.
-- `POST /escrows/:id/confirm-payment` — (optional) manually notify platform that buyer paid off-band (for custodial fiat wires).
-- `POST /escrows/:id/delivery` — seller uploads delivery proof; creates `Delivery` record.
-- `POST /escrows/:id/confirm` — buyer confirms delivery -> triggers release.
-- `POST /escrows/:id/dispute` — open a dispute (creates `Dispute`, sets `Escrow.status = DISPUTED`).
+- `POST /escrow` — create an escrow (rail chosen). Idempotent (idempotency-key supported).
+- `GET /escrow/:id` — returns escrow state, linked contract/offer and delivery info.
+- `POST /escrow/:id/confirm-payment` — (optional) manually notify platform that buyer paid off-band (for custodial fiat wires).
+- `POST /escrow/:id/delivery` — seller uploads delivery proof; creates `Delivery` record.
+- `POST /escrow/:id/confirm` — buyer confirms delivery -> triggers release.
+- `POST /escrow/:id/dispute` — open a dispute (creates `Dispute`, sets `Escrow.status = DISPUTED`).
 
 ### Admin / ops
 
-- `POST /escrows/:id/release` — admin or dispute resolution engine releases funds.
-- `POST /escrows/:id/refund` — admin issues refund.
-- `GET /escrows?status=DISPUTED` — list to triage.
+- `POST /escrow/:id/release` — admin or dispute resolution engine releases funds.
+- `POST /escrow/:id/refund` — admin issues refund.
+- `GET /escrow?status=DISPUTED` — list to triage.
 
 ### Webhook endpoints
 
@@ -177,7 +177,7 @@ app.use(bodyParser.json());
  * 1️⃣ Buyer initiates purchase — funds held in platform account
  * Buyer is charged total amount including platform fee
  */
-app.post('/api/escrow/create/stripe', async (req, res) => {
+app.post('/api/escrow/stripe', async (req, res) => {
   try {
     const { amount, currency, buyerEmail, sellerAccountId, buyerFee } =
       req.body;
@@ -540,16 +540,16 @@ export async function releaseEscrowToSeller(
 
 - When an Offer uses milestones, create `MilestoneEscrow` rows with amounts summing to `Escrow.amount`.
 - Each milestone independently progresses through `AWAIT_FUNDS` -> `FUNDS_HELD` -> `RELEASED`.
-- API: `POST /escrows/:id/milestones/:mid/release` (buyer confirm / admin release).
+- API: `POST /escrow/:id/milestones/:mid/release` (buyer confirm / admin release).
 
 ---
 
 ## 8. Dispute handling
 
-- `POST /escrows/:id/dispute` creates `Dispute` and sets `Escrow.status = DISPUTED`.
+- `POST /escrow/:id/dispute` creates `Dispute` and sets `Escrow.status = DISPUTED`.
 - Freeze actions: block automated release/refund while `DISPUTED`.
 - Add `Dispute.messages` (or store in `AuditLog`) for evidence.
-- Admin flow: gather evidence (Delivery.evidence, RobloxSnapshot verification, on-chain proof), then call `POST /escrows/:id/admin-resolve` with resolution `RELEASE` or `REFUND` and `resolutionReason`.
+- Admin flow: gather evidence (Delivery.evidence, RobloxSnapshot verification, on-chain proof), then call `POST /escrow/:id/admin-resolve` with resolution `RELEASE` or `REFUND` and `resolutionReason`.
 - On resolution, set `Dispute.status = RESOLVED`, `resolvedAt`, update `Escrow.status` accordingly, and create `AuditLog`.
 
 ---
@@ -604,7 +604,7 @@ POST /webhooks/stripe
 **Buyer confirms delivery**
 
 ```http
-POST /escrows/:id/confirm
+POST /escrow/:id/confirm
 Authorization: Bearer <buyer-token>
 # verify buyer is linked to the offer
 # verify escrow.status == FUNDS_HELD

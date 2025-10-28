@@ -28,9 +28,9 @@ const transitionStateSchema = z.object({
 
 /**
  * Create a new escrow
- * POST /api/escrow/create
+ * POST /api/escrow
  */
-router.post('/create', async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const params = createEscrowSchema.parse(req.body);
     

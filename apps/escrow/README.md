@@ -29,7 +29,7 @@ A dedicated service for handling payment escrow operations using Stripe Connect 
 
 ### Escrow Management
 
-- `POST /api/escrow/create` - Create new escrow
+- `POST /api/escrow` - Create new escrow
 - `GET /api/escrow/:id` - Get escrow details
 - `POST /api/escrow/:id/transition` - Transition escrow state
 - `POST /api/escrow/:id/release` - Release funds to seller
