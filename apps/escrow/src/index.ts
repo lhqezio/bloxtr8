@@ -6,7 +6,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import pkg from 'pg';
 
-import { validateEnvironment } from './lib/env-validation.js';
+import { validateEnvironment } from '@bloxtr8/shared';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
 import healthRoutes, { setPool } from './routes/health.js';
@@ -17,7 +17,7 @@ config();
 
 // Validate environment variables at startup
 try {
-  validateEnvironment();
+  validateEnvironment(['DATABASE_URL']);
 } catch (error) {
   console.error('❌ Environment validation failed:', error);
   if (process.env.NODE_ENV !== 'test') {
