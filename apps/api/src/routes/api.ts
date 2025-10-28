@@ -3,6 +3,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 import assetVerificationRouter from './asset-verification.js';
 import authRouter from './auth.js';
 import contractsRouter from './contracts.js';
+import escrowRouter from './escrow.js';
 import listingsRouter from './listings.js';
 import metricsRouter from './metrics.js';
 import offerDraftsRouter from './offer-drafts.js';
@@ -19,6 +20,7 @@ router.use('/', listingsRouter);
 router.use('/', offersRouter);
 router.use('/offer-drafts', offerDraftsRouter);
 router.use('/', contractsRouter);
+router.use('/', escrowRouter);
 router.use('/', metricsRouter);
 
 export default router;

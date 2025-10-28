@@ -92,4 +92,3 @@ export function isDebugMode(): boolean {
 
   return debugEnabled && inDevelopment;
 }
-
