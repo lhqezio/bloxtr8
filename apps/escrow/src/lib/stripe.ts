@@ -20,4 +20,3 @@ export const STRIPE_CONNECT_CONFIG = {
   // Enable KYC verification for connected accounts
   kycVerification: true,
 } as const;
-
