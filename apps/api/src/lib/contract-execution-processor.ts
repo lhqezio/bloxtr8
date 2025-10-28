@@ -1,7 +1,10 @@
 import { prisma } from '@bloxtr8/database';
 import cron from 'node-cron';
+import type { ScheduledTask } from 'node-cron';
 
 import { executeContract } from './contract-execution.js';
+
+let processorTask: ScheduledTask | null = null;
 
 /**
  * Exponential backoff retry intervals in minutes
@@ -54,11 +57,31 @@ async function processExecutionJob(jobId: string): Promise<void> {
       },
     });
 
-    // Execute the contract
-    const executionResult = await executeContract(job.contractId);
+    // Execute the contract and update status atomically
+    const result = await prisma.$transaction(async tx => {
+      const executionResult = await executeContract(job.contractId, tx);
 
-    if (executionResult.success) {
-      // Success! Mark job as completed and update contract status
+      if (executionResult.success) {
+        // Update contract status to EXECUTED within the same transaction
+        await tx.contract.update({
+          where: { id: job.contractId },
+          data: { status: 'EXECUTED' },
+        });
+
+        return {
+          success: true as const,
+          escrowId: executionResult.escrowId,
+        };
+      } else {
+        return {
+          success: false as const,
+          error: executionResult.error,
+        };
+      }
+    });
+
+    if (result.success) {
+      // Success! Mark job as completed
       await prisma.contractExecutionJob.update({
         where: { id: jobId },
         data: {
@@ -68,37 +91,34 @@ async function processExecutionJob(jobId: string): Promise<void> {
         },
       });
 
-      await prisma.contract.update({
-        where: { id: job.contractId },
-        data: { status: 'EXECUTED' },
-      });
-
       console.log(
-        `[Contract Execution Processor] Job ${jobId} completed successfully. Escrow ${executionResult.escrowId} created.`
+        `[Contract Execution Processor] Job ${jobId} completed successfully. Escrow ${result.escrowId} created.`
       );
     } else {
       // Execution failed - handle retry logic
       const nextAttempt = job.attempts + 1;
 
       if (nextAttempt >= job.maxAttempts) {
-        // Max attempts reached - mark job as failed
-        await prisma.contractExecutionJob.update({
-          where: { id: jobId },
-          data: {
-            status: 'FAILED',
-            lastError: executionResult.error || 'Unknown error',
-            completedAt: new Date(),
-            processingStartedAt: null,
-          },
-        });
+        // Max attempts reached - mark job as failed and update contract status
+        await prisma.$transaction(async tx => {
+          await tx.contractExecutionJob.update({
+            where: { id: jobId },
+            data: {
+              status: 'FAILED',
+              lastError: result.error || 'Unknown error',
+              completedAt: new Date(),
+              processingStartedAt: null,
+            },
+          });
 
-        await prisma.contract.update({
-          where: { id: job.contractId },
-          data: { status: 'EXECUTION_FAILED' },
+          await tx.contract.update({
+            where: { id: job.contractId },
+            data: { status: 'EXECUTION_FAILED' },
+          });
         });
 
         console.error(
-          `[Contract Execution Processor] Job ${jobId} failed after ${nextAttempt} attempts: ${executionResult.error}`
+          `[Contract Execution Processor] Job ${jobId} failed after ${nextAttempt} attempts: ${result.error}`
         );
       } else {
         // Schedule retry
@@ -111,7 +131,7 @@ async function processExecutionJob(jobId: string): Promise<void> {
           data: {
             status: 'PENDING',
             attempts: nextAttempt,
-            lastError: executionResult.error || 'Unknown error',
+            lastError: result.error || 'Unknown error',
             nextRetryAt,
             processingStartedAt: null,
           },
@@ -129,20 +149,22 @@ async function processExecutionJob(jobId: string): Promise<void> {
       error instanceof Error ? error.message : 'Unknown error';
 
     if (nextAttempt >= job.maxAttempts) {
-      // Max attempts reached
-      await prisma.contractExecutionJob.update({
-        where: { id: jobId },
-        data: {
-          status: 'FAILED',
-          lastError: errorMessage,
-          completedAt: new Date(),
-          processingStartedAt: null,
-        },
-      });
+      // Max attempts reached - mark job as failed and update contract status atomically
+      await prisma.$transaction(async tx => {
+        await tx.contractExecutionJob.update({
+          where: { id: jobId },
+          data: {
+            status: 'FAILED',
+            lastError: errorMessage,
+            completedAt: new Date(),
+            processingStartedAt: null,
+          },
+        });
 
-      await prisma.contract.update({
-        where: { id: job.contractId },
-        data: { status: 'EXECUTION_FAILED' },
+        await tx.contract.update({
+          where: { id: job.contractId },
+          data: { status: 'EXECUTION_FAILED' },
+        });
       });
 
       console.error(
@@ -175,10 +197,11 @@ async function processExecutionJob(jobId: string): Promise<void> {
 /**
  * Background job to process contract execution jobs
  * Runs every 1 minute to check for pending jobs
+ * @returns The scheduled task for potential cleanup
  */
-export function initializeContractExecutionProcessor(): void {
+export function initializeContractExecutionProcessor(): ScheduledTask {
   // Run every minute: * * * * *
-  cron.schedule('* * * * *', async () => {
+  processorTask = cron.schedule('* * * * *', async () => {
     try {
       console.log('[Contract Execution Processor] Running job check...');
 
@@ -239,6 +262,17 @@ export function initializeContractExecutionProcessor(): void {
   console.log(
     '[Contract Execution Processor] Initialized - running every 1 minute'
   );
+  return processorTask;
+}
+
+/**
+ * Stop the contract execution processor
+ */
+export function stopContractExecutionProcessor(): void {
+  if (processorTask) {
+    processorTask.stop();
+    console.log('[Contract Execution Processor] Job stopped');
+  }
 }
 
 /**

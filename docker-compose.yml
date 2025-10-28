@@ -37,11 +37,23 @@ services:
       - '3000:3000'
     environment:
       - NODE_ENV=production
-      - DATABASE_URL_PRISMA=postgresql://postgres:postgres@test-db:5432/bloxtr8-db
+      - DATABASE_URL=postgresql://postgres:postgres@test-db:5432/bloxtr8-db
     restart: unless-stopped
     depends_on:
       - test-db
-
+  escrow:
+    build:
+      context: .
+      dockerfile: apps/escrow/Dockerfile
+      target: production
+    ports:
+      - '3001:3001'
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@test-db:5432/bloxtr8-db
+    restart: unless-stopped
+    depends_on:
+      - test-db
   # Discord bot - production optimized
   discord-bot:
     build:

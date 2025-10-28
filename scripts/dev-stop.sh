@@ -57,6 +57,7 @@ stop_service() {
         local port=""
         case $service_name in
             "api") port=3000 ;;
+            "escrow") port=3001 ;;
             "web-app") port=5173 ;;
         esac
         
@@ -79,6 +80,7 @@ stop_service() {
 
 # Stop all services
 stop_service "api"
+stop_service "escrow"
 stop_service "discord-bot"
 stop_service "web-app"
 

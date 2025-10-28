@@ -669,7 +669,7 @@ describe('Users API Routes', () => {
         .expect(400);
 
       expect(response.body).toMatchObject({
-        type: 'https://bloxtr8.com/problems/bad-request',
+        type: 'https://web.bloxtr8.com/problems/bad-request',
         title: 'Bad Request',
         status: 400,
         detail: 'Discord ID is required',
@@ -687,7 +687,7 @@ describe('Users API Routes', () => {
         .expect(404);
 
       expect(response.body).toMatchObject({
-        type: 'https://bloxtr8.com/problems/not-found',
+        type: 'https://web.bloxtr8.com/problems/not-found',
         title: 'Not Found',
         status: 404,
         detail: 'User not found. Please sign up first.',
@@ -776,7 +776,7 @@ describe('Users API Routes', () => {
         .expect(404);
 
       expect(response.body).toMatchObject({
-        type: 'https://bloxtr8.com/problems/not-found',
+        type: 'https://web.bloxtr8.com/problems/not-found',
         title: 'Not Found',
         status: 404,
         detail: 'Invalid or expired token',
@@ -801,7 +801,7 @@ describe('Users API Routes', () => {
         .expect(410);
 
       expect(response.body).toMatchObject({
-        type: 'https://bloxtr8.com/problems/unknown-error',
+        type: 'https://web.bloxtr8.com/problems/unknown-error',
         title: 'Unknown Error',
         status: 410,
         detail: 'Token has expired',
@@ -828,7 +828,7 @@ describe('Users API Routes', () => {
         .expect(410);
 
       expect(response.body).toMatchObject({
-        type: 'https://bloxtr8.com/problems/unknown-error',
+        type: 'https://web.bloxtr8.com/problems/unknown-error',
         title: 'Unknown Error',
         status: 410,
         detail: 'Token has already been used',
@@ -853,7 +853,7 @@ describe('Users API Routes', () => {
         .expect(404);
 
       expect(response.body).toMatchObject({
-        type: 'https://bloxtr8.com/problems/not-found',
+        type: 'https://web.bloxtr8.com/problems/not-found',
         title: 'Not Found',
         status: 404,
         detail: 'User not found',
@@ -896,7 +896,7 @@ describe('Users API Routes', () => {
         .expect(404);
 
       expect(response.body).toMatchObject({
-        type: 'https://bloxtr8.com/problems/not-found',
+        type: 'https://web.bloxtr8.com/problems/not-found',
         title: 'Not Found',
         status: 404,
         detail: 'Token not found',

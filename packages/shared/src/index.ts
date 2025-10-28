@@ -16,3 +16,6 @@ export const robloxUserIdSchema = z.number().positive();
 
 // Domain types and enums
 export { EscrowState, ProviderId, Role } from './domain.js';
+
+// Environment validation utilities
+export * from './env-validation.js';

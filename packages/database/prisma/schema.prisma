@@ -32,6 +32,9 @@ model User {
   // Wallet screening
   walletAddress String?
   walletRisk    WalletRisk @default(UNKNOWN)
+  
+  // Stripe Connect
+  stripeAccountId String? // Stripe Connect account ID for sellers
 
   // Relations
   listings           Listing[]
@@ -309,6 +312,12 @@ model Escrow {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
+  // New fields from escrow spec
+  expiresAt     DateTime? // Auto refund deadline
+  autoRefundAt  DateTime? // For automatic release after delivery
+  metadata      Json?     // Rails-agnostic references (refund reasons, proofs, custodian IDs)
+  version       Int       @default(1) // Optimistic locking
+
   // Relations
   offerId    String
   offer      Offer    @relation(fields: [offerId], references: [id])
@@ -336,6 +345,11 @@ model StripeEscrow {
   paymentIntentId String  @unique
   transferId      String?
   refundId        String?
+  
+  // New fields from escrow spec
+  amountCaptured  Int?     // Final captured amount in cents
+  currency        Currency? // Final captured currency
+  lastWebhookAt   DateTime? // For idempotency & replay protection
 
   escrowId String @unique
   escrow   Escrow @relation(fields: [escrowId], references: [id])
@@ -349,6 +363,19 @@ model StablecoinEscrow {
   depositAddr String
   depositTx   String?
   releaseTx   String?
+  
+  // New fields from escrow spec
+  custodyProvider        String? // e.g., 'coinbase_prime'
+  depositConfirmations   Int?    // Number of confirmations
+  custodianBuyerWalletId String? // Coinbase wallet id for buyer
+  custodianSellerWalletId String? // Coinbase wallet id for seller
+  custodianDepositTxId   String? // Provider deposit id
+  onchainSignature       String? // Onchain tx signature for release/refund
+  providerEvent          Json?   // Raw webhook payload
+  version                Int     @default(1) // Optimistic locking
+  mintAddress            String  // Canonical USDC mint
+  lastWebhookAt          DateTime? // For idempotency & replay protection
+
 
   escrowId String @unique
   escrow   Escrow @relation(fields: [escrowId], references: [id])
@@ -377,6 +404,9 @@ model Delivery {
   deliveredAt DateTime?
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
+  
+  // New field from escrow spec
+  evidence    Json? // Links to screenshots, roblox API responses, tx hashes, or signed messages
 
   // Relations
   listingId       String
@@ -476,6 +506,10 @@ model AuditLog {
   details   Json?
   createdAt DateTime @default(now())
 
+  // New fields from escrow spec
+  referenceType String? // Generic linking to events
+  referenceId   String? // Generic reference ID
+
   // Relations
   userId   String?
   user     User?   @relation(fields: [userId], references: [id])
@@ -486,6 +520,8 @@ model AuditLog {
   @@index([escrowId])
   @@index([action])
   @@index([createdAt])
+  @@index([referenceType])
+  @@index([referenceId])
   @@map("audit_logs")
 }
 

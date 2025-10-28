@@ -150,7 +150,7 @@ describe('Auth API Routes', () => {
         .expect(400);
 
       expect(response.body).toMatchObject({
-        type: 'https://bloxtr8.com/problems/bad-request',
+        type: 'https://web.bloxtr8.com/problems/bad-request',
         title: 'Bad Request',
         status: 400,
         detail: 'Redirect URI is required',
@@ -166,7 +166,7 @@ describe('Auth API Routes', () => {
         .expect(400);
 
       expect(response.body).toMatchObject({
-        type: 'https://bloxtr8.com/problems/bad-request',
+        type: 'https://web.bloxtr8.com/problems/bad-request',
         title: 'Bad Request',
         status: 400,
         detail: 'Discord ID or token is required',
@@ -185,7 +185,7 @@ describe('Auth API Routes', () => {
         .expect(404);
 
       expect(response.body).toMatchObject({
-        type: 'https://bloxtr8.com/problems/not-found',
+        type: 'https://web.bloxtr8.com/problems/not-found',
         title: 'Not Found',
         status: 404,
         detail: 'Invalid or expired token',
@@ -213,7 +213,7 @@ describe('Auth API Routes', () => {
         .expect(410);
 
       expect(response.body).toMatchObject({
-        type: 'https://bloxtr8.com/problems/unknown-error',
+        type: 'https://web.bloxtr8.com/problems/unknown-error',
         title: 'Unknown Error',
         status: 410,
         detail: 'Token has expired',
@@ -243,7 +243,7 @@ describe('Auth API Routes', () => {
         .expect(410);
 
       expect(response.body).toMatchObject({
-        type: 'https://bloxtr8.com/problems/unknown-error',
+        type: 'https://web.bloxtr8.com/problems/unknown-error',
         title: 'Unknown Error',
         status: 410,
         detail: 'Token has already been used',
@@ -262,7 +262,7 @@ describe('Auth API Routes', () => {
         .expect(500);
 
       expect(response.body).toMatchObject({
-        type: 'https://bloxtr8.com/problems/internal-server-error',
+        type: 'https://web.bloxtr8.com/problems/internal-server-error',
         title: 'Internal Server Error',
         status: 500,
         detail: 'Roblox OAuth not configured',

@@ -168,7 +168,7 @@ describe('Listings API Routes', () => {
       expect(response.headers['content-type']).toMatch(/application\/json/);
       expect(response.body).toHaveProperty(
         'type',
-        'https://bloxtr8.com/problems/not-found'
+        'https://web.bloxtr8.com/problems/not-found'
       );
       expect(response.body).toHaveProperty('title', 'Not Found');
       expect(response.body).toHaveProperty('status', 404);
