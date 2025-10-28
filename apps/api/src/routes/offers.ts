@@ -2,6 +2,7 @@ import { prisma } from '@bloxtr8/database';
 import { Router, type Router as ExpressRouter } from 'express';
 
 import { GameVerificationService } from '../lib/asset-verification.js';
+import { isDebugMode } from '../lib/env-validation.js';
 import { emitOfferEvent, OfferEventType } from '../lib/events.js';
 import { AppError } from '../middleware/errorHandler.js';
 import {
@@ -56,7 +57,14 @@ router.post('/offers', async (req, res, next) => {
 
     // Validate that buyer is not the seller
     if (buyerId === listing.userId) {
-      throw new AppError('Cannot offer on your own listing', 400);
+      const debugMode = isDebugMode();
+      if (debugMode) {
+        console.warn(
+          `🔧 DEBUG MODE: Allowing user ${buyerId} to offer on their own listing ${listingId}`
+        );
+      } else {
+        throw new AppError('Cannot offer on your own listing', 400);
+      }
     }
 
     // Validate listing has verified Roblox snapshot

@@ -27,3 +27,50 @@ export async function createPresignedGetUrl(key: string): Promise<string> {
     expiresIn: 3600,
   }); // 1 hour
 }
+
+/**
+ * Upload a buffer directly to S3
+ */
+export async function uploadBuffer(
+  buffer: Uint8Array,
+  key: string,
+  contentType = 'application/octet-stream'
+): Promise<void> {
+  const command = new PutObjectCommand({
+    Bucket: storageClient.getBucket(),
+    Key: key,
+    Body: buffer,
+    ContentType: contentType,
+  });
+
+  await storageClient.getClient().send(command);
+}
+
+/**
+ * Get public URL for a file (works with MinIO and S3)
+ */
+export function getPublicUrl(key: string): string {
+  const endpoint = process.env.STORAGE_ENDPOINT || 'http://localhost:9000';
+  const bucket = storageClient.getBucket();
+  const storageType = process.env.STORAGE_TYPE?.toLowerCase();
+
+  // Check explicit storage type first
+  if (storageType === 'minio') {
+    return `${endpoint}/${bucket}/${key}`;
+  }
+
+  if (storageType === 's3') {
+    const region = process.env.STORAGE_REGION || 'us-east-1';
+    return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+  }
+
+  // Fall back to endpoint-based detection for backwards compatibility
+  // For MinIO (local development), use path-style URL
+  if (endpoint.includes('localhost') || endpoint.includes('127.0.0.1')) {
+    return `${endpoint}/${bucket}/${key}`;
+  }
+
+  // For S3, use virtual-hosted-style URL
+  const region = process.env.STORAGE_REGION || 'us-east-1';
+  return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
+}

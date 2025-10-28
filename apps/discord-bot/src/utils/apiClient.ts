@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+import fetch, { type Response } from 'node-fetch';
 import { z } from 'zod';
 
 // API response schema
@@ -121,6 +121,121 @@ export interface ApiError {
     field: string;
     message: string;
   }>;
+}
+
+export interface ContractSignature {
+  userId: string;
+  signedAt: string | Date;
+}
+
+export interface ContractResponse {
+  id: string;
+  status: string;
+  pdfUrl?: string;
+  offer: {
+    id: string;
+    amount: string;
+    listingId: string;
+    buyerId: string;
+    sellerId: string;
+    listing: {
+      title: string;
+      price: string;
+      category: string;
+    };
+  };
+  signatures?: ContractSignature[];
+  robloxAssetData?: {
+    gameName: string;
+    verifiedOwnership?: boolean;
+  };
+}
+
+export interface SignContractResponse {
+  success: boolean;
+  contractId?: string;
+  bothPartiesSigned: boolean;
+  message?: string;
+}
+
+export interface GenerateContractResponse {
+  contractId: string;
+  pdfUrl: string;
+  status: string;
+}
+
+export interface SignTokenResponse {
+  signUrl: string;
+  token: string;
+}
+
+/**
+ * Helper function to parse error responses from the API
+ */
+async function parseErrorResponse(response: Response): Promise<ApiError> {
+  let responseText = '';
+  let textReadError: Error | null = null;
+
+  // Attempt to read response text first
+  try {
+    responseText = await response.text();
+  } catch (error) {
+    // Store the error but don't fail yet - we might be able to provide useful context
+    textReadError = error instanceof Error ? error : new Error(String(error));
+  }
+
+  // Check if the content type indicates JSON
+  const contentType = response.headers.get('content-type') || '';
+  const isJson = contentType.includes('application/json');
+
+  // If we couldn't read the response body, return early with error details
+  if (textReadError) {
+    return {
+      message: `HTTP ${response.status}: ${response.statusText}. Failed to read response body: ${textReadError.message}. Content-Type: ${contentType || 'unknown'}`,
+    };
+  }
+
+  // Handle JSON responses
+  if (isJson) {
+    try {
+      // Attempt to parse as JSON
+      const responseData = JSON.parse(responseText) as {
+        message?: string;
+        errors?: string[];
+      };
+      return {
+        message:
+          responseData.message ||
+          `HTTP ${response.status}: ${response.statusText}`,
+        errors: responseData.errors?.map(error => ({
+          field: 'general',
+          message: error,
+        })),
+      };
+    } catch (jsonError) {
+      // JSON parsing failed for content-type: application/json
+      // This is unusual - we expected JSON but got invalid JSON
+      const errorDetail =
+        jsonError instanceof Error ? jsonError.message : String(jsonError);
+      const truncatedBody =
+        responseText.length > 300
+          ? `${responseText.substring(0, 300)}...`
+          : responseText;
+      return {
+        message: `HTTP ${response.status}: ${response.statusText}. Content-Type indicates JSON but parsing failed: ${errorDetail}. Response body: ${truncatedBody}`,
+      };
+    }
+  } else {
+    // Non-JSON response (HTML, plain text, etc.)
+    // Preserve the actual response body for debugging
+    const truncatedBody =
+      responseText.length > 500
+        ? `${responseText.substring(0, 500)}...`
+        : responseText;
+    return {
+      message: `HTTP ${response.status}: ${response.statusText}. Non-JSON response (Content-Type: ${contentType}). Response body: ${truncatedBody}`,
+    };
+  }
 }
 
 /**
@@ -262,7 +377,7 @@ export async function updateListingMessage(
     );
 
     if (!response.ok) {
-      const errorData = (await response.json()) as ApiError;
+      const errorData = await parseErrorResponse(response);
       return {
         success: false,
         error: errorData,
@@ -364,7 +479,7 @@ export async function getListing(
     });
 
     if (!response.ok) {
-      const errorData = (await response.json()) as ApiError;
+      const errorData = await parseErrorResponse(response);
       return {
         success: false,
         error: errorData,
@@ -605,7 +720,7 @@ export async function getOffersForListing(
     );
 
     if (!response.ok) {
-      const errorData = (await response.json()) as ApiError;
+      const errorData = await parseErrorResponse(response);
       return {
         success: false,
         error: errorData,
@@ -715,7 +830,7 @@ export async function getOfferDraft(
     );
 
     if (!response.ok) {
-      const errorData = (await response.json()) as ApiError;
+      const errorData = await parseErrorResponse(response);
       return {
         success: false,
         error: errorData,
@@ -760,7 +875,7 @@ export async function deleteOfferDraft(
     );
 
     if (!response.ok && response.status !== 204) {
-      const errorData = (await response.json()) as ApiError;
+      const errorData = await parseErrorResponse(response);
       return {
         success: false,
         error: errorData,
@@ -774,6 +889,186 @@ export async function deleteOfferDraft(
       success: false,
       error: {
         message: 'Network error occurred while deleting offer draft',
+      },
+    };
+  }
+}
+
+/**
+ * Get contract details
+ */
+export async function getContract(
+  contractId: string,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<
+  | { success: true; data: ContractResponse }
+  | { success: false; error: ApiError }
+> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/contracts/${contractId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      const errorData = await parseErrorResponse(response);
+      return {
+        success: false,
+        error: errorData,
+      };
+    }
+
+    const data = (await response.json()) as ContractResponse;
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error fetching contract:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while fetching contract',
+      },
+    };
+  }
+}
+
+/**
+ * Sign a contract
+ */
+export async function signContract(
+  contractId: string,
+  userId: string,
+  signatureMethod: 'DISCORD_NATIVE' | 'WEB_BASED' = 'DISCORD_NATIVE',
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<
+  | { success: true; data: SignContractResponse }
+  | { success: false; error: ApiError }
+> {
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/contracts/${contractId}/sign`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          signatureMethod,
+          // Note: IP address and user agent would be captured on server side for Discord
+        }),
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await parseErrorResponse(response);
+      return {
+        success: false,
+        error: errorData,
+      };
+    }
+
+    const data = (await response.json()) as SignContractResponse;
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error signing contract:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while signing contract',
+      },
+    };
+  }
+}
+
+/**
+ * Generate contract signing token for web app
+ */
+export async function generateContractSignToken(
+  contractId: string,
+  userId: string,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<
+  | { success: true; data: SignTokenResponse }
+  | { success: false; error: ApiError }
+> {
+  try {
+    const response = await fetch(
+      `${apiBaseUrl}/api/contracts/${contractId}/sign-token`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+        }),
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await parseErrorResponse(response);
+      return {
+        success: false,
+        error: errorData,
+      };
+    }
+
+    const data = (await response.json()) as SignTokenResponse;
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error generating contract sign token:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while generating sign token',
+      },
+    };
+  }
+}
+
+/**
+ * Generate contract from accepted offer
+ */
+export async function generateContract(
+  offerId: string,
+  apiBaseUrl: string = getApiBaseUrl()
+): Promise<
+  | { success: true; data: GenerateContractResponse }
+  | { success: false; error: ApiError }
+> {
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/contracts/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        offerId,
+      }),
+      signal: AbortSignal.timeout(30000), // Longer timeout for PDF generation
+    });
+
+    if (!response.ok) {
+      const errorData = await parseErrorResponse(response);
+      return {
+        success: false,
+        error: errorData,
+      };
+    }
+
+    const data = (await response.json()) as GenerateContractResponse;
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error generating contract:', error);
+    return {
+      success: false,
+      error: {
+        message: 'Network error occurred while generating contract',
       },
     };
   }

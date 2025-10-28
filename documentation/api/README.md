@@ -403,6 +403,383 @@ Create an offer on a listing.
 - `400 Bad Request`: Amount exceeds listing price
 - `404 Not Found`: Listing not found
 
+### Contracts
+
+#### `POST /api/contracts/generate`
+
+Generate a contract from an accepted offer.
+
+**Authentication**: Required
+
+**Request Body**:
+
+```json
+{
+  "offerId": "offer_123"
+}
+```
+
+**Response**: `201 Created`
+
+```json
+{
+  "id": "contract_123",
+  "pdfUrl": "https://s3.../contract.pdf",
+  "sha256": "abc123...",
+  "status": "PENDING_SIGNATURE",
+  "offerId": "offer_123",
+  "createdAt": "2025-01-02T12:00:00Z"
+}
+```
+
+**Errors**:
+
+- `400 Bad Request`: Offer ID required or invalid
+- `404 Not Found`: Offer not found
+- `409 Conflict`: Contract already exists for offer
+
+#### `GET /api/contracts/:id`
+
+Get contract details by ID.
+
+**Authentication**: Required
+
+**Parameters**:
+
+- `id` (path): Contract ID
+
+**Response**: `200 OK`
+
+```json
+{
+  "id": "contract_123",
+  "pdfUrl": "https://s3.../contract.pdf",
+  "sha256": "abc123...",
+  "status": "EXECUTED",
+  "templateVersion": "1.0.0",
+  "robloxAssetData": {
+    "gameName": "Epic Game",
+    "gameId": "123456789",
+    "verifiedOwnership": true
+  },
+  "offer": {
+    "id": "offer_123",
+    "amount": 50000,
+    "buyerId": "user_456",
+    "sellerId": "user_789",
+    "listing": {
+      "id": "listing_123",
+      "title": "Epic Roblox Game"
+    }
+  },
+  "signatures": [
+    {
+      "id": "sig_1",
+      "userId": "user_456",
+      "signedAt": "2025-01-02T12:30:00Z",
+      "signatureMethod": "DISCORD_NATIVE"
+    },
+    {
+      "id": "sig_2",
+      "userId": "user_789",
+      "signedAt": "2025-01-02T13:00:00Z",
+      "signatureMethod": "WEB_BASED"
+    }
+  ],
+  "createdAt": "2025-01-02T12:00:00Z",
+  "updatedAt": "2025-01-02T13:00:00Z"
+}
+```
+
+**Errors**:
+
+- `404 Not Found`: Contract not found
+- `403 Forbidden`: Not authorized to view this contract
+
+#### `POST /api/contracts/:id/sign`
+
+Sign a contract.
+
+**Authentication**: Required
+
+**Parameters**:
+
+- `id` (path): Contract ID
+
+**Request Body**:
+
+```json
+{
+  "userId": "user_123",
+  "signatureMethod": "DISCORD_NATIVE",
+  "ipAddress": "192.168.1.1",
+  "userAgent": "Discord/1.0"
+}
+```
+
+**Fields**:
+
+- `userId` (required): ID of user signing
+- `signatureMethod` (required): `DISCORD_NATIVE` or `WEB_BASED`
+- `ipAddress` (optional): IP address at time of signing
+- `userAgent` (optional): User agent string
+
+**Response**: `200 OK`
+
+```json
+{
+  "success": true,
+  "signature": {
+    "id": "sig_123",
+    "userId": "user_123",
+    "signedAt": "2025-01-02T12:00:00Z",
+    "signatureMethod": "DISCORD_NATIVE"
+  },
+  "contract": {
+    "id": "contract_123",
+    "status": "EXECUTED"
+  },
+  "bothPartiesSigned": true
+}
+```
+
+**Errors**:
+
+- `400 Bad Request`: Already signed or invalid method
+- `403 Forbidden`: Not authorized to sign this contract
+- `404 Not Found`: Contract not found
+
+#### `POST /api/contracts/:id/sign-token`
+
+Generate a magic link token for web-based contract signing.
+
+**Authentication**: Required
+
+**Parameters**:
+
+- `id` (path): Contract ID
+
+**Request Body**:
+
+```json
+{
+  "userId": "user_123"
+}
+```
+
+**Response**: `200 OK`
+
+```json
+{
+  "token": "secure_token_abc123",
+  "signUrl": "https://app.bloxtr8.com/contract/contract_123/sign?token=secure_token_abc123",
+  "expiresAt": "2025-01-02T12:15:00Z"
+}
+```
+
+**Token Details**:
+
+- Valid for 15 minutes
+- Single-use only
+- Automatically cleaned up after use or expiry
+
+**Errors**:
+
+- `403 Forbidden`: Not authorized for this contract
+- `404 Not Found`: Contract not found
+- `400 Bad Request`: Contract already fully signed
+
+#### `POST /api/contracts/:id/verify`
+
+Verify contract integrity using SHA-256 hash.
+
+**Authentication**: Required
+
+**Parameters**:
+
+- `id` (path): Contract ID
+
+**Request Body**:
+
+```json
+{
+  "sha256": "abc123..."
+}
+```
+
+**Response**: `200 OK`
+
+```json
+{
+  "valid": true,
+  "message": "Contract hash matches stored hash"
+}
+```
+
+**Errors**:
+
+- `400 Bad Request`: Hash mismatch
+- `404 Not Found`: Contract not found
+
+#### `POST /api/contracts/:id/upload`
+
+Get presigned URL for contract PDF upload.
+
+**Authentication**: Required
+
+**Parameters**:
+
+- `id` (path): Contract ID
+
+**Response**: `200 OK`
+
+```json
+{
+  "uploadUrl": "https://s3.../presigned-put",
+  "key": "contracts/contract_123.pdf"
+}
+```
+
+**Usage**:
+
+1. Get presigned URL
+2. PUT PDF to the URL
+3. Contract automatically updated with PDF location
+
+#### `GET /api/contracts/:id/pdf`
+
+Get presigned URL for contract PDF download.
+
+**Authentication**: Required
+
+**Parameters**:
+
+- `id` (path): Contract ID
+
+**Response**: `200 OK`
+
+```json
+{
+  "downloadUrl": "https://s3.../presigned-get",
+  "expiresAt": "2025-01-02T13:00:00Z"
+}
+```
+
+**Errors**:
+
+- `404 Not Found`: Contract or PDF not found
+- `403 Forbidden`: Not authorized to download
+
+### Offer Drafts
+
+Temporary storage for in-progress offers to prevent data loss during multi-step Discord interactions.
+
+#### `POST /api/offer-drafts`
+
+Create or update an offer draft.
+
+**Authentication**: Not required (uses Discord ID)
+
+**Request Body**:
+
+```json
+{
+  "discordUserId": "discord_123",
+  "listingId": "listing_456",
+  "amount": 45000,
+  "conditions": "Optional terms",
+  "expiresAt": "2025-01-02T13:00:00Z"
+}
+```
+
+**Fields**:
+
+- `discordUserId` (required): Discord user ID
+- `listingId` (required): Target listing ID
+- `amount` (required): Offer amount in cents
+- `conditions` (optional): Offer conditions
+- `expiresAt` (required): Auto-cleanup time (typically 30 minutes)
+
+**Response**: `201 Created` or `200 OK`
+
+```json
+{
+  "id": "draft_789",
+  "discordUserId": "discord_123",
+  "listingId": "listing_456",
+  "amount": 45000,
+  "conditions": "Optional terms",
+  "expiresAt": "2025-01-02T13:00:00Z",
+  "createdAt": "2025-01-02T12:30:00Z"
+}
+```
+
+**Behavior**:
+
+- One draft per user per listing (upserts existing draft)
+- Automatically cleaned up after expiry
+- Prevents data loss during Discord modal/button flows
+
+#### `GET /api/offer-drafts/:discordUserId/:listingId`
+
+Get an offer draft.
+
+**Authentication**: Not required
+
+**Parameters**:
+
+- `discordUserId` (path): Discord user ID
+- `listingId` (path): Listing ID
+
+**Response**: `200 OK`
+
+```json
+{
+  "id": "draft_789",
+  "discordUserId": "discord_123",
+  "listingId": "listing_456",
+  "amount": 45000,
+  "conditions": "Optional terms",
+  "expiresAt": "2025-01-02T13:00:00Z",
+  "createdAt": "2025-01-02T12:30:00Z"
+}
+```
+
+**Errors**:
+
+- `404 Not Found`: Draft not found or expired
+
+#### `DELETE /api/offer-drafts/:discordUserId/:listingId`
+
+Delete an offer draft.
+
+**Authentication**: Not required
+
+**Parameters**:
+
+- `discordUserId` (path): Discord user ID
+- `listingId` (path): Listing ID
+
+**Response**: `204 No Content`
+
+**Use Case**: Delete draft after successful offer submission
+
+#### `DELETE /api/offer-drafts/cleanup`
+
+Clean up expired offer drafts (internal/cron job).
+
+**Authentication**: Required (admin)
+
+**Response**: `200 OK`
+
+```json
+{
+  "deleted": 15
+}
+```
+
+**Scheduled**: Runs automatically every hour to remove expired drafts
+
 ### Asset Verification
 
 #### `POST /api/asset-verification/verify`

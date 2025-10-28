@@ -44,7 +44,12 @@ export interface Contract {
   id: string;
   pdfUrl?: string;
   sha256?: string;
-  status: 'PENDING_SIGNATURE' | 'EXECUTED' | 'VOID';
+  status:
+    | 'PENDING_SIGNATURE'
+    | 'EXECUTING'
+    | 'EXECUTED'
+    | 'EXECUTION_FAILED'
+    | 'VOID';
   offerId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -145,4 +150,5 @@ export interface Environment {
   AWS_S3_BUCKET: string;
   TRM_API_KEY: string;
   CHAINALYSIS_API_KEY: string;
+  TRUSTED_PROXIES?: string; // Comma-separated list of trusted proxy IPs/CIDR ranges
 }

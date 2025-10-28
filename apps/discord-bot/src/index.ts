@@ -11,6 +11,7 @@ import {
 
 // Command handlers
 import { execute as handleAdminHelp } from './commands/admin-help.js';
+import { handleContractView, handleContractList } from './commands/contract.js';
 import { handleHelp } from './commands/help.js';
 import { handleLinkRoblox } from './commands/linkRoblox.js';
 import {
@@ -41,6 +42,12 @@ import {
   handleCancelOfferAction,
 } from './commands/offer-actions.js';
 import { handlePing } from './commands/ping.js';
+import {
+  handleQuickSignButton,
+  handleSignConfirmationModal,
+  handleReviewContractButton,
+  handleWebSignButton,
+} from './commands/sign-contract.js';
 import {
   handleSignup,
   handleConsentAccept,
@@ -155,6 +162,21 @@ client.once('ready', async () => {
       .setDescription('Link your Roblox account to Bloxtr8')
       .toJSON(),
     new SlashCommandBuilder()
+      .setName('contract')
+      .setDescription('View and download your contracts')
+      .addSubcommand(subcommand =>
+        subcommand
+          .setName('view')
+          .setDescription('View a specific contract')
+          .addStringOption(option =>
+            option.setName('id').setDescription('Contract ID').setRequired(true)
+          )
+      )
+      .addSubcommand(subcommand =>
+        subcommand.setName('list').setDescription('List all your contracts')
+      )
+      .toJSON(),
+    new SlashCommandBuilder()
       .setName('marketplace-setup')
       .setDescription(
         'Set up Bloxtr8 marketplace channels for this server (Admin only)'
@@ -227,6 +249,14 @@ client.on('interactionCreate', async interaction => {
     }
     if (interaction.commandName === 'link') {
       await handleLinkRoblox(interaction);
+    }
+    if (interaction.commandName === 'contract') {
+      const subcommand = interaction.options.getSubcommand();
+      if (subcommand === 'view') {
+        await handleContractView(interaction);
+      } else if (subcommand === 'list') {
+        await handleContractList(interaction);
+      }
     }
     if (interaction.commandName === 'marketplace-setup') {
       try {
@@ -307,6 +337,10 @@ client.on('interactionCreate', async interaction => {
     if (interaction.customId.startsWith('counter_offer_modal_')) {
       await handleCounterOfferModalSubmit(interaction);
     }
+    // Handle contract sign confirmation modal
+    if (interaction.customId.startsWith('confirm_sign_')) {
+      await handleSignConfirmationModal(interaction);
+    }
   }
 
   // Handle button interactions
@@ -363,6 +397,16 @@ client.on('interactionCreate', async interaction => {
     // Handle view offers button
     if (interaction.customId.startsWith('view_offers_')) {
       await handleViewOffersButton(interaction);
+    }
+    // Handle contract signing buttons
+    if (interaction.customId.startsWith('sign_contract_')) {
+      await handleQuickSignButton(interaction);
+    }
+    if (interaction.customId.startsWith('review_contract_')) {
+      await handleReviewContractButton(interaction);
+    }
+    if (interaction.customId.startsWith('web_sign_contract_')) {
+      await handleWebSignButton(interaction);
     }
   }
 
