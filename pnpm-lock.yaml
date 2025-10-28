@@ -212,6 +212,9 @@ importers:
       pg:
         specifier: ^8.16.3
         version: 8.16.3
+      stripe:
+        specifier: ^19.1.0
+        version: 19.1.0(@types/node@20.19.19)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -231,12 +234,24 @@ importers:
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.23
+      '@types/jest':
+        specifier: ^29.5.8
+        version: 29.5.14
       '@types/node':
         specifier: ^20.10.5
         version: 20.19.19
       '@types/pg':
         specifier: ^8.15.5
         version: 8.15.5
+      '@types/supertest':
+        specifier: ^2.0.16
+        version: 2.0.16
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@20.19.19)
+      supertest:
+        specifier: ^6.3.3
+        version: 6.3.4
       tsx:
         specifier: ^4.6.2
         version: 4.20.6
@@ -4921,6 +4936,15 @@ packages:
 
   strip-literal@3.1.0:
     resolution: {integrity: sha512-8r3mkIM/2+PpjHoOtiAW8Rg3jJLHaV7xPwG+YRGrv6FP0wwk/toTpATxWYOW0BKdWwl82VT2tFYi5DlROa0Mxg==}
+
+  stripe@19.1.0:
+    resolution: {integrity: sha512-FjgIiE98dMMTNssfdjMvFdD4eZyEzdWAOwPYqzhPRNZeg9ggFWlPXmX1iJKD5pPIwZBaPlC3SayQQkwsPo6/YQ==}
+    engines: {node: '>=16'}
+    peerDependencies:
+      '@types/node': '>=16'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
 
   strnum@2.1.1:
     resolution: {integrity: sha512-7ZvoFTiCnGxBtDqJ//Cu6fWtZtc7Y3x+QOirG15wztbdngGSkht27o2pyGWrVy0b4WAy3jbKmnoK6g5VlVNUUw==}
@@ -11129,6 +11153,12 @@ snapshots:
   strip-literal@3.1.0:
     dependencies:
       js-tokens: 9.0.1
+
+  stripe@19.1.0(@types/node@20.19.19):
+    dependencies:
+      qs: 6.14.0
+    optionalDependencies:
+      '@types/node': 20.19.19
 
   strnum@2.1.1: {}
 

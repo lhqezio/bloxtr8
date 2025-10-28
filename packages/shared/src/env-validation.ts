@@ -1,12 +1,38 @@
+<<<<<<< HEAD:packages/shared/src/env-validation.ts
 // Environment variable validation utilities
 // Shared across all apps in the monorepo
+=======
+// Environment variable validation
+// This should be called at application startup
+
+interface RequiredEnvVars {
+  // Database
+  DATABASE_URL?: string;
+  DATABASE_URL_PRISMA?: string;
+
+  // Application
+  NODE_ENV?: string;
+  PORT?: string;
+  ESCROW_PORT?: string;
+
+  // Stripe
+  STRIPE_SECRET_KEY?: string;
+  // STRIPE_WEBHOOK_SECRET?: string;
+}
+>>>>>>> b52c276f38c35233b12dda2b7ea67865391d184a:apps/escrow/src/lib/env-validation.ts
 
 /**
  * Validates that critical environment variables are set
  * @param required - Array of required environment variable names
  * @throws {Error} if required variables are missing
  */
+<<<<<<< HEAD:packages/shared/src/env-validation.ts
 export function validateEnvironment(required: string[] = ['DATABASE_URL']): void {
+=======
+export function validateEnvironment(): void {
+  const required: (keyof RequiredEnvVars)[] = ['DATABASE_URL', 'STRIPE_SECRET_KEY'];
+
+>>>>>>> b52c276f38c35233b12dda2b7ea67865391d184a:apps/escrow/src/lib/env-validation.ts
   const missing: string[] = [];
 
   for (const varName of required) {

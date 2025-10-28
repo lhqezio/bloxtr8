@@ -21,7 +21,7 @@ describe('Error Handling', () => {
       expect(response.headers['content-type']).toMatch(/application\/json/);
       expect(response.body).toHaveProperty(
         'type',
-        'https://bloxtr8.com/problems/not-found'
+        'https://web.bloxtr8.com/problems/not-found'
       );
       expect(response.body).toHaveProperty('title', 'Not Found');
       expect(response.body).toHaveProperty('status', 404);
@@ -36,7 +36,7 @@ describe('Error Handling', () => {
       expect(response.headers['content-type']).toMatch(/application\/json/);
       expect(response.body).toHaveProperty(
         'type',
-        'https://bloxtr8.com/problems/not-found'
+        'https://web.bloxtr8.com/problems/not-found'
       );
       expect(response.body).toHaveProperty('title', 'Not Found');
       expect(response.body).toHaveProperty('status', 404);
@@ -57,7 +57,7 @@ describe('Error Handling', () => {
       expect(response.body).toHaveProperty('title', 'Bad Request');
       expect(response.body).toHaveProperty(
         'type',
-        'https://bloxtr8.com/problems/bad-request'
+        'https://web.bloxtr8.com/problems/bad-request'
       );
     });
 
@@ -86,7 +86,7 @@ describe('Error Handling', () => {
 
         expect(response.body).toHaveProperty(
           'type',
-          `https://bloxtr8.com/problems/${expectedType}`
+          `https://web.bloxtr8.com/problems/${expectedType}`
         );
         expect(response.body).toHaveProperty('title');
         expect(response.body).toHaveProperty('status', expectedStatus);
@@ -115,7 +115,7 @@ describe('Error Handling', () => {
 
       // Should use fallback values for unknown status codes
       expect(problemDetails.type).toBe(
-        'https://bloxtr8.com/problems/unknown-error'
+        'https://web.bloxtr8.com/problems/unknown-error'
       );
       expect(problemDetails.title).toBe('Unknown Error');
       expect(problemDetails.status).toBe(999);
