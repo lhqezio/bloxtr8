@@ -4,7 +4,7 @@ Express.js API server with TypeScript, security middleware, and comprehensive te
 
 ## Features
 
-- **Security**: Helmet, CORS, rate limiting
+- **Security**: Helmet, CORS, rate limiting, IP spoofing prevention
 - **Error Handling**: RFC 7807 Problem Details format
 - **Health Checks**: Database connectivity monitoring
 - **Testing**: Jest + Supertest with full coverage
@@ -25,6 +25,23 @@ pnpm test
 # Build for production
 pnpm build
 ```
+
+## Environment Variables
+
+### Trust Proxy Configuration
+
+The API uses Express's built-in trust proxy mechanism to prevent IP spoofing attacks:
+
+- **Development**: Trusts only localhost proxies (`trust proxy: 'loopback'`)
+- **Production**: Trusts the first proxy (`trust proxy: true`)
+- **Custom**: Use `TRUSTED_PROXIES` environment variable for explicit configuration
+
+```bash
+# Optional: Specify trusted proxy IPs/CIDR ranges
+TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+```
+
+This prevents attackers from spoofing IP addresses by sending fake `X-Forwarded-For` headers directly to the server.
 
 ## API Endpoints
 

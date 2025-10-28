@@ -44,7 +44,12 @@ export interface Contract {
   id: string;
   pdfUrl?: string;
   sha256?: string;
-  status: 'PENDING_SIGNATURE' | 'EXECUTED' | 'VOID';
+  status:
+    | 'PENDING_SIGNATURE'
+    | 'EXECUTING'
+    | 'EXECUTED'
+    | 'EXECUTION_FAILED'
+    | 'VOID';
   offerId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -114,6 +119,37 @@ export interface CustodianWebhookEvent {
   };
 }
 
+// Payment initialization types
+export interface PaymentInitStripe {
+  rail: 'STRIPE';
+  paymentIntentId: string;
+  clientSecret: string;
+}
+
+export interface PaymentInitUsdc {
+  rail: 'USDC_BASE';
+  depositAddr: string;
+  qr: string;
+}
+
+export type PaymentInit = PaymentInitStripe | PaymentInitUsdc;
+
+export interface EscrowInitResponse {
+  escrowId: string;
+  rail: 'STRIPE' | 'USDC_BASE';
+  status:
+    | 'AWAIT_FUNDS'
+    | 'FUNDS_HELD'
+    | 'DELIVERED'
+    | 'RELEASED'
+    | 'DISPUTED'
+    | 'REFUNDED'
+    | 'CANCELLED';
+  amount: string; // in cents
+  currency: 'USD' | 'USDC';
+  paymentInit: PaymentInit;
+}
+
 // Roblox API types
 export interface RobloxGroupData {
   id: number;
@@ -145,4 +181,5 @@ export interface Environment {
   AWS_S3_BUCKET: string;
   TRM_API_KEY: string;
   CHAINALYSIS_API_KEY: string;
+  TRUSTED_PROXIES?: string; // Comma-separated list of trusted proxy IPs/CIDR ranges
 }

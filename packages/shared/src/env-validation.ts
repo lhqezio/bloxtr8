@@ -1,28 +1,12 @@
-// Environment variable validation
-// This should be called at application startup
-
-interface RequiredEnvVars {
-  // Database
-  DATABASE_URL?: string;
-  DATABASE_URL_PRISMA?: string;
-
-  // Application
-  NODE_ENV?: string;
-  PORT?: string;
-  ESCROW_PORT?: string;
-
-  // Stripe
-  STRIPE_SECRET_KEY?: string;
-  // STRIPE_WEBHOOK_SECRET?: string;
-}
+// Environment variable validation utilities
+// Shared across all apps in the monorepo
 
 /**
  * Validates that critical environment variables are set
+ * @param required - Array of required environment variable names
  * @throws {Error} if required variables are missing
  */
-export function validateEnvironment(): void {
-  const required: (keyof RequiredEnvVars)[] = ['DATABASE_URL', 'STRIPE_SECRET_KEY'];
-
+export function validateEnvironment(required: string[] = ['DATABASE_URL']): void {
   const missing: string[] = [];
 
   for (const varName of required) {
@@ -108,3 +92,4 @@ export function isDebugMode(): boolean {
 
   return debugEnabled && inDevelopment;
 }
+

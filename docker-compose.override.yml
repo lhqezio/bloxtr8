@@ -36,7 +36,7 @@ services:
     environment:
       - NODE_ENV=development
       - WATCHPACK_POLLING=true
-      - DATABASE_URL_PRISMA=postgresql://postgres:postgres@test-db:5432/bloxtr8-db
+      - DATABASE_URL=postgresql://postgres:postgres@test-db:5432/bloxtr8-db
     restart: 'no'
     depends_on:
       - test-db
@@ -65,7 +65,7 @@ services:
     environment:
       - NODE_ENV=development
       - WATCHPACK_POLLING=true
-      - DATABASE_URL_PRISMA=postgresql://postgres:postgres@test-db:5432/bloxtr8-db
+      - DATABASE_URL=postgresql://postgres:postgres@test-db:5432/bloxtr8-db
     restart: 'no'
     depends_on:
       - test-db

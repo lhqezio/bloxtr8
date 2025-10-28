@@ -1,9 +1,501 @@
+import crypto from 'crypto';
+
+import { prisma } from '@bloxtr8/database';
 import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 import { Router, type Router as ExpressRouter } from 'express';
 
+import { executeContract, getEscrowPaymentInit } from '../lib/contract-execution.js';
+import { generateContract, verifyContract } from '../lib/contract-generator.js';
+import { isDebugMode } from '../lib/env-validation.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { serializeBigInt } from '../utils/bigint.js';
+import { getClientIpAddress } from '../utils/ip-address.js';
 
 const router: ExpressRouter = Router();
+
+// Generate contract from accepted offer
+router.post('/contracts/generate', async (req, res, next) => {
+  try {
+    const { offerId } = req.body;
+
+    if (!offerId) {
+      throw new AppError('Offer ID is required', 400);
+    }
+
+    // Fetch offer with related data
+    const offer = await prisma.offer.findUnique({
+      where: { id: offerId },
+      include: {
+        listing: {
+          include: {
+            robloxSnapshots: {
+              where: { verifiedOwnership: true },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
+        buyer: {
+          include: {
+            accounts: {
+              where: { providerId: 'roblox' },
+            },
+          },
+        },
+        seller: {
+          include: {
+            accounts: {
+              where: { providerId: 'roblox' },
+            },
+          },
+        },
+      },
+    });
+
+    if (!offer) {
+      throw new AppError('Offer not found', 404);
+    }
+
+    if (offer.status !== 'ACCEPTED') {
+      throw new AppError('Only accepted offers can generate contracts', 400);
+    }
+
+    // Check if contract already exists for this offer
+    const existingContract = await prisma.contract.findFirst({
+      where: { offerId: offer.id },
+    });
+
+    if (existingContract) {
+      return res.json({
+        contractId: existingContract.id,
+        status: existingContract.status,
+        pdfUrl: existingContract.pdfUrl,
+        alreadyExists: true,
+      });
+    }
+
+    // Create contract record
+    const contract = await prisma.contract.create({
+      data: {
+        offerId: offer.id,
+        status: 'PENDING_SIGNATURE',
+      },
+    });
+
+    // Check if debug mode and same user scenario
+    const debugMode = isDebugMode();
+    const sameUser = offer.buyerId === offer.sellerId;
+    const isDebugSameUser = debugMode && sameUser;
+
+    if (isDebugSameUser) {
+      console.warn(
+        `🔧 DEBUG MODE: Generating contract with same buyer and seller (User: ${offer.buyerId})`
+      );
+    }
+
+    try {
+      // Prepare Roblox asset data from snapshot
+      const robloxSnapshot = offer.listing.robloxSnapshots[0];
+      const robloxData = robloxSnapshot
+        ? {
+            gameId: robloxSnapshot.gameId,
+            gameName: robloxSnapshot.gameName,
+            gameDescription: robloxSnapshot.gameDescription || undefined,
+            thumbnailUrl: robloxSnapshot.thumbnailUrl || undefined,
+            playerCount: robloxSnapshot.playerCount || undefined,
+            visits: robloxSnapshot.visits || undefined,
+            verifiedOwnership: robloxSnapshot.verifiedOwnership,
+            ownershipType: robloxSnapshot.ownershipType,
+            verificationDate: robloxSnapshot.verificationDate || undefined,
+          }
+        : undefined;
+
+      // Generate PDF
+      const result = await generateContract({
+        contractId: contract.id,
+        offerId: offer.id,
+        listingId: offer.listing.id,
+        seller: {
+          id: offer.seller.id,
+          name: offer.seller.name || `User ${offer.seller.id}`,
+          email: offer.seller.email,
+          kycTier: offer.seller.kycTier,
+          robloxAccountId: offer.seller.accounts[0]?.accountId,
+        },
+        buyer: {
+          id: offer.buyer.id,
+          name: offer.buyer.name || `User ${offer.buyer.id}`,
+          email: offer.buyer.email,
+          kycTier: offer.buyer.kycTier,
+          robloxAccountId: offer.buyer.accounts[0]?.accountId,
+        },
+        asset: {
+          title: offer.listing.title,
+          description: offer.listing.summary,
+          category: offer.listing.category,
+          robloxData,
+        },
+        financial: {
+          amountCents: offer.amount,
+          currency: offer.currency,
+        },
+        offer: {
+          id: offer.id,
+          conditions: offer.conditions || undefined,
+          acceptedAt: offer.updatedAt,
+        },
+        debugMode: isDebugSameUser,
+        sameUser,
+      });
+
+      if (!result.success) {
+        // Clean up the contract record since PDF generation failed
+        await prisma.contract.delete({
+          where: { id: contract.id },
+        });
+        throw new AppError(`Failed to generate contract: ${result.error}`, 500);
+      }
+
+      // Update contract with PDF details
+      const updatedContract = await prisma.contract.update({
+        where: { id: contract.id },
+        data: {
+          pdfUrl: result.pdfUrl,
+          sha256: result.sha256,
+          templateVersion: result.templateVersion,
+          robloxAssetData: robloxData as any,
+        },
+      });
+
+      res.json({
+        contractId: updatedContract.id,
+        status: updatedContract.status,
+        pdfUrl: updatedContract.pdfUrl,
+        sha256: updatedContract.sha256,
+      });
+    } catch (pdfError) {
+      // Clean up the contract record if PDF generation fails
+      try {
+        await prisma.contract.delete({
+          where: { id: contract.id },
+        });
+      } catch (cleanupError) {
+        console.error('Failed to clean up contract record:', cleanupError);
+        // Continue to throw the original error
+      }
+
+      // Re-throw the original error or wrap it
+      if (pdfError instanceof AppError) {
+        throw pdfError;
+      }
+      throw new AppError(
+        `Failed to generate contract: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`,
+        500
+      );
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get contract details
+router.get('/contracts/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const contract = await prisma.contract.findUnique({
+      where: { id },
+      include: {
+        signatures: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+        offer: {
+          include: {
+            buyer: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            seller: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            listing: {
+              select: {
+                id: true,
+                title: true,
+                category: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!contract) {
+      throw new AppError('Contract not found', 404);
+    }
+
+    res.json(serializeBigInt(contract));
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Sign contract
+router.post('/contracts/:id/sign', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const {
+      userId,
+      userAgent,
+      signatureMethod = 'DISCORD_NATIVE',
+      token,
+    } = req.body;
+
+    if (!userId) {
+      throw new AppError('User ID is required', 400);
+    }
+
+    // Extract IP address from request headers (server-side)
+    const ipAddress = getClientIpAddress(req);
+
+    // Validate audit trail parameters for web-based signatures
+    if (signatureMethod === 'WEB_BASED') {
+      if (!userAgent) {
+        throw new AppError(
+          'User agent is required for web-based signatures',
+          400
+        );
+      }
+    }
+
+    // Fetch contract with offer details
+    const contract = await prisma.contract.findUnique({
+      where: { id },
+      include: {
+        offer: true,
+        signatures: true,
+      },
+    });
+
+    if (!contract) {
+      throw new AppError('Contract not found', 404);
+    }
+
+    if (contract.status !== 'PENDING_SIGNATURE') {
+      throw new AppError('Contract is not pending signature', 400);
+    }
+
+    // Verify user is buyer or seller
+    if (
+      userId !== contract.offer.buyerId &&
+      userId !== contract.offer.sellerId
+    ) {
+      throw new AppError('User is not authorized to sign this contract', 403);
+    }
+
+    // Check if user already signed
+    const existingSignature = contract.signatures.find(
+      sig => sig.userId === userId
+    );
+
+    if (existingSignature) {
+      throw new AppError('User has already signed this contract', 400);
+    }
+
+    // If signing with a web token, validate it hasn't been used
+    if (token && signatureMethod === 'WEB_BASED') {
+      const signToken = await prisma.contractSignToken.findUnique({
+        where: { token },
+      });
+
+      if (!signToken) {
+        throw new AppError('Invalid signing token', 401);
+      }
+
+      if (signToken.usedAt) {
+        throw new AppError('Signing token has already been used', 401);
+      }
+
+      if (signToken.contractId !== id) {
+        throw new AppError('Token does not match this contract', 401);
+      }
+
+      if (signToken.userId !== userId) {
+        throw new AppError('Token does not match this user', 401);
+      }
+    }
+
+    // DEBUG MODE: Auto-sign for same user scenario
+    const debugMode = isDebugMode();
+    const sameUser = contract.offer.buyerId === contract.offer.sellerId;
+    let autoSignedSecondParty = false;
+    let bothSigned = false;
+
+    // Wrap signature creation, token usage, and execution job creation in a transaction to ensure atomicity
+    const signature = await prisma.$transaction(async tx => {
+      // Create first signature
+      const firstSignature = await tx.signature.create({
+        data: {
+          userId,
+          contractId: id,
+          ipAddress,
+          userAgent,
+          signatureMethod,
+        },
+      });
+
+      // Mark token as used in the same transaction (if using web-based signing)
+      if (token && signatureMethod === 'WEB_BASED') {
+        await tx.contractSignToken.update({
+          where: { token },
+          data: { usedAt: new Date() },
+        });
+      }
+
+      // Check if both parties will have signed after this signature is added
+      // In debug mode with same user, we can determine bothSigned without querying
+      if (debugMode && sameUser) {
+        // In debug mode with same user, treat single signature as both parties
+        autoSignedSecondParty = true;
+        bothSigned = true;
+        console.warn(
+          `🔧 DEBUG MODE: Treating single signature as both parties for same user`
+        );
+      } else {
+        // Normal case: Check if both parties have signed by querying all signatures
+        const allSignatures = await tx.signature.findMany({
+          where: { contractId: id },
+        });
+
+        bothSigned =
+          allSignatures.some(sig => sig.userId === contract.offer.buyerId) &&
+          allSignatures.some(sig => sig.userId === contract.offer.sellerId);
+      }
+
+      // Create execution job and update contract status atomically if both parties have signed
+      if (bothSigned) {
+        console.log(
+          `Contract ${id} has both signatures. Creating execution job and updating status...`
+        );
+        try {
+          // Try to create execution job - will fail gracefully if it already exists due to unique constraint
+          await tx.contractExecutionJob.create({
+            data: {
+              contractId: id,
+              status: 'PENDING',
+              nextRetryAt: new Date(),
+            },
+          });
+          console.log(`Execution job created for contract ${id}`);
+        } catch (error: any) {
+          // If job already exists (unique constraint violation), that's fine
+          if (error.code === 'P2002') {
+            console.log(
+              `Execution job already exists for contract ${id} (race condition handled)`
+            );
+          } else {
+            console.error(
+              `Failed to create execution job for contract ${id}:`,
+              error
+            );
+            // Continue anyway - the user should still be able to sign
+          }
+        }
+
+        // Update contract status to EXECUTING within the same transaction
+        await tx.contract.update({
+          where: { id },
+          data: { status: 'EXECUTING' },
+        });
+        console.log(`Contract ${id} status updated to EXECUTING`);
+      }
+
+      // Fetch the updated contract to get the current status
+      const updatedContract = await tx.contract.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+
+      return {
+        signature: firstSignature,
+        contractStatus: updatedContract?.status || 'PENDING_SIGNATURE',
+      };
+    });
+
+    // Respond immediately with the signature details
+    res.json({
+      signature: serializeBigInt(signature.signature),
+      contractStatus: signature.contractStatus, // Updated status (PENDING_SIGNATURE or EXECUTING)
+      bothPartiesSigned: bothSigned,
+      debugMode: debugMode && sameUser,
+      message: autoSignedSecondParty
+        ? '🔧 DEBUG MODE: Single signature treated as both parties for same user'
+        : bothSigned
+          ? 'Contract execution has been queued and will be processed shortly'
+          : 'Waiting for counterparty signature',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Verify contract integrity
+router.post('/contracts/:id/verify', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { pdfBytes } = req.body;
+
+    const contract = await prisma.contract.findUnique({
+      where: { id },
+    });
+
+    if (!contract) {
+      throw new AppError('Contract not found', 404);
+    }
+
+    if (!contract.sha256) {
+      throw new AppError('Contract has no hash for verification', 400);
+    }
+
+    if (!pdfBytes) {
+      throw new AppError('PDF bytes required for verification', 400);
+    }
+
+    // Convert base64 to buffer if needed
+    const buffer =
+      typeof pdfBytes === 'string'
+        ? Buffer.from(pdfBytes, 'base64')
+        : Buffer.from(pdfBytes);
+
+    const isValid = await verifyContract(
+      new Uint8Array(buffer),
+      contract.sha256
+    );
+
+    res.json({
+      contractId: id,
+      isValid,
+      expectedHash: contract.sha256,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // PDF upload endpoint - returns presigned PUT URL
 router.post('/contracts/:id/upload', async (req, res, next) => {
@@ -50,6 +542,374 @@ router.get('/contracts/:id/pdf', async (req, res, next) => {
       key,
       expiresIn: 3600, // 1 hour
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Generate contract signing token for web app
+router.post('/contracts/:id/sign-token', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      throw new AppError('User ID is required', 400);
+    }
+
+    // Verify contract exists and user is authorized
+    const contract = await prisma.contract.findUnique({
+      where: { id },
+      include: {
+        offer: true,
+      },
+    });
+
+    if (!contract) {
+      throw new AppError('Contract not found', 404);
+    }
+
+    if (
+      userId !== contract.offer.buyerId &&
+      userId !== contract.offer.sellerId
+    ) {
+      throw new AppError('User is not authorized to sign this contract', 403);
+    }
+
+    // Generate one-time token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    await prisma.contractSignToken.create({
+      data: {
+        token,
+        contractId: id,
+        userId,
+        expiresAt,
+      },
+    });
+
+    res.json({
+      token,
+      expiresAt,
+      signUrl: `${process.env.WEB_APP_URL || 'http://localhost:5173'}/contract/${id}/sign?token=${token}`,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Validate contract signing token
+router.post('/contracts/validate-token', async (req, res, next) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      throw new AppError('Token is required', 400);
+    }
+
+    // Look up token
+    const signToken = await prisma.contractSignToken.findUnique({
+      where: { token },
+    });
+
+    if (!signToken) {
+      throw new AppError('Invalid or expired token', 401);
+    }
+
+    // Check if token is expired
+    if (signToken.expiresAt < new Date()) {
+      throw new AppError('Token has expired', 401);
+    }
+
+    // Check if token has already been used
+    if (signToken.usedAt) {
+      throw new AppError('Token has already been used', 401);
+    }
+
+    // Do NOT mark token as used here - it will be marked as used only after
+    // the signature is successfully recorded in the /contracts/:id/sign endpoint
+    res.json({
+      contractId: signToken.contractId,
+      userId: signToken.userId,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Retry contract execution for EXECUTION_FAILED contracts
+router.post('/contracts/:id/retry-execution', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      throw new AppError('User ID is required', 400);
+    }
+
+    // Fetch contract with offer details
+    const contract = await prisma.contract.findUnique({
+      where: { id },
+      include: {
+        offer: true,
+        signatures: true,
+        escrows: true,
+      },
+    });
+
+    if (!contract) {
+      throw new AppError('Contract not found', 404);
+    }
+
+    // Verify user is buyer or seller
+    if (
+      userId !== contract.offer.buyerId &&
+      userId !== contract.offer.sellerId
+    ) {
+      throw new AppError(
+        'User is not authorized to retry contract execution',
+        403
+      );
+    }
+
+    // Verify contract status is EXECUTION_FAILED
+    if (contract.status !== 'EXECUTION_FAILED') {
+      throw new AppError(
+        'Contract execution can only be retried for EXECUTION_FAILED contracts',
+        400
+      );
+    }
+
+    // Verify both parties have signed
+    const buyerSignature = contract.signatures.find(
+      sig => sig.userId === contract.offer.buyerId
+    );
+    const sellerSignature = contract.signatures.find(
+      sig => sig.userId === contract.offer.sellerId
+    );
+
+    if (!buyerSignature || !sellerSignature) {
+      throw new AppError(
+        'Both parties must have signed before retrying execution',
+        400
+      );
+    }
+
+    // Clean up any partial escrows from previous failed execution
+    if (contract.escrows.length > 0) {
+      console.log(
+        `Cleaning up ${contract.escrows.length} existing escrow(s) before retry`
+      );
+
+      for (const escrow of contract.escrows) {
+        try {
+          // Delete rail-specific escrow records first
+          if (escrow.rail === 'STRIPE') {
+            await prisma.stripeEscrow.deleteMany({
+              where: { escrowId: escrow.id },
+            });
+          } else if (escrow.rail === 'USDC_BASE') {
+            await prisma.stablecoinEscrow.deleteMany({
+              where: { escrowId: escrow.id },
+            });
+          }
+
+          // Delete milestone escrows if any
+          await prisma.milestoneEscrow.deleteMany({
+            where: { escrowId: escrow.id },
+          });
+
+          // Delete the escrow
+          await prisma.escrow.delete({
+            where: { id: escrow.id },
+          });
+
+          console.log(`Deleted escrow ${escrow.id}`);
+        } catch (cleanupError) {
+          console.error(`Failed to cleanup escrow ${escrow.id}:`, cleanupError);
+          // Continue with cleanup attempt
+        }
+      }
+    }
+
+    // Retry contract execution
+    try {
+      // Execute contract and update status atomically within a transaction
+      const result = await prisma.$transaction(async tx => {
+        const executionResult = await executeContract(id, tx);
+
+        if (executionResult.success) {
+          // Update contract status to EXECUTED within the same transaction
+          await tx.contract.update({
+            where: { id },
+            data: {
+              status: 'EXECUTED',
+            },
+          });
+
+          return {
+            success: true as const,
+            escrowId: executionResult.escrowId,
+          };
+        } else {
+          return {
+            success: false as const,
+            error: executionResult.error,
+          };
+        }
+      });
+
+      if (result.success) {
+        res.json({
+          success: true,
+          contractStatus: 'EXECUTED',
+          escrowId: result.escrowId,
+          message: 'Contract execution retry successful',
+        });
+      } else {
+        // Keep status as EXECUTION_FAILED
+        res.json({
+          success: false,
+          contractStatus: 'EXECUTION_FAILED',
+          error: result.error,
+          message: 'Contract execution retry failed',
+        });
+      }
+    } catch (executionError) {
+      console.error('Error retrying contract execution:', executionError);
+
+      // Ensure status stays as EXECUTION_FAILED
+      await prisma.contract.update({
+        where: { id },
+        data: {
+          status: 'EXECUTION_FAILED',
+        },
+      });
+
+      res.status(500).json({
+        success: false,
+        contractStatus: 'EXECUTION_FAILED',
+        error:
+          executionError instanceof Error
+            ? executionError.message
+            : 'Unknown error',
+        message: 'Contract execution retry failed',
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get escrow and payment initialization data for a contract
+router.get('/contracts/:id/escrow', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.query.userId as string;
+
+    if (!userId) {
+      throw new AppError('User ID is required', 400);
+    }
+
+    // Fetch contract with offer data
+    const contract = await prisma.contract.findUnique({
+      where: { id },
+      include: {
+        offer: true,
+        signatures: true,
+        escrows: true,
+      },
+    });
+
+    if (!contract) {
+      throw new AppError('Contract not found', 404);
+    }
+
+    // Verify user is buyer or seller
+    if (
+      userId !== contract.offer.buyerId &&
+      userId !== contract.offer.sellerId
+    ) {
+      throw new AppError('User is not authorized to access this escrow', 403);
+    }
+
+    // Check if contract is ready for execution (both parties signed)
+    const buyerSigned = contract.signatures.some(
+      sig => sig.userId === contract.offer.buyerId
+    );
+    const sellerSigned = contract.signatures.some(
+      sig => sig.userId === contract.offer.sellerId
+    );
+
+    if (!buyerSigned || !sellerSigned) {
+      throw new AppError('Both parties must sign before escrow can be accessed', 400);
+    }
+
+    // If no escrow exists yet, try to execute the contract
+    if (contract.escrows.length === 0) {
+      if (contract.status !== 'EXECUTED') {
+        // Execute contract and update status atomically within a transaction
+        const escrowId = await prisma.$transaction(async tx => {
+          // Check if an escrow was created while we were waiting (race condition protection)
+          const currentEscrows = await tx.escrow.findMany({
+            where: { contractId: id },
+          });
+
+          if (currentEscrows.length > 0) {
+            // Someone else already created an escrow, return it
+            const existingEscrow = currentEscrows[0];
+            if (!existingEscrow) {
+              throw new AppError('Unexpected error: escrow array not empty but first element is undefined', 500);
+            }
+            return existingEscrow.id;
+          }
+
+          // Execute contract within transaction
+          const result = await executeContract(id, tx);
+          
+          if (!result.success || !result.escrowId) {
+            throw new AppError(
+              `Failed to execute contract: ${result.error || 'Escrow ID not returned'}`,
+              500
+            );
+          }
+
+          // Update contract status to EXECUTED within the same transaction
+          await tx.contract.update({
+            where: { id },
+            data: { status: 'EXECUTED' },
+          });
+
+          return result.escrowId;
+        });
+
+        // Fetch the newly created escrow
+        const escrowInit = await getEscrowPaymentInit(escrowId);
+        
+        if (!escrowInit) {
+          throw new AppError('Failed to retrieve escrow data', 500);
+        }
+
+        return res.json(escrowInit);
+      } else {
+        throw new AppError('Contract is executed but no escrow exists', 500);
+      }
+    }
+
+    // Get the first escrow (there should only be one)
+    const firstEscrow = contract.escrows[0];
+    if (!firstEscrow) {
+      throw new AppError('No escrow found for this contract', 500);
+    }
+
+    const escrowInit = await getEscrowPaymentInit(firstEscrow.id);
+
+    if (!escrowInit) {
+      throw new AppError('Failed to retrieve escrow data', 500);
+    }
+
+    res.json(escrowInit);
   } catch (error) {
     next(error);
   }
