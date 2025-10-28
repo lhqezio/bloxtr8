@@ -1,15 +1,19 @@
 import { prisma } from '@bloxtr8/database';
 import cron from 'node-cron';
+import type { ScheduledTask } from 'node-cron';
 
 import { emitOfferEvent, OfferEventType } from './events.js';
+
+let expiryTask: ScheduledTask | null = null;
 
 /**
  * Background job to automatically expire offers that have passed their expiry date
  * Runs every 5 minutes to check for expired offers
+ * @returns The scheduled task for potential cleanup
  */
-export function initializeOfferExpiryJob(): void {
+export function initializeOfferExpiryJob(): ScheduledTask {
   // Run every 5 minutes: */5 * * * *
-  cron.schedule('*/5 * * * *', async () => {
+  expiryTask = cron.schedule('*/5 * * * *', async () => {
     try {
       console.log('[Offer Expiry] Running expiry check...');
 
@@ -96,6 +100,17 @@ export function initializeOfferExpiryJob(): void {
   });
 
   console.log('[Offer Expiry] Job initialized - running every 5 minutes');
+  return expiryTask;
+}
+
+/**
+ * Stop the offer expiry job
+ */
+export function stopOfferExpiryJob(): void {
+  if (expiryTask) {
+    expiryTask.stop();
+    console.log('[Offer Expiry] Job stopped');
+  }
 }
 
 /**

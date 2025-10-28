@@ -1,7 +1,10 @@
 import { prisma } from '@bloxtr8/database';
 import cron from 'node-cron';
+import type { ScheduledTask } from 'node-cron';
 
 import { executeContract } from './contract-execution.js';
+
+let processorTask: ScheduledTask | null = null;
 
 /**
  * Exponential backoff retry intervals in minutes
@@ -194,10 +197,11 @@ async function processExecutionJob(jobId: string): Promise<void> {
 /**
  * Background job to process contract execution jobs
  * Runs every 1 minute to check for pending jobs
+ * @returns The scheduled task for potential cleanup
  */
-export function initializeContractExecutionProcessor(): void {
+export function initializeContractExecutionProcessor(): ScheduledTask {
   // Run every minute: * * * * *
-  cron.schedule('* * * * *', async () => {
+  processorTask = cron.schedule('* * * * *', async () => {
     try {
       console.log('[Contract Execution Processor] Running job check...');
 
@@ -258,6 +262,17 @@ export function initializeContractExecutionProcessor(): void {
   console.log(
     '[Contract Execution Processor] Initialized - running every 1 minute'
   );
+  return processorTask;
+}
+
+/**
+ * Stop the contract execution processor
+ */
+export function stopContractExecutionProcessor(): void {
+  if (processorTask) {
+    processorTask.stop();
+    console.log('[Contract Execution Processor] Job stopped');
+  }
 }
 
 /**
