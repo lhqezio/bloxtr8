@@ -55,8 +55,8 @@ importers:
         specifier: ^2.4.3
         version: 2.4.3
       better-auth:
-        specifier: ^1.3.14
-        version: 1.3.24(react-dom@19.1.1(react@19.1.1))(react@19.1.1)(solid-js@1.9.9)
+        specifier: ^1.3.26
+        version: 1.3.26(react-dom@19.1.1(react@19.1.1))(react@19.1.1)(solid-js@1.9.9)
       compression:
         specifier: ^1.8.1
         version: 1.8.1
@@ -146,8 +146,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/types
       better-auth:
-        specifier: ^1.3.14
-        version: 1.3.24(react-dom@19.1.1(react@19.1.1))(react@19.1.1)(solid-js@1.9.9)
+        specifier: ^1.3.26
+        version: 1.3.26(react-dom@19.1.1(react@19.1.1))(react@19.1.1)(solid-js@1.9.9)
       discord.js:
         specifier: ^14.14.1
         version: 14.22.1
@@ -204,8 +204,8 @@ importers:
         specifier: ^1.132.0
         version: 1.132.27(@tanstack/react-router@1.132.27(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(@tanstack/router-core@1.132.27)(@types/node@22.18.8)(csstype@3.1.3)(jiti@2.6.1)(lightningcss@1.30.1)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)(solid-js@1.9.9)(tiny-invariant@1.3.3)(tsx@4.20.6)
       better-auth:
-        specifier: ^1.3.14
-        version: 1.3.24(react-dom@19.1.1(react@19.1.1))(react@19.1.1)(solid-js@1.9.9)
+        specifier: ^1.3.26
+        version: 1.3.26(react-dom@19.1.1(react@19.1.1))(react@19.1.1)(solid-js@1.9.9)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -808,8 +808,8 @@ packages:
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
 
-  '@better-auth/core@1.3.24':
-    resolution: {integrity: sha512-nU4aj5SA0COXAls0p3htIWmGPOG+76HULd9tG8CEUfwcK95rRrUIUN74FKvsAu3b18AVj3E7cL4bYrQS3KYKRw==}
+  '@better-auth/core@1.3.26':
+    resolution: {integrity: sha512-S5ooXaOcn9eLV3/JayfbMsAB5PkfoTRaRrtpb5djwvI/UAJOgLyjqhd+rObsBycovQ/nPQvMKjzyM/G1oBKngA==}
 
   '@better-auth/utils@0.3.0':
     resolution: {integrity: sha512-W+Adw6ZA6mgvnSnhOki270rwJ42t4XzSK6YWGF//BbVXL6SwCLWfyzBc1lN2m/4RM28KubdBKQ4X5VMoLRNPQw==}
@@ -1755,11 +1755,11 @@ packages:
     resolution: {integrity: sha512-jjmJywLAFoWeBi1W7994zZyiNWPIiqRRNAmSERxyg93xRGzNYvGjlZ0gR6x0F4gPRi2+0O6S71kOZYyr3cxaIQ==}
     engines: {node: '>=v14.0.0', npm: '>=7.0.0'}
 
-  '@simplewebauthn/browser@13.2.0':
-    resolution: {integrity: sha512-N3fuA1AAnTo5gCStYoIoiasPccC+xPLx2YU88Dv0GeAmPQTWHETlZQq5xZ0DgUq1H9loXMWQH5qqUjcI7BHJ1A==}
+  '@simplewebauthn/browser@13.2.2':
+    resolution: {integrity: sha512-FNW1oLQpTJyqG5kkDg5ZsotvWgmBaC6jCHR7Ej0qUNep36Wl9tj2eZu7J5rP+uhXgHaLk+QQ3lqcw2vS5MX1IA==}
 
-  '@simplewebauthn/server@13.2.1':
-    resolution: {integrity: sha512-Inmfye5opZXe3HI0GaksqBnQiM7glcNySoG6DH1GgkO1Lh9dvuV4XSV9DK02DReUVX39HpcDob9nxHELjECoQw==}
+  '@simplewebauthn/server@13.2.2':
+    resolution: {integrity: sha512-HcWLW28yTMGXpwE9VLx9J+N2KEUaELadLrkPEEI9tpI5la70xNEVEsu/C+m3u7uoq4FulLqZQhgBCzR9IZhFpA==}
     engines: {node: '>=20.0.0'}
 
   '@sinclair/typebox@0.27.8':
@@ -2732,8 +2732,8 @@ packages:
   bcryptjs@2.4.3:
     resolution: {integrity: sha512-V/Hy/X9Vt7f3BbPJEi8BdVFMByHi+jNXrYkW3huaybV/kQ0KJg0Y6PkEMbn+zeT+i+SiKZ/HMqJGIIt4LZDqNQ==}
 
-  better-auth@1.3.24:
-    resolution: {integrity: sha512-LyxIbnB2FExhjqQ/J1G8S8EAbmTBDFOz6CjqHNNu15Gux+c4fF0Si1YNLprROEb4EGNuGUfslurW0Q6nZ+Dobg==}
+  better-auth@1.3.26:
+    resolution: {integrity: sha512-umaOGmv29yF4sD6o2zlW6B0Oayko5yD/A8mKJOFDDEIoVP/pR7nJ/2KsqKy+xvBpnDsKdrZseqA8fmczPviUHw==}
     peerDependencies:
       '@lynx-js/react': '*'
       '@sveltejs/kit': '*'
@@ -4108,8 +4108,8 @@ packages:
     resolution: {integrity: sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==}
     engines: {node: '>=6'}
 
-  kysely@0.28.7:
-    resolution: {integrity: sha512-u/cAuTL4DRIiO2/g4vNGRgklEKNIj5Q3CG7RoUB5DV5SfEC2hMvPxKi0GWPmnzwL2ryIeud2VTcEEmqzTzEPNw==}
+  kysely@0.28.8:
+    resolution: {integrity: sha512-QUOgl5ZrS9IRuhq5FvOKFSsD/3+IA6MLE81/bOOTRA/YQpKDza2sFdN5g6JCB9BOpqMJDGefLCQ9F12hRS13TA==}
     engines: {node: '>=20.0.0'}
 
   language-subtag-registry@0.3.23:
@@ -5576,8 +5576,8 @@ packages:
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
-  zod@4.1.11:
-    resolution: {integrity: sha512-WPsqwxITS2tzx1bzhIKsEs19ABD5vmCVa4xBo2tq/SrV4RNZtfws1EnCWQXM6yh8bD08a1idvkB5MZSBiZsjwg==}
+  zod@4.1.12:
+    resolution: {integrity: sha512-JInaHOamG8pt5+Ey8kGmdcAcg3OL9reK8ltczgHTAwNhMys/6ThXHityHxVV2p3fkw/c+MAvBHFVYHFZDmjMCQ==}
 
 snapshots:
 
@@ -6350,10 +6350,10 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@better-auth/core@1.3.24':
+  '@better-auth/core@1.3.26':
     dependencies:
       better-call: 1.0.19
-      zod: 4.1.11
+      zod: 4.1.12
 
   '@better-auth/utils@0.3.0': {}
 
@@ -7256,9 +7256,9 @@ snapshots:
 
   '@sapphire/snowflake@3.5.3': {}
 
-  '@simplewebauthn/browser@13.2.0': {}
+  '@simplewebauthn/browser@13.2.2': {}
 
-  '@simplewebauthn/server@13.2.1':
+  '@simplewebauthn/server@13.2.2':
     dependencies:
       '@hexagon/base64': 1.1.28
       '@levischuck/tiny-cbor': 0.2.11
@@ -8580,21 +8580,21 @@ snapshots:
 
   bcryptjs@2.4.3: {}
 
-  better-auth@1.3.24(react-dom@19.1.1(react@19.1.1))(react@19.1.1)(solid-js@1.9.9):
+  better-auth@1.3.26(react-dom@19.1.1(react@19.1.1))(react@19.1.1)(solid-js@1.9.9):
     dependencies:
-      '@better-auth/core': 1.3.24
+      '@better-auth/core': 1.3.26
       '@better-auth/utils': 0.3.0
       '@better-fetch/fetch': 1.1.18
       '@noble/ciphers': 2.0.1
       '@noble/hashes': 2.0.1
-      '@simplewebauthn/browser': 13.2.0
-      '@simplewebauthn/server': 13.2.1
+      '@simplewebauthn/browser': 13.2.2
+      '@simplewebauthn/server': 13.2.2
       better-call: 1.0.19
       defu: 6.1.4
       jose: 6.1.0
-      kysely: 0.28.7
+      kysely: 0.28.8
       nanostores: 1.0.1
-      zod: 4.1.11
+      zod: 4.1.12
     optionalDependencies:
       react: 19.1.1
       react-dom: 19.1.1(react@19.1.1)
@@ -10450,7 +10450,7 @@ snapshots:
 
   kleur@3.0.3: {}
 
-  kysely@0.28.7: {}
+  kysely@0.28.8: {}
 
   language-subtag-registry@0.3.23: {}
 
@@ -11884,4 +11884,4 @@ snapshots:
 
   zod@3.25.76: {}
 
-  zod@4.1.11: {}
+  zod@4.1.12: {}
