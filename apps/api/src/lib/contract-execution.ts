@@ -1,4 +1,5 @@
 import { prisma } from '@bloxtr8/database';
+import type { EscrowInitResponse, PaymentInit } from '@bloxtr8/types';
 
 import { isDebugMode } from '../lib/env-validation.js';
 
@@ -311,5 +312,64 @@ export async function getContractExecutionStatus(contractId: string): Promise<{
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     };
+  }
+}
+
+/**
+ * Get escrow payment initialization data for a given escrow ID
+ * Returns the payment init payload based on the escrow's rail
+ */
+export async function getEscrowPaymentInit(
+  escrowId: string
+): Promise<EscrowInitResponse | null> {
+  try {
+    const escrow = await prisma.escrow.findUnique({
+      where: { id: escrowId },
+      include: {
+        stripeEscrow: true,
+        stablecoinEscrow: true,
+      },
+    });
+
+    if (!escrow) {
+      return null;
+    }
+
+    let paymentInit: PaymentInit;
+
+    if (escrow.rail === 'STRIPE') {
+      if (!escrow.stripeEscrow) {
+        return null;
+      }
+
+      paymentInit = {
+        rail: 'STRIPE',
+        paymentIntentId: escrow.stripeEscrow.paymentIntentId,
+        clientSecret: `test_client_secret_${escrow.stripeEscrow.paymentIntentId}`,
+      };
+    } else {
+      // USDC_BASE
+      if (!escrow.stablecoinEscrow) {
+        return null;
+      }
+
+      paymentInit = {
+        rail: 'USDC_BASE',
+        depositAddr: escrow.stablecoinEscrow.depositAddr,
+        qr: `usdc:${escrow.stablecoinEscrow.depositAddr}`,
+      };
+    }
+
+    return {
+      escrowId: escrow.id,
+      rail: escrow.rail,
+      status: escrow.status,
+      amount: escrow.amount.toString(),
+      currency: escrow.currency,
+      paymentInit,
+    };
+  } catch (error) {
+    console.error('Error getting escrow payment init:', error);
+    return null;
   }
 }

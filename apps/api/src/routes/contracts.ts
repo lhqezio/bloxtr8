@@ -4,7 +4,7 @@ import { prisma } from '@bloxtr8/database';
 import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 import { Router, type Router as ExpressRouter } from 'express';
 
-import { executeContract } from '../lib/contract-execution.js';
+import { executeContract, getEscrowPaymentInit } from '../lib/contract-execution.js';
 import { generateContract, verifyContract } from '../lib/contract-generator.js';
 import { isDebugMode } from '../lib/env-validation.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -782,6 +782,100 @@ router.post('/contracts/:id/retry-execution', async (req, res, next) => {
         message: 'Contract execution retry failed',
       });
     }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get escrow and payment initialization data for a contract
+router.get('/contracts/:id/escrow', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.query.userId as string;
+
+    if (!userId) {
+      throw new AppError('User ID is required', 400);
+    }
+
+    // Fetch contract with offer data
+    const contract = await prisma.contract.findUnique({
+      where: { id },
+      include: {
+        offer: true,
+        signatures: true,
+        escrows: true,
+      },
+    });
+
+    if (!contract) {
+      throw new AppError('Contract not found', 404);
+    }
+
+    // Verify user is buyer or seller
+    if (
+      userId !== contract.offer.buyerId &&
+      userId !== contract.offer.sellerId
+    ) {
+      throw new AppError('User is not authorized to access this escrow', 403);
+    }
+
+    // Check if contract is ready for execution (both parties signed)
+    const buyerSigned = contract.signatures.some(
+      sig => sig.userId === contract.offer.buyerId
+    );
+    const sellerSigned = contract.signatures.some(
+      sig => sig.userId === contract.offer.sellerId
+    );
+
+    if (!buyerSigned || !sellerSigned) {
+      throw new AppError('Both parties must sign before escrow can be accessed', 400);
+    }
+
+    // If no escrow exists yet, try to execute the contract
+    if (contract.escrows.length === 0) {
+      if (contract.status !== 'EXECUTED') {
+        // Try to execute the contract
+        const executionResult = await executeContract(id);
+        
+        if (!executionResult.success) {
+          throw new AppError(
+            `Failed to execute contract: ${executionResult.error}`,
+            500
+          );
+        }
+
+        // Update contract status to EXECUTED
+        await prisma.contract.update({
+          where: { id },
+          data: { status: 'EXECUTED' },
+        });
+
+        // Fetch the newly created escrow
+        const escrowInit = await getEscrowPaymentInit(executionResult.escrowId!);
+        
+        if (!escrowInit) {
+          throw new AppError('Failed to retrieve escrow data', 500);
+        }
+
+        return res.json(escrowInit);
+      } else {
+        throw new AppError('Contract is executed but no escrow exists', 500);
+      }
+    }
+
+    // Get the first escrow (there should only be one)
+    const firstEscrow = contract.escrows[0];
+    if (!firstEscrow) {
+      throw new AppError('No escrow found for this contract', 500);
+    }
+
+    const escrowInit = await getEscrowPaymentInit(firstEscrow.id);
+
+    if (!escrowInit) {
+      throw new AppError('Failed to retrieve escrow data', 500);
+    }
+
+    res.json(escrowInit);
   } catch (error) {
     next(error);
   }
