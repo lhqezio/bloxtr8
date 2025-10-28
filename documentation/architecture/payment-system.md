@@ -36,22 +36,71 @@ Threshold: **$10,000 USD**
   - Stripe: $1,450.30 in fees (2.9%)
   - USDC: ~$0.10 in gas fees
 
+## Escrow Initialization Flow
+
+### Getting Payment Init Data
+
+After both parties sign a contract, you can fetch the escrow and payment initialization data:
+
+**Endpoint**: `GET /api/contracts/:id/escrow?userId=<userId>`
+
+**Authorization**: Only the buyer or seller of the contract can access this endpoint.
+
+**Response** (Stripe):
+```json
+{
+  "escrowId": "esc_123",
+  "rail": "STRIPE",
+  "status": "AWAIT_FUNDS",
+  "amount": "250000",
+  "currency": "USD",
+  "paymentInit": {
+    "rail": "STRIPE",
+    "paymentIntentId": "pi_placeholder_esc_123",
+    "clientSecret": "test_client_secret_pi_placeholder_esc_123"
+  }
+}
+```
+
+**Response** (USDC on Base):
+```json
+{
+  "escrowId": "esc_456",
+  "rail": "USDC_BASE",
+  "status": "AWAIT_FUNDS",
+  "amount": "12500000",
+  "currency": "USD",
+  "paymentInit": {
+    "rail": "USDC_BASE",
+    "depositAddr": "0x_placeholder_esc_456",
+    "qr": "usdc:0x_placeholder_esc_456"
+  }
+}
+```
+
+**Behavior**:
+- If both parties have signed and no escrow exists yet, the contract will be executed automatically
+- The endpoint is idempotent and safe to call multiple times
+- Returns the existing escrow if it already exists
+
 ## Stripe Rail
 
 ### Flow
 
 ```
 1. Offer accepted → Contract signed
-2. Create Escrow (rail: STRIPE, status: AWAIT_FUNDS)
-3. Create PaymentIntent via Stripe API
-4. Send payment link to buyer
-5. Buyer completes payment
-6. Stripe webhook: payment_intent.succeeded
-7. Update Escrow.status = FUNDS_HELD
-8. Seller delivers
-9. Buyer confirms
-10. Create Transfer to seller
-11. Update Escrow.status = RELEASED
+2. Both parties sign → Contract executed
+3. GET /api/contracts/:id/escrow → Returns payment init data
+4. Create Escrow (rail: STRIPE, status: AWAIT_FUNDS)
+5. Create PaymentIntent via Stripe API
+6. Send payment link to buyer
+7. Buyer completes payment
+8. Stripe webhook: payment_intent.succeeded
+9. Update Escrow.status = FUNDS_HELD
+10. Seller delivers
+11. Buyer confirms
+12. Create Transfer to seller
+13. Update Escrow.status = RELEASED
 ```
 
 ### Implementation

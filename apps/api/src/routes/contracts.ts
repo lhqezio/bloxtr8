@@ -4,7 +4,7 @@ import { prisma } from '@bloxtr8/database';
 import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 import { Router, type Router as ExpressRouter } from 'express';
 
-import { executeContract } from '../lib/contract-execution.js';
+import { executeContract, getEscrowPaymentInit } from '../lib/contract-execution.js';
 import { generateContract, verifyContract } from '../lib/contract-generator.js';
 import { isDebugMode } from '../lib/env-validation.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -735,21 +735,36 @@ router.post('/contracts/:id/retry-execution', async (req, res, next) => {
 
     // Retry contract execution
     try {
-      const executionResult = await executeContract(id);
+      // Execute contract and update status atomically within a transaction
+      const result = await prisma.$transaction(async tx => {
+        const executionResult = await executeContract(id, tx);
 
-      if (executionResult.success) {
-        // Update contract status to EXECUTED
-        await prisma.contract.update({
-          where: { id },
-          data: {
-            status: 'EXECUTED',
-          },
-        });
+        if (executionResult.success) {
+          // Update contract status to EXECUTED within the same transaction
+          await tx.contract.update({
+            where: { id },
+            data: {
+              status: 'EXECUTED',
+            },
+          });
 
+          return {
+            success: true as const,
+            escrowId: executionResult.escrowId,
+          };
+        } else {
+          return {
+            success: false as const,
+            error: executionResult.error,
+          };
+        }
+      });
+
+      if (result.success) {
         res.json({
           success: true,
           contractStatus: 'EXECUTED',
-          escrowId: executionResult.escrowId,
+          escrowId: result.escrowId,
           message: 'Contract execution retry successful',
         });
       } else {
@@ -757,7 +772,7 @@ router.post('/contracts/:id/retry-execution', async (req, res, next) => {
         res.json({
           success: false,
           contractStatus: 'EXECUTION_FAILED',
-          error: executionResult.error,
+          error: result.error,
           message: 'Contract execution retry failed',
         });
       }
@@ -782,6 +797,119 @@ router.post('/contracts/:id/retry-execution', async (req, res, next) => {
         message: 'Contract execution retry failed',
       });
     }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get escrow and payment initialization data for a contract
+router.get('/contracts/:id/escrow', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.query.userId as string;
+
+    if (!userId) {
+      throw new AppError('User ID is required', 400);
+    }
+
+    // Fetch contract with offer data
+    const contract = await prisma.contract.findUnique({
+      where: { id },
+      include: {
+        offer: true,
+        signatures: true,
+        escrows: true,
+      },
+    });
+
+    if (!contract) {
+      throw new AppError('Contract not found', 404);
+    }
+
+    // Verify user is buyer or seller
+    if (
+      userId !== contract.offer.buyerId &&
+      userId !== contract.offer.sellerId
+    ) {
+      throw new AppError('User is not authorized to access this escrow', 403);
+    }
+
+    // Check if contract is ready for execution (both parties signed)
+    const buyerSigned = contract.signatures.some(
+      sig => sig.userId === contract.offer.buyerId
+    );
+    const sellerSigned = contract.signatures.some(
+      sig => sig.userId === contract.offer.sellerId
+    );
+
+    if (!buyerSigned || !sellerSigned) {
+      throw new AppError('Both parties must sign before escrow can be accessed', 400);
+    }
+
+    // If no escrow exists yet, try to execute the contract
+    if (contract.escrows.length === 0) {
+      if (contract.status !== 'EXECUTED') {
+        // Execute contract and update status atomically within a transaction
+        const escrowId = await prisma.$transaction(async tx => {
+          // Check if an escrow was created while we were waiting (race condition protection)
+          const currentEscrows = await tx.escrow.findMany({
+            where: { contractId: id },
+          });
+
+          if (currentEscrows.length > 0) {
+            // Someone else already created an escrow, return it
+            const existingEscrow = currentEscrows[0];
+            if (!existingEscrow) {
+              throw new AppError('Unexpected error: escrow array not empty but first element is undefined', 500);
+            }
+            return existingEscrow.id;
+          }
+
+          // Execute contract within transaction
+          const result = await executeContract(id, tx);
+          
+          if (!result.success || !result.escrowId) {
+            throw new AppError(
+              `Failed to execute contract: ${result.error || 'Escrow ID not returned'}`,
+              500
+            );
+          }
+
+          // Update contract status to EXECUTED within the same transaction
+          await tx.contract.update({
+            where: { id },
+            data: { status: 'EXECUTED' },
+          });
+
+          return result.escrowId;
+        });
+
+        // Fetch the newly created escrow
+        const escrowInit = await getEscrowPaymentInit(escrowId);
+        
+        if (!escrowInit) {
+          throw new AppError('Failed to retrieve escrow data', 500);
+        }
+
+        return res.json(escrowInit);
+      } else {
+        throw new AppError('Contract is executed but no escrow exists', 500);
+      }
+    }
+
+    // Get the first escrow (there should only be one)
+    const firstEscrow = contract.escrows[0];
+    if (!firstEscrow) {
+      throw new AppError('No escrow found for this contract', 500);
+    }
+
+    const escrowInit = await getEscrowPaymentInit(firstEscrow.id);
+
+    if (!escrowInit) {
+      throw new AppError('Failed to retrieve escrow data', 500);
+    }
+
+    res.json(escrowInit);
   } catch (error) {
     next(error);
   }
