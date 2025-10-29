@@ -4,7 +4,7 @@ import type Stripe from 'stripe';
 import { AppError } from '../middleware/errorHandler.js';
 
 import { stripe } from './stripe.js';
-
+import { WebhookNotifier } from './webhook-notifier.js';
 export type EscrowStatus = 
   | 'AWAIT_FUNDS'
   | 'FUNDS_HELD'
@@ -43,6 +43,7 @@ export interface EscrowMetadata {
 }
 
 export class EscrowService {
+  private static webhookNotifier = new WebhookNotifier();
   private static readonly VALID_TRANSITIONS: Record<EscrowStatus, readonly EscrowStatus[]> = {
     AWAIT_FUNDS: ['FUNDS_HELD', 'CANCELLED'],
     FUNDS_HELD: ['DELIVERED', 'DISPUTED', 'REFUNDED'],
@@ -188,6 +189,8 @@ export class EscrowService {
    * Handle Stripe webhook for payment confirmation
    */
   static async handleStripeWebhook(event: Stripe.Event) {
+    console.log(`Processing Stripe webhook: ${event.type}`);
+    
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
@@ -203,13 +206,15 @@ export class EscrowService {
           return;
         }
 
-        // Update escrow to FUNDS_HELD
-        await this.transitionState(
-          stripeEscrow.escrow.id,
-          'FUNDS_HELD',
-          'system',
-          'Payment confirmed via Stripe webhook'
-        );
+        // Only transition if not already in FUNDS_HELD status
+        if (stripeEscrow.escrow.status !== 'FUNDS_HELD') {
+          await this.transitionState(
+            stripeEscrow.escrow.id,
+            'FUNDS_HELD',
+            'system',
+            'Payment confirmed via Stripe webhook'
+          );
+        }
 
         // Update Stripe escrow with captured amount
         await prisma.stripeEscrow.update({
@@ -221,6 +226,12 @@ export class EscrowService {
           },
         });
 
+        // Notify API server
+        await this.notifyApiServer({
+          escrowId: stripeEscrow.escrow.id,
+          status: 'FUNDS_HELD',
+          paymentIntentId: paymentIntent.id,
+        });
         break;
       }
 
@@ -233,18 +244,157 @@ export class EscrowService {
         });
 
         if (stripeEscrow) {
-          await this.transitionState(
-            stripeEscrow.escrow.id,
-            'CANCELLED',
-            'system',
-            'Payment failed via Stripe webhook'
-          );
+          // Payment failed but escrow stays in AWAIT_FUNDS to allow retry
+          // Only log the failure, don't change escrow status
+          console.log(`Payment failed for escrow ${stripeEscrow.escrow.id}, payment intent ${paymentIntent.id}. Escrow remains in AWAIT_FUNDS for retry.`);
+          
+          // Update Stripe escrow with failure info
+          await prisma.stripeEscrow.update({
+            where: { id: stripeEscrow.id },
+            data: {
+              lastWebhookAt: new Date(),
+            },
+          });
+
+          // Create audit log for payment failure
+          await prisma.auditLog.create({
+            data: {
+              action: 'PAYMENT_FAILED',
+              details: {
+                escrowId: stripeEscrow.escrow.id,
+                paymentIntentId: paymentIntent.id,
+                failureCode: paymentIntent.last_payment_error?.code,
+                failureMessage: paymentIntent.last_payment_error?.message,
+                status: 'AWAIT_FUNDS',
+              },
+              escrowId: stripeEscrow.escrow.id,
+            },
+          });
+
+          // Notify API server of payment failure (but escrow status unchanged)
+          await this.notifyApiServer({
+            escrowId: stripeEscrow.escrow.id,
+            status: 'AWAIT_FUNDS',
+            paymentIntentId: paymentIntent.id,
+            reason: 'Payment failed',
+          });
+        }
+        break;
+      }
+
+      case 'payment_intent.canceled': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        
+        const stripeEscrow = await prisma.stripeEscrow.findUnique({
+          where: { paymentIntentId: paymentIntent.id },
+          include: { escrow: true },
+        });
+
+        if (stripeEscrow) {
+          // Payment canceled but escrow stays in AWAIT_FUNDS to allow retry with different method
+          // Only log the cancellation, don't change escrow status
+          console.log(`Payment canceled for escrow ${stripeEscrow.escrow.id}, payment intent ${paymentIntent.id}. Escrow remains in AWAIT_FUNDS for retry.`);
+          
+          // Update Stripe escrow with cancellation info
+          await prisma.stripeEscrow.update({
+            where: { id: stripeEscrow.id },
+            data: {
+              lastWebhookAt: new Date(),
+            },
+          });
+
+          // Create audit log for payment cancellation
+          await prisma.auditLog.create({
+            data: {
+              action: 'PAYMENT_CANCELED',
+              details: {
+                escrowId: stripeEscrow.escrow.id,
+                paymentIntentId: paymentIntent.id,
+                cancellationReason: paymentIntent.cancellation_reason,
+                status: 'AWAIT_FUNDS',
+              },
+              escrowId: stripeEscrow.escrow.id,
+            },
+          });
+
+          // Notify API server of payment cancellation (but escrow status unchanged)
+          await this.notifyApiServer({
+            escrowId: stripeEscrow.escrow.id,
+            status: 'AWAIT_FUNDS', // Keep same status
+            paymentIntentId: paymentIntent.id,
+            reason: 'Payment canceled',
+          });
+        }
+        break;
+      }
+
+      case 'transfer.created': {
+        const transfer = event.data.object as Stripe.Transfer;
+        
+        // Find escrow by transfer ID in metadata
+        const stripeEscrow = await prisma.stripeEscrow.findFirst({
+          where: { transferId: transfer.id },
+          include: { escrow: true },
+        });
+
+        if (stripeEscrow) {
+          console.log(`Transfer ${transfer.id} created for escrow ${stripeEscrow.escrow.id}`);
+          // Transfer creation is already handled in releaseFunds method
+        }
+        break;
+      }
+
+      case 'refund.created': {
+        const refund = event.data.object as Stripe.Refund;
+        
+        // Find escrow by refund ID in metadata
+        const stripeEscrow = await prisma.stripeEscrow.findFirst({
+          where: { refundId: refund.id },
+          include: { escrow: true },
+        });
+
+        if (stripeEscrow) {
+          console.log(`Refund ${refund.id} created for escrow ${stripeEscrow.escrow.id}`);
+          // Refund creation is already handled in refundBuyer method
         }
         break;
       }
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        console.log(`Unhandled Stripe event type: ${event.type}`);
+    }
+  }
+
+  /**
+   * Notify API server with retry logic
+   */
+  private static async notifyApiServer(data: {
+    escrowId: string;
+    status: string;
+    paymentIntentId?: string;
+    transferId?: string;
+    refundId?: string;
+    reason?: string;
+  }) {
+    const maxRetries = 3;
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+      try {
+        await this.webhookNotifier.notifyEscrowStatusUpdate(data);
+        console.log(`Successfully notified API server for escrow ${data.escrowId}`);
+        return;
+      } catch (error) {
+        attempt++;
+        console.error(`Failed to notify API server (attempt ${attempt}/${maxRetries}):`, error);
+        
+        if (attempt < maxRetries) {
+          // Exponential backoff
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        } else {
+          console.error(`Failed to notify API server after ${maxRetries} attempts for escrow ${data.escrowId}`);
+        }
+      }
     }
   }
 
@@ -317,7 +467,65 @@ export class EscrowService {
       data: { transferId: transfer.id },
     });
 
+    // Notify API server
+    await this.notifyApiServer({
+      escrowId,
+      status: 'RELEASED',
+      transferId: transfer.id,
+    });
     return transfer;
+  }
+
+  /**
+   * Handle expired escrows that have been in AWAIT_FUNDS too long
+   */
+  static async handleExpiredEscrows() {
+    const expiredEscrows = await prisma.escrow.findMany({
+      where: {
+        status: 'AWAIT_FUNDS',
+        expiresAt: {
+          lt: new Date(),
+        },
+      },
+      include: {
+        stripeEscrow: true,
+      },
+    });
+
+    for (const escrow of expiredEscrows) {
+      try {
+        // Cancel the payment intent if it exists
+        if (escrow.stripeEscrow) {
+          try {
+            await stripe.paymentIntents.cancel(escrow.stripeEscrow.paymentIntentId);
+            console.log(`Canceled payment intent ${escrow.stripeEscrow.paymentIntentId} for expired escrow ${escrow.id}`);
+          } catch (error) {
+            console.warn(`Failed to cancel payment intent for escrow ${escrow.id}:`, error);
+          }
+        }
+
+        // Transition escrow to CANCELLED
+        await this.transitionState(
+          escrow.id,
+          'CANCELLED',
+          'system',
+          'Escrow expired - no payment received within timeout period'
+        );
+
+        // Notify API server
+        await this.notifyApiServer({
+          escrowId: escrow.id,
+          status: 'CANCELLED',
+          reason: 'Escrow expired',
+        });
+
+        console.log(`Expired escrow ${escrow.id} has been cancelled`);
+      } catch (error) {
+        console.error(`Failed to handle expired escrow ${escrow.id}:`, error);
+      }
+    }
+
+    return expiredEscrows.length;
   }
 
   /**
@@ -364,6 +572,13 @@ export class EscrowService {
     await prisma.stripeEscrow.update({
       where: { id: escrow.stripeEscrow.id },
       data: { refundId: refund.id },
+    });
+
+    // Notify API server
+    await this.notifyApiServer({
+      escrowId,
+      status: 'REFUNDED',
+      refundId: refund.id,
     });
 
     return refund;

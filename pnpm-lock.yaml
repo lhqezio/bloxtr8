@@ -425,6 +425,9 @@ importers:
       '@bloxtr8/types':
         specifier: workspace:*
         version: link:../types
+      stripe:
+        specifier: ^19.1.0
+        version: 19.1.0(@types/node@20.19.19)
       zod:
         specifier: ^3.22.4
         version: 3.25.76

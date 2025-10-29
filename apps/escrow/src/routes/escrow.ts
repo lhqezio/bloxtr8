@@ -3,6 +3,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 import { z } from 'zod';
 
 import { EscrowService } from '../lib/escrow-service.js';
+import { stripe } from '../lib/stripe.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 const router: ExpressRouter = Router();
@@ -80,9 +81,23 @@ router.get('/:id', async (req, res) => {
       throw new AppError('Escrow not found', 404);
     }
 
+    // For Stripe escrows, we need to get the client secret from the payment intent
+    let clientSecret: string | undefined;
+    if (escrow.rail === 'STRIPE' && escrow.stripeEscrow) {
+      try {
+        const paymentIntent = await stripe.paymentIntents.retrieve(escrow.stripeEscrow.paymentIntentId);
+        clientSecret = paymentIntent.client_secret || undefined;
+      } catch (error) {
+        console.warn(`Failed to retrieve client secret for payment intent ${escrow.stripeEscrow.paymentIntentId}:`, error);
+      }
+    }
+
     res.json({
       success: true,
-      data: escrow,
+      data: {
+        ...escrow,
+        clientSecret,
+      },
     });
   } catch (error) {
     console.error('Error fetching escrow:', error);
@@ -189,6 +204,28 @@ router.post('/:id/refund', async (req, res) => {
       throw error;
     }
     throw new AppError(error instanceof Error ? error.message : 'Unknown error', 400);
+  }
+});
+
+/**
+ * Handle expired escrows (cron job endpoint)
+ * POST /api/escrow/expired
+ */
+router.post('/expired', async (req, res) => {
+  try {
+    const expiredCount = await EscrowService.handleExpiredEscrows();
+    
+    res.json({
+      success: true,
+      message: `Processed ${expiredCount} expired escrows`,
+      expiredCount,
+    });
+  } catch (error) {
+    console.error('Error handling expired escrows:', error);
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError('Internal server error', 500);
   }
 });
 

@@ -1,4 +1,9 @@
+// eslint-disable-next-line import/order
 import { config } from '@dotenvx/dotenvx';
+
+// Load environment variables FIRST before any other imports
+config();
+
 import compress from 'compression';
 import cors from 'cors';
 import express from 'express';
@@ -6,18 +11,16 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import pkg from 'pg';
 
-import { validateEnvironment } from '@bloxtr8/shared';
+import { validateEnvironment } from './lib/env-validation.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
 import healthRoutes, { setPool } from './routes/health.js';
 
 const { Pool } = pkg;
-// Load environment variables
-config();
 
 // Validate environment variables at startup
 try {
-  validateEnvironment(['DATABASE_URL']);
+  validateEnvironment();
 } catch (error) {
   console.error('❌ Environment validation failed:', error);
   if (process.env.NODE_ENV !== 'test') {
