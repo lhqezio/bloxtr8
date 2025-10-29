@@ -3,6 +3,10 @@ import type { EscrowInitResponse, PaymentInit } from '@bloxtr8/types';
 
 import { isDebugMode } from '../lib/env-validation.js';
 
+import { EscrowClient } from './escrow-client.js';
+
+
+
 /**
  * Handle contract execution when both parties have signed
  * This is triggered after a signature is added and both parties have signed
@@ -139,58 +143,37 @@ export async function executeContract(
     // Stripe for amounts ≤ $10,000, USDC on Base for > $10,000
     const amountInDollars = Number(contract.offer.amount) / 100;
     const escrowRail = amountInDollars <= 10000 ? 'STRIPE' : 'USDC_BASE';
+    let fee=0;
 
+    if(escrowRail === 'STRIPE'){
+      fee=amountInDollars * 0.02;//2% fee
+    }else{
+      fee=amountInDollars * 0.03;//3% fee
+    }
     // Create escrow
-    const escrow = await db.escrow.create({
-      data: {
-        offerId: contract.offer.id,
-        contractId: contract.id,
-        rail: escrowRail,
-        amount: contract.offer.amount,
-        currency: contract.offer.currency,
-        // In debug mode with same user, skip AWAIT_FUNDS and go directly to FUNDS_HELD
-        status: debugMode && sameUser ? 'FUNDS_HELD' : 'AWAIT_FUNDS',
-      },
+    const escrowClient = new EscrowClient();
+    const escrowResult = await escrowClient.createEscrow({
+      offerId: contract.offer.id,
+      contractId: contract.id,
+      rail: escrowRail,
+      amount: contract.offer.amount.toString(),
+      currency: contract.offer.currency,
+      buyerId: contract.offer.buyerId,
+      sellerId: contract.offer.sellerId,
+      sellerStripeAccountId: contract.offer.seller.stripeAccountId || undefined,
+      buyerFee: fee, // Calculate based on your fee structure
+      sellerFee: fee, // Calculate based on your fee structure
     });
 
-    // Create rail-specific escrow record
-    if (escrowRail === 'STRIPE') {
-      const paymentIntentId = debugMode
-        ? `pi_debug_test_${escrow.id}`
-        : `pi_placeholder_${escrow.id}`;
-
-      if (debugMode) {
-        console.warn(
-          `🔧 DEBUG MODE: Using mock Stripe Payment Intent ID: ${paymentIntentId}`
-        );
-      }
-
-      await db.stripeEscrow.create({
-        data: {
-          escrowId: escrow.id,
-          paymentIntentId,
-        },
-      });
-    } else {
-      const depositAddr = debugMode
-        ? `0x_debug_test_${escrow.id}`
-        : `0x_placeholder_${escrow.id}`;
-
-      if (debugMode) {
-        console.warn(
-          `🔧 DEBUG MODE: Using mock USDC deposit address: ${depositAddr}`
-        );
-      }
-
-      await db.stablecoinEscrow.create({
-        data: {
-          escrowId: escrow.id,
-          chain: 'BASE',
-          depositAddr,
-          mintAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
-        },
-      });
+    if (!escrowResult.success) {
+      return {
+        success: false,
+        error: 'Failed to create escrow',
+      };
     }
+
+    
+    
 
     // Create audit log entry
     await db.auditLog.create({
@@ -199,7 +182,7 @@ export async function executeContract(
         details: {
           contractId: contract.id,
           offerId: contract.offer.id,
-          escrowId: escrow.id,
+          escrowId: escrowResult.data.escrowId,
           escrowRail,
           amount: contract.offer.amount.toString(),
           buyerId: contract.offer.buyerId,
@@ -207,17 +190,17 @@ export async function executeContract(
           debugMode: debugMode && sameUser ? true : undefined,
           sameUser: sameUser ? true : undefined,
         },
-        escrowId: escrow.id,
+        escrowId: escrowResult.data.escrowId,
       },
     });
 
     console.log(
-      `Contract ${contractId} executed successfully. Escrow ${escrow.id} created.`
+      `Contract ${contractId} executed successfully. Escrow ${escrowResult.data.escrowId} created.`
     );
 
     return {
       success: true,
-      escrowId: escrow.id,
+      escrowId: escrowResult.data.escrowId,
     };
   } catch (error) {
     console.error('Error executing contract:', error);
@@ -328,18 +311,14 @@ export async function getEscrowPaymentInit(
   escrowId: string
 ): Promise<EscrowInitResponse | null> {
   try {
-    const escrow = await prisma.escrow.findUnique({
-      where: { id: escrowId },
-      include: {
-        stripeEscrow: true,
-        stablecoinEscrow: true,
-      },
-    });
+    const escrowClient = new EscrowClient();
+    const escrowData = await escrowClient.getEscrowStatus(escrowId);
 
-    if (!escrow) {
+    if (!escrowData.success) {
       return null;
     }
 
+    const escrow = escrowData.data;
     let paymentInit: PaymentInit;
 
     if (escrow.rail === 'STRIPE') {
@@ -350,7 +329,7 @@ export async function getEscrowPaymentInit(
       paymentInit = {
         rail: 'STRIPE',
         paymentIntentId: escrow.stripeEscrow.paymentIntentId,
-        clientSecret: `test_client_secret_${escrow.stripeEscrow.paymentIntentId}`,
+        clientSecret: escrow.clientSecret || `test_client_secret_${escrow.stripeEscrow.paymentIntentId}`,
       };
     } else {
       // USDC_BASE

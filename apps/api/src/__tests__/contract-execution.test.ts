@@ -13,29 +13,40 @@ jest.mock('@bloxtr8/database', () => ({
       findUnique: jest.fn(),
       findFirst: jest.fn(),
     },
-    escrow: {
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      create: jest.fn(),
-      delete: jest.fn(),
-      deleteMany: jest.fn(),
-    },
-    stripeEscrow: {
-      create: jest.fn(),
-      deleteMany: jest.fn(),
-    },
-    stablecoinEscrow: {
-      create: jest.fn(),
-      deleteMany: jest.fn(),
-    },
-    milestoneEscrow: {
-      deleteMany: jest.fn(),
-    },
     auditLog: {
       create: jest.fn(),
     },
     $transaction: jest.fn(),
   },
+}));
+
+// Mock the EscrowClient
+jest.mock('../lib/escrow-client.js', () => ({
+  EscrowClient: jest.fn().mockImplementation(() => ({
+    createEscrow: jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        escrowId: 'escrow-123',
+        clientSecret: 'pi_test_client_secret',
+        paymentIntentId: 'pi_test_123',
+        status: 'AWAIT_FUNDS',
+      },
+    }),
+    getEscrowStatus: jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        id: 'escrow-123',
+        status: 'AWAIT_FUNDS',
+        rail: 'STRIPE',
+        amount: BigInt(5000),
+        currency: 'USD',
+        stripeEscrow: {
+          paymentIntentId: 'pi_test_123',
+        },
+        clientSecret: 'pi_test_client_secret',
+      },
+    }),
+  })),
 }));
 
 describe('Contract Execution', () => {
