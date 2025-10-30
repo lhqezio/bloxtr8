@@ -113,7 +113,7 @@ if (process.env.NODE_ENV !== 'test') {
   // Graceful shutdown handlers
   const gracefulShutdown = async (signal: string) => {
     console.log(`\n${signal} received. Starting graceful shutdown...`);
-    
+
     // Stop accepting new requests
     server.close(() => {
       console.log('HTTP server closed');
@@ -132,13 +132,13 @@ if (process.env.NODE_ENV !== 'test') {
   };
 
   process.on('SIGTERM', () => {
-    gracefulShutdown('SIGTERM').catch((err) => {
+    gracefulShutdown('SIGTERM').catch(err => {
       console.error('Error during graceful shutdown:', err);
       process.exit(1);
     });
   });
   process.on('SIGINT', () => {
-    gracefulShutdown('SIGINT').catch((err) => {
+    gracefulShutdown('SIGINT').catch(err => {
       console.error('Error during graceful shutdown:', err);
       process.exit(1);
     });

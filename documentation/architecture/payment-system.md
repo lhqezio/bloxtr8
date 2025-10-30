@@ -1,6 +1,8 @@
 # Payment System
 
-Multi-rail payment system supporting Stripe (≤$10k) and USDC on Base (>$10k).
+Multi-rail payment system supporting Stripe (≤$10k) and USDC on Base (>$10k), implemented with an event-driven architecture using Apache Kafka.
+
+**Architecture**: Event-driven with Kafka for loose coupling and scalability. See [Escrow System Architecture](escrow/escrow-system-architecture.md) for complete details.
 
 ## Payment Rails
 
@@ -47,6 +49,7 @@ After both parties sign a contract, you can fetch the escrow and payment initial
 **Authorization**: Only the buyer or seller of the contract can access this endpoint.
 
 **Response** (Stripe):
+
 ```json
 {
   "escrowId": "esc_123",
@@ -63,6 +66,7 @@ After both parties sign a contract, you can fetch the escrow and payment initial
 ```
 
 **Response** (USDC on Base):
+
 ```json
 {
   "escrowId": "esc_456",
@@ -79,61 +83,96 @@ After both parties sign a contract, you can fetch the escrow and payment initial
 ```
 
 **Behavior**:
+
 - If both parties have signed and no escrow exists yet, the contract will be executed automatically
 - The endpoint is idempotent and safe to call multiple times
 - Returns the existing escrow if it already exists
 
-## Stripe Rail
-
-### Flow
+## Stripe Rail - Event-Driven Flow
 
 ```
 1. Offer accepted → Contract signed
 2. Both parties sign → Contract executed
-3. GET /api/contracts/:id/escrow → Returns payment init data
-4. Create Escrow (rail: STRIPE, status: AWAIT_FUNDS)
-5. Create PaymentIntent via Stripe API
-6. Send payment link to buyer
-7. Buyer completes payment
-8. Stripe webhook: payment_intent.succeeded
-9. Update Escrow.status = FUNDS_HELD
-10. Seller delivers
-11. Buyer confirms
-12. Create Transfer to seller
-13. Update Escrow.status = RELEASED
+3. Escrow Service → Kafka: CreateEscrow command
+4. Escrow Service → Kafka: EscrowCreated + EscrowAwaitFunds events
+5. Escrow Service → Kafka: CreatePaymentIntent command
+6. Payments Service → Consume CreatePaymentIntent
+7. Payments Service → Create PaymentIntent via Stripe API
+8. Payments Service → Kafka: PaymentIntentCreated event
+9. GET /api/contracts/:id/escrow → Returns payment init data
+10. Buyer completes payment (Stripe UI)
+11. Stripe → Webhook: payment_intent.succeeded
+12. Payments Service → Verify webhook signature
+13. Payments Service → Kafka: StripeWebhookValidated event
+14. Payments Service → Kafka: PaymentSucceeded event
+15. Escrow Service → Consume PaymentSucceeded
+16. Escrow Service → Kafka: EscrowFundsHeld event
+17. Seller delivers → POST /api/escrow/:id/mark-delivered
+18. API Gateway → Kafka: MarkDelivered command
+19. Escrow Service → Kafka: EscrowDelivered event
+20. Buyer confirms → POST /api/escrow/:id/release
+21. API Gateway → Kafka: ReleaseFunds command
+22. Escrow Service → Kafka: TransferToSeller command
+23. Payments Service → Create Stripe Transfer
+24. Payments Service → Kafka: TransferSucceeded event
+25. Escrow Service → Kafka: EscrowReleased event
 ```
 
-### Implementation
+**Event Topics**: See [Topic Catalog](escrow/topic-catalog.md) for topic definitions.
+**Event Schemas**: See [Event Schemas](escrow/event-schemas.md) for Protobuf definitions.
+**Flow Diagrams**: See [Sequence Flows](escrow/sequence-flows.md) for detailed diagrams.
+
+### Implementation - Event-Driven
+
+**Payments Service** processes payment commands from Kafka and emits events:
 
 **Create PaymentIntent**:
 
 ```typescript
-import Stripe from 'stripe';
+// Payments Service consumes CreatePaymentIntent command
+async function handleCreatePaymentIntent(command: CreatePaymentIntent) {
+  const escrow = await getEscrow(command.escrow_id);
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: escrow.amount,
+    currency: 'usd',
+    metadata: {
+      escrowId: escrow.id,
+    },
+  });
 
-const paymentIntent = await stripe.paymentIntents.create({
-  amount: escrow.amount, // in cents
-  currency: 'usd',
-  metadata: {
-    escrowId: escrow.id,
-    offerId: escrow.offerId,
-  },
-  transfer_group: escrow.id, // For tracking
-});
+  // Store payment artifact
+  await prisma.$transaction(async tx => {
+    await tx.paymentArtifact.create({
+      data: {
+        escrowId: escrow.id,
+        provider: 'stripe',
+        providerPaymentId: paymentIntent.id,
+        kind: 'INTENT',
+      },
+    });
 
-// Store in database
-await prisma.stripeEscrow.create({
-  data: {
-    paymentIntentId: paymentIntent.id,
-    escrowId: escrow.id,
-  },
-});
+    // Emit event via outbox
+    await tx.outbox.create({
+      data: {
+        aggregateId: escrow.id,
+        eventType: 'PaymentIntentCreated',
+        payload: protobufSerialize({
+          escrow_id: escrow.id,
+          provider: 'stripe',
+          provider_payment_id: paymentIntent.id,
+          client_secret: paymentIntent.client_secret,
+        }),
+      },
+    });
+  });
+}
 ```
 
 **Webhook Handler**:
 
 ```typescript
+// Payments Service webhook endpoint
 app.post('/api/webhooks/stripe', async (req, res) => {
   const sig = req.headers['stripe-signature'];
 
@@ -154,21 +193,41 @@ app.post('/api/webhooks/stripe', async (req, res) => {
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object;
 
-    await prisma.$transaction([
+    await prisma.$transaction(async tx => {
       // Mark webhook as processed
-      prisma.webhookEvent.create({
+      await tx.webhookEvent.create({
         data: {
           eventId: event.id,
           provider: 'stripe',
           processed: true,
         },
-      }),
-      // Update escrow
-      prisma.escrow.update({
-        where: { id: paymentIntent.metadata.escrowId },
-        data: { status: 'FUNDS_HELD' },
-      }),
-    ]);
+      });
+
+      // Emit events via outbox
+      await tx.outbox.create({
+        data: {
+          aggregateId: paymentIntent.metadata.escrowId,
+          eventType: 'StripeWebhookValidated',
+          payload: protobufSerialize({
+            /* ... */
+          }),
+        },
+      });
+
+      await tx.outbox.create({
+        data: {
+          aggregateId: paymentIntent.metadata.escrowId,
+          eventType: 'PaymentSucceeded',
+          payload: protobufSerialize({
+            escrow_id: paymentIntent.metadata.escrowId,
+            provider: 'stripe',
+            provider_payment_id: paymentIntent.id,
+            amount_cents: paymentIntent.amount,
+            currency: paymentIntent.currency,
+          }),
+        },
+      });
+    });
   }
 
   res.json({ received: true });
@@ -178,28 +237,32 @@ app.post('/api/webhooks/stripe', async (req, res) => {
 **Release Funds**:
 
 ```typescript
-const stripeEscrow = await prisma.stripeEscrow.findUnique({
-  where: { escrowId },
-});
+// Payments Service consumes TransferToSeller command
+async function handleTransferToSeller(command: TransferToSeller) {
+  const escrow = await getEscrow(command.escrow_id);
+  const paymentArtifact = await getPaymentArtifact(escrow.id);
 
-// Create transfer to seller
-const transfer = await stripe.transfers.create({
-  amount: escrow.amount,
-  currency: 'usd',
-  destination: sellerStripeAccountId,
-  transfer_group: escrow.id,
-});
+  // Create transfer to seller
+  const transfer = await stripe.transfers.create({
+    amount: escrow.amount,
+    currency: 'usd',
+    destination: command.seller_account_id,
+    transfer_group: escrow.id,
+  });
 
-await prisma.$transaction([
-  prisma.stripeEscrow.update({
-    where: { escrowId },
-    data: { transferId: transfer.id },
-  }),
-  prisma.escrow.update({
-    where: { id: escrowId },
-    data: { status: 'RELEASED' },
-  }),
-]);
+  // Emit event via outbox
+  await prisma.outbox.create({
+    data: {
+      aggregateId: escrow.id,
+      eventType: 'TransferSucceeded',
+      payload: protobufSerialize({
+        escrow_id: escrow.id,
+        provider: 'stripe',
+        transfer_id: transfer.id,
+      }),
+    },
+  });
+}
 ```
 
 ### Stripe Connect
@@ -210,60 +273,95 @@ For marketplace functionality, use Stripe Connect:
 2. Platform collects payment
 3. Platform transfers to seller (minus fees)
 
-## USDC on Base Rail
-
-### Flow
+## USDC on Base Rail - Event-Driven Flow
 
 ```
 1. Offer accepted → Contract signed
-2. Create Escrow (rail: USDC_BASE, status: AWAIT_FUNDS)
-3. Generate unique deposit address (custodian API)
-4. Show address + QR code to buyer
-5. Buyer sends USDC to address
-6. Base network confirms transaction
-7. Custodian webhook: deposit.confirmed
-8. Screen wallet (TRM + Chainalysis)
-9. If clean → Update Escrow.status = FUNDS_HELD
-10. Seller delivers
-11. Buyer confirms
-12. Transfer USDC to seller wallet
-13. Update Escrow.status = RELEASED
+2. Escrow Service → Kafka: CreateEscrow command
+3. Escrow Service → Kafka: EscrowCreated + EscrowAwaitFunds events
+4. Escrow Service → Kafka: CreatePaymentIntent command
+5. Payments Service → Generate unique deposit address (custodian API)
+6. Payments Service → Kafka: PaymentIntentCreated event
+7. Show address + QR code to buyer
+8. Buyer sends USDC to address
+9. Base network confirms transaction
+10. Custodian → Webhook: deposit.confirmed
+11. Payments Service → Verify webhook signature
+12. Payments Service → Screen wallet (TRM + Chainalysis)
+13. If clean → Kafka: CustodianWebhookValidated event
+14. Payments Service → Kafka: PaymentSucceeded event
+15. Escrow Service → Kafka: EscrowFundsHeld event
+16. Seller delivers
+17. Buyer confirms
+18. Escrow Service → Kafka: TransferToSeller command
+19. Payments Service → Transfer USDC to seller wallet
+20. Custodian → Webhook: transfer.completed
+21. Payments Service → Kafka: TransferSucceeded event
+22. Escrow Service → Kafka: EscrowReleased event
 ```
 
-### Implementation
+**Event Topics**: See [Topic Catalog](escrow/topic-catalog.md) for topic definitions.
+**Event Schemas**: See [Event Schemas](escrow/event-schemas.md) for Protobuf definitions.
+**Flow Diagrams**: See [Sequence Flows](escrow/sequence-flows.md) for detailed diagrams.
+
+### Implementation - Event-Driven
+
+**Payments Service** processes payment commands and emits events:
 
 **Generate Deposit Address**:
 
 ```typescript
-const response = await fetch(`${CUSTODIAN_API}/addresses`, {
-  method: 'POST',
-  headers: {
-    Authorization: `Bearer ${process.env.CUSTODIAN_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    chain: 'BASE',
-    currency: 'USDC',
-    metadata: {
-      escrowId: escrow.id,
+// Payments Service consumes CreatePaymentIntent command
+async function handleCreatePaymentIntent(command: CreatePaymentIntent) {
+  const escrow = await getEscrow(command.escrow_id);
+
+  const response = await fetch(`${CUSTODIAN_API}/addresses`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.CUSTODIAN_API_KEY}`,
+      'Content-Type': 'application/json',
     },
-  }),
-});
+    body: JSON.stringify({
+      chain: 'BASE',
+      currency: 'USDC',
+      metadata: {
+        escrowId: escrow.id,
+      },
+    }),
+  });
 
-const { address } = await response.json();
+  const { address } = await response.json();
 
-await prisma.stablecoinEscrow.create({
-  data: {
-    chain: 'BASE',
-    depositAddr: address,
-    escrowId: escrow.id,
-  },
-});
+  // Store payment artifact and emit event via outbox
+  await prisma.$transaction(async tx => {
+    await tx.paymentArtifact.create({
+      data: {
+        escrowId: escrow.id,
+        provider: 'custodian',
+        providerPaymentId: address,
+        kind: 'DEPOSIT_ADDRESS',
+      },
+    });
+
+    await tx.outbox.create({
+      data: {
+        aggregateId: escrow.id,
+        eventType: 'PaymentIntentCreated',
+        payload: protobufSerialize({
+          escrow_id: escrow.id,
+          provider: 'custodian',
+          deposit_address: address,
+        }),
+      },
+    });
+  });
+}
 ```
 
 **Webhook Handler**:
 
 ```typescript
+// Payments Service webhook endpoint
 app.post('/api/webhooks/custodian', async (req, res) => {
   // Verify signature
   const signature = req.headers['x-signature'];
@@ -284,42 +382,57 @@ app.post('/api/webhooks/custodian', async (req, res) => {
   if (existing) return res.json({ received: true });
 
   if (event.type === 'deposit.confirmed') {
-    const { address, transactionHash, amount } = event.data;
+    const { address, transactionHash, amount, sender } = event.data;
 
     // Find escrow
-    const stablecoinEscrow = await prisma.stablecoinEscrow.findFirst({
-      where: { depositAddr: address },
+    const paymentArtifact = await prisma.paymentArtifact.findFirst({
+      where: { providerPaymentId: address },
       include: { escrow: true },
     });
 
     // Screen wallet
-    const senderWallet = event.data.sender;
-    const riskScore = await screenWallet(senderWallet);
+    const riskScore = await screenWallet(sender);
 
     if (riskScore === 'SANCTIONED' || riskScore === 'HIGH') {
       // Initiate refund
-      await refundDeposit(address, transactionHash);
+      await emitRefundCommand(paymentArtifact.escrowId);
       return res.json({ received: true, action: 'refunded' });
     }
 
-    // Update escrow
-    await prisma.$transaction([
-      prisma.webhookEvent.create({
+    // Emit events via outbox
+    await prisma.$transaction(async tx => {
+      await tx.webhookEvent.create({
         data: {
           eventId: event.id,
           provider: 'custodian',
           processed: true,
         },
-      }),
-      prisma.stablecoinEscrow.update({
-        where: { id: stablecoinEscrow.id },
-        data: { depositTx: transactionHash },
-      }),
-      prisma.escrow.update({
-        where: { id: stablecoinEscrow.escrowId },
-        data: { status: 'FUNDS_HELD' },
-      }),
-    ]);
+      });
+
+      await tx.outbox.create({
+        data: {
+          aggregateId: paymentArtifact.escrowId,
+          eventType: 'CustodianWebhookValidated',
+          payload: protobufSerialize({
+            /* ... */
+          }),
+        },
+      });
+
+      await tx.outbox.create({
+        data: {
+          aggregateId: paymentArtifact.escrowId,
+          eventType: 'PaymentSucceeded',
+          payload: protobufSerialize({
+            escrow_id: paymentArtifact.escrowId,
+            provider: 'custodian',
+            provider_payment_id: transactionHash,
+            amount_cents: parseInt(amount),
+            currency: 'USDC',
+          }),
+        },
+      });
+    });
   }
 
   res.json({ received: true });
@@ -344,7 +457,6 @@ async function screenWallet(address: string): Promise<WalletRisk> {
 
   // Chainalysis screening
   const chainResponse = await fetch(`${CHAINALYSIS_API}/sanctions/${address}`);
-
   const chainData = await chainResponse.json();
 
   // Combine results
@@ -358,43 +470,56 @@ async function screenWallet(address: string): Promise<WalletRisk> {
 **Release Funds**:
 
 ```typescript
-const stablecoinEscrow = await prisma.stablecoinEscrow.findUnique({
-  where: { escrowId },
-  include: { escrow: true },
-});
+// Payments Service consumes TransferToSeller command
+async function handleTransferToSeller(command: TransferToSeller) {
+  const escrow = await getEscrow(command.escrow_id);
+  const paymentArtifact = await getPaymentArtifact(escrow.id);
 
-// Transfer USDC to seller
-const response = await fetch(`${CUSTODIAN_API}/transfers`, {
-  method: 'POST',
-  headers: {
-    Authorization: `Bearer ${process.env.CUSTODIAN_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    from: stablecoinEscrow.depositAddr,
-    to: sellerWalletAddress,
-    amount: escrow.amount,
-    currency: 'USDC',
-    chain: 'BASE',
-    metadata: {
-      escrowId: escrow.id,
+  // Transfer USDC to seller
+  const response = await fetch(`${CUSTODIAN_API}/transfers`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.CUSTODIAN_API_KEY}`,
+      'Content-Type': 'application/json',
     },
-  }),
-});
+    body: JSON.stringify({
+      from: paymentArtifact.providerPaymentId,
+      to: command.seller_account_id,
+      amount: escrow.amount,
+      currency: 'USDC',
+      chain: 'BASE',
+      metadata: {
+        escrowId: escrow.id,
+      },
+    }),
+  });
 
-const { transactionHash } = await response.json();
+  const { transactionHash } = await response.json();
 
-await prisma.$transaction([
-  prisma.stablecoinEscrow.update({
-    where: { escrowId },
-    data: { releaseTx: transactionHash },
-  }),
-  prisma.escrow.update({
-    where: { id: escrowId },
-    data: { status: 'RELEASED' },
-  }),
-]);
+  // Emit event via outbox
+  await prisma.outbox.create({
+    data: {
+      aggregateId: escrow.id,
+      eventType: 'TransferSucceeded',
+      payload: protobufSerialize({
+        escrow_id: escrow.id,
+        provider: 'custodian',
+        transfer_id: transactionHash,
+      }),
+    },
+  });
+}
 ```
+
+## Event-Driven Architecture
+
+The payment system is implemented using an event-driven architecture with Apache Kafka. See:
+
+- [Escrow System Architecture](escrow/escrow-system-architecture.md) - Complete architecture overview
+- [Topic Catalog](escrow/topic-catalog.md) - Kafka topic definitions for payments
+- [Event Schemas](escrow/event-schemas.md) - Protobuf schemas for payment events
+- [Sequence Flows](escrow/sequence-flows.md) - Detailed flow diagrams
+- [Error Handling](escrow/error-handling-retries.md) - Retry and DLQ strategies
 
 ## Database Schema
 

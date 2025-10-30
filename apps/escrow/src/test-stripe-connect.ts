@@ -56,12 +56,11 @@ async function testStripeConnectSetup() {
     console.log(`   Product ID: ${product.id}`);
     console.log(`   Price ID: ${price.id}`);
     console.log(`   Payment Link: ${paymentLink.url}`);
-    
+
     console.log('\n💡 Next steps:');
     console.log('   1. Set up Stripe Connect accounts for sellers');
     console.log('   2. Configure webhook endpoints');
     console.log('   3. Test the full escrow flow');
-
   } catch (error) {
     console.error('❌ Test failed:', error);
     process.exit(1);

@@ -320,8 +320,10 @@ router.get('/escrow/:id/delivery-status', async (req, res, next) => {
       escrow: serializeBigInt(escrow),
       isBuyer: userId === escrow.offer.buyerId,
       isSeller: userId === escrow.offer.sellerId,
-      canMarkDelivered: userId === escrow.offer.sellerId && escrow.status === 'FUNDS_HELD',
-      canConfirmDelivery: userId === escrow.offer.buyerId && escrow.status === 'DELIVERED',
+      canMarkDelivered:
+        userId === escrow.offer.sellerId && escrow.status === 'FUNDS_HELD',
+      canConfirmDelivery:
+        userId === escrow.offer.buyerId && escrow.status === 'DELIVERED',
       canSimulatePayment: isDebugMode() && escrow.status === 'AWAIT_FUNDS',
     });
   } catch (error) {

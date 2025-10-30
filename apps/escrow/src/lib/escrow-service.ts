@@ -5,7 +5,7 @@ import { AppError } from '../middleware/errorHandler.js';
 
 import { stripe } from './stripe.js';
 
-export type EscrowStatus = 
+export type EscrowStatus =
   | 'AWAIT_FUNDS'
   | 'FUNDS_HELD'
   | 'DELIVERED'
@@ -43,7 +43,10 @@ export interface EscrowMetadata {
 }
 
 export class EscrowService {
-  private static readonly VALID_TRANSITIONS: Record<EscrowStatus, readonly EscrowStatus[]> = {
+  private static readonly VALID_TRANSITIONS: Record<
+    EscrowStatus,
+    readonly EscrowStatus[]
+  > = {
     AWAIT_FUNDS: ['FUNDS_HELD', 'CANCELLED'],
     FUNDS_HELD: ['DELIVERED', 'DISPUTED', 'REFUNDED'],
     DELIVERED: ['RELEASED', 'DISPUTED', 'REFUNDED'],
@@ -57,9 +60,19 @@ export class EscrowService {
    * Create a new escrow with Stripe Connect integration
    */
   static async createEscrow(params: CreateEscrowParams) {
-    const { offerId, contractId, rail, amount, currency, buyerId, sellerStripeAccountId, buyerFee = 0, sellerFee = 0 } = params;
+    const {
+      offerId,
+      contractId,
+      rail,
+      amount,
+      currency,
+      buyerId,
+      sellerStripeAccountId,
+      buyerFee = 0,
+      sellerFee = 0,
+    } = params;
 
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async tx => {
       // Create the escrow record
       const escrow = await tx.escrow.create({
         data: {
@@ -137,7 +150,7 @@ export class EscrowService {
     userId: string,
     reason?: string
   ) {
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async tx => {
       // Get current state with optimistic locking
       const current = await tx.escrow.findUnique({
         where: { id: escrowId },
@@ -151,7 +164,10 @@ export class EscrowService {
       // Validate transition
       const validTransitions = this.VALID_TRANSITIONS[current.status];
       if (!validTransitions.includes(newStatus)) {
-        throw new AppError(`Invalid state transition from ${current.status} to ${newStatus}`, 400);
+        throw new AppError(
+          `Invalid state transition from ${current.status} to ${newStatus}`,
+          400
+        );
       }
 
       // Update with version check
@@ -191,7 +207,7 @@ export class EscrowService {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        
+
         // Find escrow by payment intent ID
         const stripeEscrow = await prisma.stripeEscrow.findUnique({
           where: { paymentIntentId: paymentIntent.id },
@@ -199,7 +215,9 @@ export class EscrowService {
         });
 
         if (!stripeEscrow) {
-          console.warn(`No escrow found for payment intent ${paymentIntent.id}`);
+          console.warn(
+            `No escrow found for payment intent ${paymentIntent.id}`
+          );
           return;
         }
 
@@ -226,7 +244,7 @@ export class EscrowService {
 
       case 'payment_intent.payment_failed': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        
+
         const stripeEscrow = await prisma.stripeEscrow.findUnique({
           where: { paymentIntentId: paymentIntent.id },
           include: { escrow: true },
@@ -275,9 +293,10 @@ export class EscrowService {
       throw new AppError('Payment intent not succeeded', 400);
     }
 
-    const chargeId = typeof paymentIntent.latest_charge === 'string' 
-      ? paymentIntent.latest_charge 
-      : paymentIntent.latest_charge?.id;
+    const chargeId =
+      typeof paymentIntent.latest_charge === 'string'
+        ? paymentIntent.latest_charge
+        : paymentIntent.latest_charge?.id;
     if (!chargeId) {
       throw new AppError('No charge found for payment intent', 400);
     }
@@ -323,7 +342,11 @@ export class EscrowService {
   /**
    * Refund buyer via Stripe
    */
-  static async refundBuyer(escrowId: string, operatorUserId: string, refundAmount?: number) {
+  static async refundBuyer(
+    escrowId: string,
+    operatorUserId: string,
+    refundAmount?: number
+  ) {
     const escrow = await prisma.escrow.findUnique({
       where: { id: escrowId },
       include: { stripeEscrow: true },
@@ -339,9 +362,10 @@ export class EscrowService {
       { expand: ['latest_charge'] }
     );
 
-    const chargeId = typeof paymentIntent.latest_charge === 'string' 
-      ? paymentIntent.latest_charge 
-      : paymentIntent.latest_charge?.id;
+    const chargeId =
+      typeof paymentIntent.latest_charge === 'string'
+        ? paymentIntent.latest_charge
+        : paymentIntent.latest_charge?.id;
     if (!chargeId) {
       throw new AppError('No charge found for payment intent', 400);
     }

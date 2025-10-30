@@ -418,7 +418,7 @@ If USDC_BASE:
 - Create `Escrow` record
 - Create `StripeEscrow` OR `StablecoinEscrow`
 
-### 8. Payment Flow (Stripe)
+### 8. Payment Flow (Stripe) - Event-Driven
 
 ```
 Buyer → Clicks payment link
@@ -429,19 +429,21 @@ Buyer completes payment
   ↓
 Stripe → Webhook: payment_intent.succeeded
   ↓
-POST /api/webhooks/stripe
+Payments Service → Verify webhook signature
   ↓
-API → Verify webhook signature
+Payments Service → Check WebhookEvent for idempotency
   ↓
-API → Check WebhookEvent for idempotency
+Payments Service → Kafka: StripeWebhookValidated event
   ↓
-API → Update Escrow.status = FUNDS_HELD
+Payments Service → Kafka: PaymentSucceeded event
   ↓
-API → Update StripeEscrow.paymentIntentId
+Escrow Service → Consume PaymentSucceeded
   ↓
-Discord → Update thread: "Funds secured"
+Escrow Service → Update Escrow.status = FUNDS_HELD
   ↓
-Seller notified to begin delivery
+Escrow Service → Kafka: EscrowFundsHeld event
+  ↓
+Notifications Service → Send Discord DM: "Funds secured"
 ```
 
 **Database Changes**:
@@ -449,8 +451,11 @@ Seller notified to begin delivery
 - Create `WebhookEvent` record
 - Update `Escrow.status`
 - Create `AuditLog` entry
+- Insert into outbox for event publishing
 
-### 9. Payment Flow (USDC on Base)
+**Event Flow**: See [Sequence Flows](escrow/sequence-flows.md) for detailed diagrams.
+
+### 9. Payment Flow (USDC on Base) - Event-Driven
 
 ```
 Buyer → Sends USDC to deposit address
@@ -459,19 +464,23 @@ Base network → Transaction confirmed
   ↓
 Custodian → Webhook: deposit.confirmed
   ↓
-POST /api/webhooks/custodian
+Payments Service → Verify webhook signature
   ↓
-API → Verify webhook signature
+Payments Service → Screen wallet (TRM Labs + Chainalysis)
   ↓
-API → Screen wallet (TRM Labs + Chainalysis)
+If high risk/sanctioned → Initiate refund
   ↓
-If high risk/sanctioned → REFUND
+If clean → Kafka: CustodianWebhookValidated event
   ↓
-API → Update Escrow.status = FUNDS_HELD
+Payments Service → Kafka: PaymentSucceeded event
   ↓
-API → Update StablecoinEscrow.depositTx
+Escrow Service → Consume PaymentSucceeded
   ↓
-Discord → Update thread: "Funds secured"
+Escrow Service → Update Escrow.status = FUNDS_HELD
+  ↓
+Escrow Service → Kafka: EscrowFundsHeld event
+  ↓
+Notifications Service → Send Discord DM: "Funds secured"
 ```
 
 **Database Changes**:
@@ -504,20 +513,32 @@ Show buttons: [Confirm] [Open Dispute]
 - Update `Escrow.status`
 - Create `Delivery` record
 
-### 11. Release (Stripe)
+### 11. Release (Stripe) - Event-Driven
 
 ```
 Buyer → Clicks "Confirm"
   ↓
 POST /api/escrow/:id/release
   ↓
-API → Create Stripe Transfer to seller
+API Gateway → Kafka: ReleaseFunds command
   ↓
-API → Update Escrow.status = RELEASED
+Escrow Service → Consume ReleaseFunds
   ↓
-API → Update StripeEscrow.transferId
+Escrow Service → Validate guard (status = DELIVERED, actor = buyer)
   ↓
-Discord → Notify both parties: "Transaction complete"
+Escrow Service → Kafka: TransferToSeller command
+  ↓
+Payments Service → Create Stripe Transfer
+  ↓
+Payments Service → Kafka: TransferSucceeded event
+  ↓
+Escrow Service → Consume TransferSucceeded
+  ↓
+Escrow Service → Update Escrow.status = RELEASED
+  ↓
+Escrow Service → Kafka: EscrowReleased event
+  ↓
+Notifications Service → Send Discord DM to both parties: "Transaction complete"
 ```
 
 **Database Changes**:
@@ -526,24 +547,32 @@ Discord → Notify both parties: "Transaction complete"
 - Update `StripeEscrow.transferId`
 - Create `AuditLog` entry
 
-### 12. Release (USDC)
+**Event Flow**: See [Sequence Flows](escrow/sequence-flows.md) for detailed diagrams.
+
+### 12. Release (USDC) - Event-Driven
 
 ```
 Buyer → Clicks "Confirm"
   ↓
 POST /api/escrow/:id/release
   ↓
-API → Call custodian API to transfer USDC
+API Gateway → Kafka: ReleaseFunds command
   ↓
-Custodian → Executes transfer
+Escrow Service → Kafka: TransferToSeller command
+  ↓
+Payments Service → Call custodian API to transfer USDC
   ↓
 Custodian → Webhook: transfer.completed
   ↓
-API → Update Escrow.status = RELEASED
+Payments Service → Kafka: TransferSucceeded event
   ↓
-API → Update StablecoinEscrow.releaseTx
+Escrow Service → Consume TransferSucceeded
   ↓
-Discord → Share transaction hash + confirmation
+Escrow Service → Update Escrow.status = RELEASED
+  ↓
+Escrow Service → Kafka: EscrowReleased event
+  ↓
+Notifications Service → Send Discord DM with transaction hash
 ```
 
 **Database Changes**:
@@ -551,6 +580,8 @@ Discord → Share transaction hash + confirmation
 - Update `Escrow.status`
 - Update `StablecoinEscrow.releaseTx`
 - Create `AuditLog` entry
+
+**Event Flow**: See [Sequence Flows](escrow/sequence-flows.md) for detailed diagrams.
 
 ## Dispute Handling
 
@@ -587,6 +618,17 @@ Update Escrow.status = RELEASED or REFUNDED
 - Create `Dispute` record
 - Update `Escrow.status`
 - Create `AuditLog` entries
+
+## Escrow Architecture Reference
+
+For complete event-driven escrow architecture documentation, see:
+
+- [Escrow System Architecture](escrow/escrow-system-architecture.md) - Event-driven architecture overview
+- [Topic Catalog](escrow/topic-catalog.md) - Kafka topic inventory
+- [Event Schemas](escrow/event-schemas.md) - Protobuf schema definitions
+- [State Machine](escrow/state-machine.md) - Escrow state transitions
+- [Sequence Flows](escrow/sequence-flows.md) - Detailed flow diagrams with Kafka events
+- [Error Handling](escrow/error-handling-retries.md) - Retry and DLQ strategies
 
 ## State Diagrams
 

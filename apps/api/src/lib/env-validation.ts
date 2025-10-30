@@ -8,5 +8,9 @@ import { validateEnvironment as sharedValidateEnvironment } from '@bloxtr8/share
 // Override validateEnvironment to include API-specific required variables
 export function validateEnvironment(): void {
   // Call the shared function with API-specific requirements
-  sharedValidateEnvironment(['DATABASE_URL', 'DISCORD_CLIENT_ID', 'DISCORD_CLIENT_SECRET']);
+  sharedValidateEnvironment([
+    'DATABASE_URL',
+    'DISCORD_CLIENT_ID',
+    'DISCORD_CLIENT_SECRET',
+  ]);
 }
