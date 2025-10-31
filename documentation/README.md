@@ -51,6 +51,7 @@ Bloxtr8 is a modern, event-driven escrow platform built on a microservices-inspi
 
 - [Getting Started](guides/getting-started.md) - Local development environment setup
 - [Development Guide](guides/development.md) - Development workflow, coding standards, and best practices
+- [Escrow Architecture Guide](guides/escrow-architecture.md) - Comprehensive guide to understanding the escrow system architecture (getting up to speed)
 - [API Reference](api/README.md) - REST API documentation
 
 ### Operations
@@ -109,7 +110,8 @@ The escrow system is built on Apache Kafka for event-driven communication:
 
 ## Getting Started
 
-1. **New to the Platform**: Start with [System Overview](architecture/system-overview.md) for high-level architecture
-2. **Implementing Escrow**: Read [Escrow System Architecture](architecture/escrow/escrow-system-architecture.md) for architecture details
-3. **Understanding Flows**: See [Sequence Flows](architecture/escrow/sequence-flows.md) for detailed flow diagrams
-4. **Setting Up Development**: Follow [Getting Started](guides/getting-started.md) for local setup
+1. **New to Escrow Architecture**: Start with [Escrow Architecture Guide](guides/escrow-architecture.md) for a comprehensive overview
+2. **New to the Platform**: Read [System Overview](architecture/system-overview.md) for high-level architecture
+3. **Implementing Escrow**: Read [Escrow System Architecture](architecture/escrow/escrow-system-architecture.md) for detailed architecture specifications
+4. **Understanding Flows**: See [Sequence Flows](architecture/escrow/sequence-flows.md) for detailed flow diagrams
+5. **Setting Up Development**: Follow [Getting Started](guides/getting-started.md) for local setup
