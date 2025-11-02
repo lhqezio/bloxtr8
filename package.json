@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "clean": "rm -rf .turbo && find . -name '*.tsbuildinfo' -type f -delete && find . -name 'dist' -type d -exec rm -rf {} + 2>/dev/null || true && rm -rf packages/database/src/generated packages/database/dist/generated && rm -rf node_modules apps/*/node_modules packages/*/node_modules .pnpm-store",
+    "clean": "(rm -rf .turbo || true) && (find . -name '*.tsbuildinfo' -type f -delete || true) && (find . -name 'dist' -type d -exec rm -rf {} + 2>/dev/null || true) && (rm -rf packages/database/src/generated packages/database/dist/generated || true) && (rm -rf node_modules apps/*/node_modules packages/*/node_modules .pnpm-store || true)",
     "dev": "./scripts/env-dev.sh dotenvx run -- turbo run dev",
     "build:clean": "pnpm clean && pnpm install && pnpm db:generate && pnpm build",
     "build": "./scripts/env-prod.sh dotenvx run -- turbo run build",
