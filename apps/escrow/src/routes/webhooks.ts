@@ -12,7 +12,7 @@ const router: ExpressRouter = Router();
  */
 router.post('/stripe', async (req, res) => {
   const sig = req.headers['stripe-signature'] as string;
-
+  
   if (!sig) {
     return res.status(400).json({ error: 'Missing stripe-signature header' });
   }
@@ -69,7 +69,7 @@ router.post('/stripe', async (req, res) => {
     res.json({ received: true, status: 'processed' });
   } catch (error) {
     console.error('Error processing webhook:', error);
-
+    
     // Mark as failed
     await prisma.webhookEvent.update({
       where: { eventId: event.id },

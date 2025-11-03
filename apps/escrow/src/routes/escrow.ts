@@ -22,15 +22,7 @@ const createEscrowSchema = z.object({
 });
 
 const transitionStateSchema = z.object({
-  newStatus: z.enum([
-    'AWAIT_FUNDS',
-    'FUNDS_HELD',
-    'DELIVERED',
-    'RELEASED',
-    'DISPUTED',
-    'REFUNDED',
-    'CANCELLED',
-  ]),
+  newStatus: z.enum(['AWAIT_FUNDS', 'FUNDS_HELD', 'DELIVERED', 'RELEASED', 'DISPUTED', 'REFUNDED', 'CANCELLED']),
   reason: z.string().optional(),
 });
 
@@ -41,9 +33,9 @@ const transitionStateSchema = z.object({
 router.post('/', async (req, res) => {
   try {
     const params = createEscrowSchema.parse(req.body);
-
+    
     const result = await EscrowService.createEscrow(params);
-
+    
     res.json({
       success: true,
       data: {
@@ -58,10 +50,7 @@ router.post('/', async (req, res) => {
     if (error instanceof AppError) {
       throw error;
     }
-    throw new AppError(
-      error instanceof Error ? error.message : 'Unknown error',
-      400
-    );
+    throw new AppError(error instanceof Error ? error.message : 'Unknown error', 400);
   }
 });
 
@@ -72,7 +61,7 @@ router.post('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-
+    
     const escrow = await prisma.escrow.findUnique({
       where: { id },
       include: {
@@ -134,10 +123,7 @@ router.post('/:id/transition', async (req, res) => {
     if (error instanceof AppError) {
       throw error;
     }
-    throw new AppError(
-      error instanceof Error ? error.message : 'Unknown error',
-      400
-    );
+    throw new AppError(error instanceof Error ? error.message : 'Unknown error', 400);
   }
 });
 
@@ -169,10 +155,7 @@ router.post('/:id/release', async (req, res) => {
     if (error instanceof AppError) {
       throw error;
     }
-    throw new AppError(
-      error instanceof Error ? error.message : 'Unknown error',
-      400
-    );
+    throw new AppError(error instanceof Error ? error.message : 'Unknown error', 400);
   }
 });
 
@@ -205,10 +188,7 @@ router.post('/:id/refund', async (req, res) => {
     if (error instanceof AppError) {
       throw error;
     }
-    throw new AppError(
-      error instanceof Error ? error.message : 'Unknown error',
-      400
-    );
+    throw new AppError(error instanceof Error ? error.message : 'Unknown error', 400);
   }
 });
 

@@ -111,7 +111,9 @@ describe('Escrow API Routes', () => {
 
   describe('Route validation', () => {
     it('should return 404 for invalid escrow route', async () => {
-      const response = await request(app).get('/api/escrow').expect(404);
+      const response = await request(app)
+        .get('/api/escrow')
+        .expect(404);
 
       expect(response.body).toHaveProperty('title', 'Not Found');
     });
