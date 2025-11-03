@@ -1,19 +1,26 @@
 import { prisma } from '@bloxtr8/database';
+import type { EscrowInitResponse, PaymentInit } from '@bloxtr8/types';
 
 import { isDebugMode } from '../lib/env-validation.js';
 
 /**
  * Handle contract execution when both parties have signed
  * This is triggered after a signature is added and both parties have signed
+ * @param tx - Optional transaction client. If provided, all operations run within that transaction.
  */
-export async function executeContract(contractId: string): Promise<{
+export async function executeContract(
+  contractId: string,
+  tx?: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+): Promise<{
   success: boolean;
   escrowId?: string;
   error?: string;
 }> {
+  const db = tx || prisma;
+
   try {
     // Fetch contract with all related data
-    const contract = await prisma.contract.findUnique({
+    const contract = await db.contract.findUnique({
       where: { id: contractId },
       include: {
         offer: {
@@ -53,7 +60,7 @@ export async function executeContract(contractId: string): Promise<{
     // Check if contract is already executed
     if (contract.status === 'EXECUTED') {
       // Check if escrow already exists
-      const existingEscrow = await prisma.escrow.findFirst({
+      const existingEscrow = await db.escrow.findFirst({
         where: { contractId: contract.id },
       });
 
@@ -83,33 +90,68 @@ export async function executeContract(contractId: string): Promise<{
       );
 
       try {
-        // Use transaction to ensure all-or-nothing cleanup
-        await prisma.$transaction(async tx => {
+        // Clean up existing escrows within a transaction
+        // If we're already in a transaction (tx is provided), use that
+        // Otherwise, create a new transaction for cleanup
+        const cleanupDb = tx || prisma;
+
+        if (tx) {
+          // Already in a transaction, execute cleanup directly
           for (const escrow of contract.escrows) {
             // Delete rail-specific escrow records first
             if (escrow.rail === 'STRIPE') {
-              await tx.stripeEscrow.deleteMany({
+              await cleanupDb.stripeEscrow.deleteMany({
                 where: { escrowId: escrow.id },
               });
             } else if (escrow.rail === 'USDC_BASE') {
-              await tx.stablecoinEscrow.deleteMany({
+              await cleanupDb.stablecoinEscrow.deleteMany({
                 where: { escrowId: escrow.id },
               });
             }
 
             // Delete milestone escrows if any
-            await tx.milestoneEscrow.deleteMany({
+            await cleanupDb.milestoneEscrow.deleteMany({
               where: { escrowId: escrow.id },
             });
 
             // Delete the escrow
-            await tx.escrow.delete({
+            await cleanupDb.escrow.delete({
               where: { id: escrow.id },
             });
 
             console.log(`Cleaned up escrow ${escrow.id} before new execution`);
           }
-        });
+        } else {
+          // Not in a transaction, wrap cleanup in a transaction
+          await prisma.$transaction(async cleanupTx => {
+            for (const escrow of contract.escrows) {
+              // Delete rail-specific escrow records first
+              if (escrow.rail === 'STRIPE') {
+                await cleanupTx.stripeEscrow.deleteMany({
+                  where: { escrowId: escrow.id },
+                });
+              } else if (escrow.rail === 'USDC_BASE') {
+                await cleanupTx.stablecoinEscrow.deleteMany({
+                  where: { escrowId: escrow.id },
+                });
+              }
+
+              // Delete milestone escrows if any
+              await cleanupTx.milestoneEscrow.deleteMany({
+                where: { escrowId: escrow.id },
+              });
+
+              // Delete the escrow
+              await cleanupTx.escrow.delete({
+                where: { id: escrow.id },
+              });
+
+              console.log(
+                `Cleaned up escrow ${escrow.id} before new execution`
+              );
+            }
+          });
+        }
       } catch (cleanupError) {
         console.error(`Failed to cleanup escrows:`, cleanupError);
         return {
@@ -136,7 +178,7 @@ export async function executeContract(contractId: string): Promise<{
     const escrowRail = amountInDollars <= 10000 ? 'STRIPE' : 'USDC_BASE';
 
     // Create escrow
-    const escrow = await prisma.escrow.create({
+    const escrow = await db.escrow.create({
       data: {
         offerId: contract.offer.id,
         contractId: contract.id,
@@ -160,7 +202,7 @@ export async function executeContract(contractId: string): Promise<{
         );
       }
 
-      await prisma.stripeEscrow.create({
+      await db.stripeEscrow.create({
         data: {
           escrowId: escrow.id,
           paymentIntentId,
@@ -177,17 +219,18 @@ export async function executeContract(contractId: string): Promise<{
         );
       }
 
-      await prisma.stablecoinEscrow.create({
+      await db.stablecoinEscrow.create({
         data: {
           escrowId: escrow.id,
           chain: 'BASE',
           depositAddr,
+          mintAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
         },
       });
     }
 
     // Create audit log entry
-    await prisma.auditLog.create({
+    await db.auditLog.create({
       data: {
         action: 'CONTRACT_EXECUTED',
         details: {
@@ -311,5 +354,64 @@ export async function getContractExecutionStatus(contractId: string): Promise<{
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     };
+  }
+}
+
+/**
+ * Get escrow payment initialization data for a given escrow ID
+ * Returns the payment init payload based on the escrow's rail
+ */
+export async function getEscrowPaymentInit(
+  escrowId: string
+): Promise<EscrowInitResponse | null> {
+  try {
+    const escrow = await prisma.escrow.findUnique({
+      where: { id: escrowId },
+      include: {
+        stripeEscrow: true,
+        stablecoinEscrow: true,
+      },
+    });
+
+    if (!escrow) {
+      return null;
+    }
+
+    let paymentInit: PaymentInit;
+
+    if (escrow.rail === 'STRIPE') {
+      if (!escrow.stripeEscrow) {
+        return null;
+      }
+
+      paymentInit = {
+        rail: 'STRIPE',
+        paymentIntentId: escrow.stripeEscrow.paymentIntentId,
+        clientSecret: `test_client_secret_${escrow.stripeEscrow.paymentIntentId}`,
+      };
+    } else {
+      // USDC_BASE
+      if (!escrow.stablecoinEscrow) {
+        return null;
+      }
+
+      paymentInit = {
+        rail: 'USDC_BASE',
+        depositAddr: escrow.stablecoinEscrow.depositAddr,
+        qr: `usdc:${escrow.stablecoinEscrow.depositAddr}`,
+      };
+    }
+
+    return {
+      escrowId: escrow.id,
+      rail: escrow.rail,
+      status: escrow.status,
+      amount: escrow.amount.toString(),
+      currency: escrow.currency,
+      paymentInit,
+    };
+  } catch (error) {
+    console.error('Error getting escrow payment init:', error);
+    return null;
   }
 }
