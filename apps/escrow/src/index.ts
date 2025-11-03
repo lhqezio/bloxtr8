@@ -74,5 +74,6 @@ if (process.env.NODE_ENV !== 'test') {
   });
 }
 
-// Export app for testing
+// Export app and pool for testing
 export default app;
+export { pool };

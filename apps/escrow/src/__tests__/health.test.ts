@@ -9,9 +9,15 @@ jest.mock('@bloxtr8/database', () => ({
   })),
 }));
 
-import app from '../index.js';
+import app, { pool } from '../index.js';
 
 describe('Health Endpoint', () => {
+  // Close database pool after all tests to prevent Jest from hanging
+  afterAll(async () => {
+    if (pool) {
+      await pool.end();
+    }
+  });
   it('should return health status with 200', async () => {
     const response = await request(app).get('/health').expect(200);
 
