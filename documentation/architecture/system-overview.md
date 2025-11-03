@@ -7,8 +7,9 @@ Bloxtr8 is a Discord-native escrow and verification platform built on a modern m
 ## Architecture Principles
 
 - **Security First**: Multi-layer security with wallet screening, input validation, and audit logging
-- **Reliability**: Webhook-driven state management for consistent transaction handling
-- **Scalability**: Horizontal scaling via stateless API design
+- **Event-Driven**: Kafka-based event-driven architecture for loose coupling and scalability
+- **Reliability**: Transactional outbox pattern ensures consistency between database and event publishing
+- **Scalability**: Horizontal scaling via stateless services and Kafka consumer groups
 - **Maintainability**: Monorepo with shared packages and TypeScript strict mode
 - **User Experience**: Discord-native interactions with minimal friction
 
@@ -25,17 +26,28 @@ Bloxtr8 is a Discord-native escrow and verification platform built on a modern m
 ┌─────────────────────────────────────────────────────────┐
 │              Application Layer                          │
 │  ┌────────────────┐       ┌────────────────┐          │
-│  │  Discord Bot   │       │   API Server   │          │
+│  │  Discord Bot   │       │   API Gateway │          │
 │  │  (Discord.js)  │──────▶│   (Express)    │          │
 │  └────────────────┘       └────────┬───────┘          │
 │                                    │                   │
 └────────────────────────────────────┼───────────────────┘
-                                     │
-┌────────────────────────────────────┼───────────────────┐
-│              Business Logic Layer   │                   │
+                                     │ REST + JSON
+                                     ▼
+┌─────────────────────────────────────────────────────────┐
+│              Event Bus (Apache Kafka)                  │
+│  ┌──────────────────────────────────────────────────┐ │
+│  │  Commands & Events (Protobuf)                    │ │
+│  │  escrow.commands.v1 │ escrow.events.v1          │ │
+│  │  payments.commands.v1 │ payments.events.v1      │ │
+│  └──────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+       │                     │                     │
+       ▼                     ▼                     ▼
+┌─────────────────────────────────────────────────────────┐
+│              Business Logic Layer (Event-Driven)         │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │ Auth Service │  │ Verification │  │ Escrow       │ │
-│  │              │  │ Service      │  │ Service      │ │
+│  │ Escrow       │  │ Payments     │  │ Notifications│ │
+│  │ Service      │  │ Service      │  │ Service      │ │
 │  └──────────────┘  └──────────────┘  └──────────────┘ │
 └────────────────────────────────────────┬───────────────┘
                                          │
@@ -44,6 +56,7 @@ Bloxtr8 is a Discord-native escrow and verification platform built on a modern m
 │  ┌─────────────────────────────────────▼─────────────┐│
 │  │           PostgreSQL Database                     ││
 │  │              (Prisma ORM)                         ││
+│  │  Escrow State │ Payment Artifacts │ Outbox       ││
 │  └───────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────┘
        │                     │                     │
@@ -76,9 +89,9 @@ Bloxtr8 is a Discord-native escrow and verification platform built on a modern m
 
 **Deployment**: Single instance with Gateway connection
 
-### 2. API Server (`apps/api`)
+### 2. API Gateway (`apps/api`)
 
-**Purpose**: Core business logic and external integrations
+**Purpose**: Request validation, authentication, and command emission
 
 **Technology**:
 
@@ -86,6 +99,7 @@ Bloxtr8 is a Discord-native escrow and verification platform built on a modern m
 - TypeScript
 - Prisma ORM
 - Better Auth
+- Kafka Producer
 
 **Responsibilities**:
 
@@ -94,10 +108,16 @@ Bloxtr8 is a Discord-native escrow and verification platform built on a modern m
 - Listing CRUD operations
 - Offer management
 - Asset verification
-- Webhook processing (Stripe, custodian)
+- Webhook ingestion (validates and emits events)
 - Contract generation
-- Escrow management
-- Audit logging
+- Emit escrow commands to Kafka
+- Query read models for GET requests
+- Return 202 Accepted for async operations
+
+**Communication**:
+
+- **Inbound**: REST + JSON (Discord Bot, Web App)
+- **Outbound**: Kafka commands (Protobuf)
 
 **Deployment**: Horizontally scalable stateless instances
 
@@ -359,37 +379,60 @@ Discord Bot → Send confirmation DM
 - `EXECUTED`: Both parties signed, proceeds to escrow
 - `VOID`: Contract cancelled or expired
 
-### 6. Payment Escrow Flow (Stripe)
+### 6. Payment Escrow Flow (Event-Driven)
+
+The escrow system uses an event-driven architecture with Apache Kafka. See [Escrow System Architecture](escrow/escrow-system-architecture.md) for complete details.
+
+**High-Level Flow**:
 
 ```
-Offer accepted → Create Contract
+Contract EXECUTED
     ↓
-Both parties sign → Contract EXECUTED
+API Gateway → Kafka: CreateEscrow command
     ↓
-API → Create Escrow (AWAIT_FUNDS)
+Escrow Service → Kafka: EscrowCreated + EscrowAwaitFunds events
     ↓
-API → Create Stripe PaymentIntent
+Escrow Service → Kafka: CreatePaymentIntent command
+    ↓
+Payments Service → Stripe: Create PaymentIntent
     ↓
 User → Completes payment (Stripe UI)
     ↓
 Stripe → Webhook: payment_intent.succeeded
     ↓
-API → Verify webhook signature
+Payments Service → Verify webhook signature
     ↓
-API → Update Escrow (FUNDS_HELD)
+Payments Service → Kafka: PaymentSucceeded event
     ↓
-Seller delivers → POST /api/escrow/:id/mark-delivered
+Escrow Service → Kafka: EscrowFundsHeld event
     ↓
-API → Update Escrow (DELIVERED)
+Seller → POST /api/escrow/:id/mark-delivered
     ↓
-Buyer confirms → POST /api/escrow/:id/release
+API Gateway → Kafka: MarkDelivered command
     ↓
-API → Create Stripe Transfer to seller
+Escrow Service → Kafka: EscrowDelivered event
     ↓
-API → Update Escrow (RELEASED)
+Buyer → POST /api/escrow/:id/release
     ↓
-Both parties ← Completion notification
+API Gateway → Kafka: ReleaseFunds command
+    ↓
+Escrow Service → Kafka: TransferToSeller command
+    ↓
+Payments Service → Stripe: Create Transfer
+    ↓
+Payments Service → Kafka: TransferSucceeded event
+    ↓
+Escrow Service → Kafka: EscrowReleased event
+    ↓
+Notifications Service → Discord DMs to both parties
 ```
+
+**Key Points**:
+
+- All state changes flow through Kafka events
+- Services communicate asynchronously via events
+- Idempotency ensured via event_id deduplication
+- See [Sequence Flows](escrow/sequence-flows.md) for detailed diagrams
 
 ## External Integrations
 
@@ -416,17 +459,29 @@ Both parties ← Completion notification
   - Creator name resolution for cached games
   - Enhanced ownership verification with game details
 
-### 3. Stripe
+### 3. Apache Kafka
+
+- **Purpose**: Event bus for event-driven communication
+- **Integration**: KafkaJS (Node.js), Confluent Schema Registry
+- **Features**:
+  - Command/Event topics for escrow and payments
+  - Protobuf schema serialization
+  - Partitioning by escrow_id for ordering guarantees
+  - Dead letter queues (DLQ) for poison messages
+- **Security**: SASL/SCRAM authentication, TLS encryption
+- **Topics**: See [Topic Catalog](escrow/topic-catalog.md) for complete inventory
+
+### 4. Stripe
 
 - **Purpose**: Payment processing (≤$10k)
 - **Integration**: Stripe SDK, Webhooks
 - **Features**:
   - PaymentIntent API
   - Transfers API
-  - Webhook events
+  - Webhook events (validated and emitted as Kafka events)
 - **Security**: API keys, webhook signature verification
 
-### 4. Base Network (USDC)
+### 5. Base Network (USDC)
 
 - **Purpose**: Crypto payments (>$10k)
 - **Integration**: Custodian API
@@ -436,7 +491,7 @@ Both parties ← Completion notification
   - Fund transfers
 - **Security**: Wallet screening, API keys
 
-### 5. TRM Labs + Chainalysis
+### 6. TRM Labs + Chainalysis
 
 - **Purpose**: Wallet risk screening
 - **Integration**: REST APIs
@@ -446,7 +501,7 @@ Both parties ← Completion notification
   - AML compliance
 - **Security**: API keys, encrypted responses
 
-### 6. AWS S3
+### 7. AWS S3
 
 - **Purpose**: Contract PDF storage
 - **Integration**: AWS SDK
@@ -582,10 +637,24 @@ Both parties ← Completion notification
 3. Verify data integrity
 4. Resume operations
 
+## Escrow Architecture
+
+The escrow system implements an event-driven architecture with Apache Kafka. For detailed documentation, see:
+
+- [Escrow System Architecture](escrow/escrow-system-architecture.md) - Complete event-driven architecture
+- [Topic Catalog](escrow/topic-catalog.md) - Kafka topic inventory
+- [Event Schemas](escrow/event-schemas.md) - Protobuf schema definitions
+- [State Machine](escrow/state-machine.md) - Escrow state transitions
+- [Sequence Flows](escrow/sequence-flows.md) - Detailed flow diagrams
+- [Error Handling](escrow/error-handling-retries.md) - Retry and DLQ strategies
+- [Observability](escrow/observability.md) - Tracing, metrics, logging
+- [Security & Compliance](escrow/security-compliance.md) - Security requirements
+
 ---
 
 **See Also**:
 
 - [Database Schema](database-schema.md)
 - [Business Flow](business-flow.md)
+- [Payment System](payment-system.md)
 - [API Reference](../api/README.md)

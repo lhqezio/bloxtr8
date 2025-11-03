@@ -8,9 +8,15 @@ import helmet from 'helmet';
 import pkg from 'pg';
 
 import { auth } from './lib/auth.js';
-import { initializeContractExecutionProcessor } from './lib/contract-execution-processor.js';
+import {
+  initializeContractExecutionProcessor,
+  stopContractExecutionProcessor,
+} from './lib/contract-execution-processor.js';
 import { validateEnvironment } from './lib/env-validation.js';
-import { initializeOfferExpiryJob } from './lib/offer-expiry.js';
+import {
+  initializeOfferExpiryJob,
+  stopOfferExpiryJob,
+} from './lib/offer-expiry.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
 import healthRoutes, { setPool } from './routes/health.js';
@@ -99,9 +105,43 @@ if (process.env.NODE_ENV !== 'test') {
   initializeOfferExpiryJob();
   initializeContractExecutionProcessor();
 
-  app.listen(port, () => {
+  const server = app.listen(port, () => {
     console.log(`🚀 Bloxtr8 API running on http://localhost:${port}`);
     console.log(`📊 Health check available at http://localhost:${port}/health`);
+  });
+
+  // Graceful shutdown handlers
+  const gracefulShutdown = async (signal: string) => {
+    console.log(`\n${signal} received. Starting graceful shutdown...`);
+
+    // Stop accepting new requests
+    server.close(() => {
+      console.log('HTTP server closed');
+    });
+
+    // Stop cron jobs
+    stopOfferExpiryJob();
+    stopContractExecutionProcessor();
+
+    // Close database pool
+    await pool.end();
+    console.log('Database pool closed');
+
+    console.log('Graceful shutdown complete');
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', () => {
+    gracefulShutdown('SIGTERM').catch(err => {
+      console.error('Error during graceful shutdown:', err);
+      process.exit(1);
+    });
+  });
+  process.on('SIGINT', () => {
+    gracefulShutdown('SIGINT').catch(err => {
+      console.error('Error during graceful shutdown:', err);
+      process.exit(1);
+    });
   });
 }
 

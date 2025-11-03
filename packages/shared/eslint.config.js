@@ -1,7 +1,7 @@
-import { base } from '@bloxtr8/eslint-config';
+import { node } from '@bloxtr8/eslint-config';
 
 export default [
-  ...base,
+  ...node,
   {
     ignores: ['dist/**', 'node_modules/**'],
   },

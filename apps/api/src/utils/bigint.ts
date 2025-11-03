@@ -22,7 +22,7 @@ export function serializeBigInt<T>(obj: T): T {
   }
 
   if (typeof obj === 'object') {
-    const result: any = {};
+    const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       result[key] = serializeBigInt(value);
     }
@@ -35,6 +35,6 @@ export function serializeBigInt<T>(obj: T): T {
 /**
  * Custom JSON.stringify replacer for BigInt values
  */
-export function bigIntReplacer(_key: string, value: any): any {
+export function bigIntReplacer(_key: string, value: unknown): unknown {
   return typeof value === 'bigint' ? value.toString() : value;
 }
