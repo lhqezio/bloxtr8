@@ -79,7 +79,7 @@ describe('Contract Execution Processor', () => {
       (prisma.contractExecutionJob.update as jest.Mock).mockResolvedValue({});
 
       const cron = jest.requireMock('node-cron') as {
-        schedule: jest.Mock;
+        schedule: jest.Mock<unknown, [string, () => Promise<void>]>;
       };
       let cronCallback: (() => Promise<void>) | null = null;
 
@@ -93,8 +93,9 @@ describe('Contract Execution Processor', () => {
       initializeContractExecutionProcessor();
 
       // Execute the cron callback
-      if (cronCallback) {
-        await cronCallback();
+      if (cronCallback !== null) {
+        const callback = cronCallback as () => Promise<void>;
+        await callback();
       }
 
       expect(prisma.contractExecutionJob.findMany).toHaveBeenCalled();
@@ -104,7 +105,7 @@ describe('Contract Execution Processor', () => {
       (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue([]);
 
       const cron = jest.requireMock('node-cron') as {
-        schedule: jest.Mock;
+        schedule: jest.Mock<unknown, [string, () => Promise<void>]>;
       };
       let cronCallback: (() => Promise<void>) | null = null;
 
@@ -117,8 +118,9 @@ describe('Contract Execution Processor', () => {
 
       initializeContractExecutionProcessor();
 
-      if (cronCallback) {
-        await cronCallback();
+      if (cronCallback !== null) {
+        const callback = cronCallback as () => Promise<void>;
+        await callback();
       }
 
       expect(prisma.contractExecutionJob.findMany).toHaveBeenCalled();
@@ -131,7 +133,7 @@ describe('Contract Execution Processor', () => {
       );
 
       const cron = jest.requireMock('node-cron') as {
-        schedule: jest.Mock;
+        schedule: jest.Mock<unknown, [string, () => Promise<void>]>;
       };
       let cronCallback: (() => Promise<void>) | null = null;
 
@@ -144,8 +146,9 @@ describe('Contract Execution Processor', () => {
 
       initializeContractExecutionProcessor();
 
-      if (cronCallback) {
-        await cronCallback();
+      if (cronCallback !== null) {
+        const callback = cronCallback as () => Promise<void>;
+        await callback();
         // Should not throw
       }
 
