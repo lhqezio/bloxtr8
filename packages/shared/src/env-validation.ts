@@ -6,7 +6,9 @@
  * @param required - Array of required environment variable names
  * @throws {Error} if required variables are missing
  */
-export function validateEnvironment(required: string[] = ['DATABASE_URL']): void {
+export function validateEnvironment(
+  required: string[] = ['DATABASE_URL']
+): void {
   const missing: string[] = [];
 
   for (const varName of required) {

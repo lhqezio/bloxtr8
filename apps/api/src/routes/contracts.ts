@@ -4,7 +4,10 @@ import { prisma } from '@bloxtr8/database';
 import { createPresignedPutUrl, createPresignedGetUrl } from '@bloxtr8/storage';
 import { Router, type Router as ExpressRouter } from 'express';
 
-import { executeContract, getEscrowPaymentInit } from '../lib/contract-execution.js';
+import {
+  executeContract,
+  getEscrowPaymentInit,
+} from '../lib/contract-execution.js';
 import { generateContract, verifyContract } from '../lib/contract-generator.js';
 import { isDebugMode } from '../lib/env-validation.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -843,7 +846,10 @@ router.get('/contracts/:id/escrow', async (req, res, next) => {
     );
 
     if (!buyerSigned || !sellerSigned) {
-      throw new AppError('Both parties must sign before escrow can be accessed', 400);
+      throw new AppError(
+        'Both parties must sign before escrow can be accessed',
+        400
+      );
     }
 
     // If no escrow exists yet, try to execute the contract
@@ -860,14 +866,17 @@ router.get('/contracts/:id/escrow', async (req, res, next) => {
             // Someone else already created an escrow, return it
             const existingEscrow = currentEscrows[0];
             if (!existingEscrow) {
-              throw new AppError('Unexpected error: escrow array not empty but first element is undefined', 500);
+              throw new AppError(
+                'Unexpected error: escrow array not empty but first element is undefined',
+                500
+              );
             }
             return existingEscrow.id;
           }
 
           // Execute contract within transaction
           const result = await executeContract(id, tx);
-          
+
           if (!result.success || !result.escrowId) {
             throw new AppError(
               `Failed to execute contract: ${result.error || 'Escrow ID not returned'}`,
@@ -886,7 +895,7 @@ router.get('/contracts/:id/escrow', async (req, res, next) => {
 
         // Fetch the newly created escrow
         const escrowInit = await getEscrowPaymentInit(escrowId);
-        
+
         if (!escrowInit) {
           throw new AppError('Failed to retrieve escrow data', 500);
         }

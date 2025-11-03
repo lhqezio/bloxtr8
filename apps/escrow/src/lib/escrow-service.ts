@@ -5,7 +5,7 @@ import { AppError } from '../middleware/errorHandler.js';
 
 import { stripe } from './stripe.js';
 
-export type EscrowStatus = 
+export type EscrowStatus =
   | 'AWAIT_FUNDS'
   | 'FUNDS_HELD'
   | 'DELIVERED'
@@ -191,7 +191,7 @@ export class EscrowService {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        
+
         // Find escrow by payment intent ID
         const stripeEscrow = await prisma.stripeEscrow.findUnique({
           where: { paymentIntentId: paymentIntent.id },
@@ -226,7 +226,7 @@ export class EscrowService {
 
       case 'payment_intent.payment_failed': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        
+
         const stripeEscrow = await prisma.stripeEscrow.findUnique({
           where: { paymentIntentId: paymentIntent.id },
           include: { escrow: true },
@@ -261,8 +261,8 @@ export class EscrowService {
       throw new AppError('Escrow or Stripe escrow not found', 404);
     }
 
-    if (escrow.status !== 'FUNDS_HELD') {
-      throw new AppError('Escrow not in FUNDS_HELD status', 400);
+    if (escrow.status !== 'DELIVERED') {
+      throw new AppError('Escrow not in DELIVERED status', 400);
     }
 
     // Get the payment intent to find the charge

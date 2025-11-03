@@ -81,4 +81,3 @@ router.post('/stripe', async (req, res) => {
 });
 
 export default router;
-
