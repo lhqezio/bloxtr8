@@ -76,7 +76,6 @@ router.post('/contracts/generate', async (req, res, next) => {
         alreadyExists: true,
       });
     }
-
     // Create contract record
     const contract = await prisma.contract.create({
       data: {
