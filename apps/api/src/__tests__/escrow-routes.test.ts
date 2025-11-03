@@ -1,3 +1,4 @@
+import { prisma } from '@bloxtr8/database';
 import request from 'supertest';
 
 // Mock isDebugMode before importing app
@@ -42,7 +43,7 @@ jest.mock('@bloxtr8/database', () => ({
     auditLog: {
       create: jest.fn(),
     },
-    $transaction: jest.fn((callback) => {
+    $transaction: jest.fn(callback => {
       // Mock transaction client
       const tx = {
         escrow: {
@@ -68,8 +69,8 @@ jest.mock('@bloxtr8/database', () => ({
   },
 }));
 
-import { isDebugMode } from '../lib/env-validation.js';
 import app from '../index.js';
+import { isDebugMode } from '../lib/env-validation.js';
 
 describe('Escrow API Routes', () => {
   beforeEach(() => {
@@ -77,7 +78,6 @@ describe('Escrow API Routes', () => {
     (isDebugMode as jest.Mock).mockReturnValue(false);
   });
   describe('POST /api/escrow/:id/mark-delivered', () => {
-    const { prisma } = require('@bloxtr8/database');
 
     beforeEach(() => {
       jest.clearAllMocks();
@@ -237,7 +237,6 @@ describe('Escrow API Routes', () => {
   });
 
   describe('POST /api/escrow/:id/confirm-delivery', () => {
-    const { prisma } = require('@bloxtr8/database');
 
     beforeEach(() => {
       jest.clearAllMocks();
@@ -425,7 +424,6 @@ describe('Escrow API Routes', () => {
   });
 
   describe('POST /api/escrow/:id/simulate-payment', () => {
-    const { prisma } = require('@bloxtr8/database');
 
     beforeEach(() => {
       jest.clearAllMocks();
@@ -551,7 +549,6 @@ describe('Escrow API Routes', () => {
   });
 
   describe('GET /api/escrow/:id/delivery-status', () => {
-    const { prisma } = require('@bloxtr8/database');
 
     beforeEach(() => {
       jest.clearAllMocks();
@@ -663,7 +660,6 @@ describe('Escrow API Routes', () => {
     });
 
     it('should return 404 for escrow route with empty ID', async () => {
-      const { prisma } = require('@bloxtr8/database');
       (prisma.escrow.findUnique as jest.Mock).mockResolvedValue(null);
 
       const response = await request(app)

@@ -79,7 +79,7 @@ router.post('/escrow/:id/mark-delivered', async (req, res, next) => {
             escrowId: id,
             deliveryId: delivery.id,
             userId,
-            title: title,
+            title,
             description,
           },
           escrowId: id,
@@ -144,7 +144,7 @@ router.post('/escrow/:id/confirm-delivery', async (req, res, next) => {
     }
 
     const debugMode = isDebugMode();
-    const sameUser = escrow.offer.buyerId === escrow.offer.sellerId;
+    const _sameUser = escrow.offer.buyerId === escrow.offer.sellerId;
 
     let transferId = null;
 
@@ -320,8 +320,10 @@ router.get('/escrow/:id/delivery-status', async (req, res, next) => {
       escrow: serializeBigInt(escrow),
       isBuyer: userId === escrow.offer.buyerId,
       isSeller: userId === escrow.offer.sellerId,
-      canMarkDelivered: userId === escrow.offer.sellerId && escrow.status === 'FUNDS_HELD',
-      canConfirmDelivery: userId === escrow.offer.buyerId && escrow.status === 'DELIVERED',
+      canMarkDelivered:
+        userId === escrow.offer.sellerId && escrow.status === 'FUNDS_HELD',
+      canConfirmDelivery:
+        userId === escrow.offer.buyerId && escrow.status === 'DELIVERED',
       canSimulatePayment: isDebugMode() && escrow.status === 'AWAIT_FUNDS',
     });
   } catch (error) {

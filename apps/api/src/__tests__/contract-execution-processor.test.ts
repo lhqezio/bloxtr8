@@ -27,7 +27,7 @@ jest.mock('../lib/contract-execution.js', () => ({
 }));
 
 jest.mock('node-cron', () => ({
-  schedule: jest.fn((cronExpression, callback) => {
+  schedule: jest.fn((_cronExpression, _callback) => {
     // Return a mock task object
     return {
       stop: jest.fn(),
@@ -53,12 +53,11 @@ describe('Contract Execution Processor', () => {
     });
 
     it('should process pending jobs when cron runs', async () => {
-      const mockJobs = [
-        { id: 'job-1' },
-        { id: 'job-2' },
-      ];
+      const mockJobs = [{ id: 'job-1' }, { id: 'job-2' }];
 
-      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(mockJobs);
+      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(
+        mockJobs
+      );
       (prisma.contractExecutionJob.findUnique as jest.Mock).mockResolvedValue({
         id: 'job-1',
         contractId: 'contract-1',
@@ -67,7 +66,10 @@ describe('Contract Execution Processor', () => {
         maxAttempts: 3,
         nextRetryAt: null,
       });
-      (executeContract as jest.Mock).mockResolvedValue({ success: true, escrowId: 'escrow-1' });
+      (executeContract as jest.Mock).mockResolvedValue({
+        success: true,
+        escrowId: 'escrow-1',
+      });
       (prisma.$transaction as jest.Mock).mockImplementation(async callback => {
         const tx = {
           contract: { update: jest.fn().mockResolvedValue({}) },
@@ -76,13 +78,17 @@ describe('Contract Execution Processor', () => {
       });
       (prisma.contractExecutionJob.update as jest.Mock).mockResolvedValue({});
 
-      const cron = require('node-cron');
+      const cron = jest.requireMock('node-cron') as {
+        schedule: jest.Mock;
+      };
       let cronCallback: (() => Promise<void>) | null = null;
 
-      cron.schedule.mockImplementation((_expr: string, callback: () => Promise<void>) => {
-        cronCallback = callback;
-        return { stop: jest.fn() };
-      });
+      cron.schedule.mockImplementation(
+        (_expr: string, callback: () => Promise<void>) => {
+          cronCallback = callback;
+          return { stop: jest.fn() };
+        }
+      );
 
       initializeContractExecutionProcessor();
 
@@ -97,13 +103,17 @@ describe('Contract Execution Processor', () => {
     it('should handle no pending jobs', async () => {
       (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue([]);
 
-      const cron = require('node-cron');
+      const cron = jest.requireMock('node-cron') as {
+        schedule: jest.Mock;
+      };
       let cronCallback: (() => Promise<void>) | null = null;
 
-      cron.schedule.mockImplementation((_expr: string, callback: () => Promise<void>) => {
-        cronCallback = callback;
-        return { stop: jest.fn() };
-      });
+      cron.schedule.mockImplementation(
+        (_expr: string, callback: () => Promise<void>) => {
+          cronCallback = callback;
+          return { stop: jest.fn() };
+        }
+      );
 
       initializeContractExecutionProcessor();
 
@@ -120,13 +130,17 @@ describe('Contract Execution Processor', () => {
         new Error('Database error')
       );
 
-      const cron = require('node-cron');
+      const cron = jest.requireMock('node-cron') as {
+        schedule: jest.Mock;
+      };
       let cronCallback: (() => Promise<void>) | null = null;
 
-      cron.schedule.mockImplementation((_expr: string, callback: () => Promise<void>) => {
-        cronCallback = callback;
-        return { stop: jest.fn() };
-      });
+      cron.schedule.mockImplementation(
+        (_expr: string, callback: () => Promise<void>) => {
+          cronCallback = callback;
+          return { stop: jest.fn() };
+        }
+      );
 
       initializeContractExecutionProcessor();
 
@@ -142,7 +156,10 @@ describe('Contract Execution Processor', () => {
   describe('stopContractExecutionProcessor', () => {
     it('should stop the processor task', () => {
       const mockTask = { stop: jest.fn() };
-      require('node-cron').schedule.mockReturnValue(mockTask);
+      const cron = jest.requireMock('node-cron') as {
+        schedule: jest.Mock;
+      };
+      cron.schedule.mockReturnValue(mockTask);
 
       initializeContractExecutionProcessor();
       stopContractExecutionProcessor();
@@ -160,7 +177,9 @@ describe('Contract Execution Processor', () => {
     it('should process pending jobs manually', async () => {
       const mockJobs = [{ id: 'job-1' }];
 
-      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(mockJobs);
+      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(
+        mockJobs
+      );
       (prisma.contractExecutionJob.findUnique as jest.Mock).mockResolvedValue({
         id: 'job-1',
         contractId: 'contract-1',
@@ -169,7 +188,10 @@ describe('Contract Execution Processor', () => {
         maxAttempts: 3,
         nextRetryAt: null,
       });
-      (executeContract as jest.Mock).mockResolvedValue({ success: true, escrowId: 'escrow-1' });
+      (executeContract as jest.Mock).mockResolvedValue({
+        success: true,
+        escrowId: 'escrow-1',
+      });
       (prisma.$transaction as jest.Mock).mockImplementation(async callback => {
         const tx = {
           contract: { update: jest.fn().mockResolvedValue({}) },
@@ -187,7 +209,9 @@ describe('Contract Execution Processor', () => {
     it('should handle jobs with execution failure and retry', async () => {
       const mockJobs = [{ id: 'job-1' }];
 
-      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(mockJobs);
+      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(
+        mockJobs
+      );
       (prisma.contractExecutionJob.findUnique as jest.Mock).mockResolvedValue({
         id: 'job-1',
         contractId: 'contract-1',
@@ -219,7 +243,9 @@ describe('Contract Execution Processor', () => {
     it('should handle jobs that exceed max attempts', async () => {
       const mockJobs = [{ id: 'job-1' }];
 
-      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(mockJobs);
+      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(
+        mockJobs
+      );
       (prisma.contractExecutionJob.findUnique as jest.Mock).mockResolvedValue({
         id: 'job-1',
         contractId: 'contract-1',
@@ -252,7 +278,9 @@ describe('Contract Execution Processor', () => {
     it('should handle unexpected errors during processing', async () => {
       const mockJobs = [{ id: 'job-1' }];
 
-      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(mockJobs);
+      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(
+        mockJobs
+      );
       (prisma.contractExecutionJob.findUnique as jest.Mock).mockResolvedValue({
         id: 'job-1',
         contractId: 'contract-1',
@@ -261,7 +289,9 @@ describe('Contract Execution Processor', () => {
         maxAttempts: 3,
         nextRetryAt: null,
       });
-      (executeContract as jest.Mock).mockRejectedValue(new Error('Unexpected error'));
+      (executeContract as jest.Mock).mockRejectedValue(
+        new Error('Unexpected error')
+      );
       (prisma.contractExecutionJob.update as jest.Mock).mockResolvedValue({});
 
       await manuallyProcessJobs();
@@ -272,7 +302,9 @@ describe('Contract Execution Processor', () => {
     it('should skip jobs that are already completed', async () => {
       const mockJobs = [{ id: 'job-1' }];
 
-      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(mockJobs);
+      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(
+        mockJobs
+      );
       (prisma.contractExecutionJob.findUnique as jest.Mock).mockResolvedValue({
         id: 'job-1',
         contractId: 'contract-1',
@@ -289,7 +321,9 @@ describe('Contract Execution Processor', () => {
     it('should skip jobs that are already failed', async () => {
       const mockJobs = [{ id: 'job-1' }];
 
-      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(mockJobs);
+      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(
+        mockJobs
+      );
       (prisma.contractExecutionJob.findUnique as jest.Mock).mockResolvedValue({
         id: 'job-1',
         contractId: 'contract-1',
@@ -307,7 +341,9 @@ describe('Contract Execution Processor', () => {
       const mockJobs = [{ id: 'job-1' }];
       const futureDate = new Date(Date.now() + 60000); // 1 minute in future
 
-      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(mockJobs);
+      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(
+        mockJobs
+      );
       (prisma.contractExecutionJob.findUnique as jest.Mock).mockResolvedValue({
         id: 'job-1',
         contractId: 'contract-1',
@@ -326,7 +362,9 @@ describe('Contract Execution Processor', () => {
       const mockJobs = [{ id: 'job-1' }];
       const oldDate = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes ago
 
-      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(mockJobs);
+      (prisma.contractExecutionJob.findMany as jest.Mock).mockResolvedValue(
+        mockJobs
+      );
       (prisma.contractExecutionJob.findUnique as jest.Mock).mockResolvedValue({
         id: 'job-1',
         contractId: 'contract-1',
@@ -335,7 +373,10 @@ describe('Contract Execution Processor', () => {
         maxAttempts: 3,
         processingStartedAt: oldDate,
       });
-      (executeContract as jest.Mock).mockResolvedValue({ success: true, escrowId: 'escrow-1' });
+      (executeContract as jest.Mock).mockResolvedValue({
+        success: true,
+        escrowId: 'escrow-1',
+      });
       (prisma.$transaction as jest.Mock).mockImplementation(async callback => {
         const tx = {
           contract: { update: jest.fn().mockResolvedValue({}) },
@@ -350,4 +391,3 @@ describe('Contract Execution Processor', () => {
     });
   });
 });
-
