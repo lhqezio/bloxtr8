@@ -94,7 +94,7 @@ export async function executeContract(
         // If we're already in a transaction (tx is provided), use that
         // Otherwise, create a new transaction for cleanup
         const cleanupDb = tx || prisma;
-        
+
         if (tx) {
           // Already in a transaction, execute cleanup directly
           for (const escrow of contract.escrows) {
@@ -146,7 +146,9 @@ export async function executeContract(
                 where: { id: escrow.id },
               });
 
-              console.log(`Cleaned up escrow ${escrow.id} before new execution`);
+              console.log(
+                `Cleaned up escrow ${escrow.id} before new execution`
+              );
             }
           });
         }

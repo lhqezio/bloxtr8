@@ -1,3 +1,4 @@
+import { validateEnvironment } from '@bloxtr8/shared';
 import { config } from '@dotenvx/dotenvx';
 import compress from 'compression';
 import cors from 'cors';
@@ -6,7 +7,6 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import pkg from 'pg';
 
-import { validateEnvironment } from '@bloxtr8/shared';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
 import healthRoutes, { setPool } from './routes/health.js';

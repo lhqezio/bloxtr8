@@ -78,7 +78,6 @@ describe('Escrow API Routes', () => {
     (isDebugMode as jest.Mock).mockReturnValue(false);
   });
   describe('POST /api/escrow/:id/mark-delivered', () => {
-
     beforeEach(() => {
       jest.clearAllMocks();
     });
@@ -237,7 +236,6 @@ describe('Escrow API Routes', () => {
   });
 
   describe('POST /api/escrow/:id/confirm-delivery', () => {
-
     beforeEach(() => {
       jest.clearAllMocks();
     });
@@ -424,7 +422,6 @@ describe('Escrow API Routes', () => {
   });
 
   describe('POST /api/escrow/:id/simulate-payment', () => {
-
     beforeEach(() => {
       jest.clearAllMocks();
     });
@@ -549,7 +546,6 @@ describe('Escrow API Routes', () => {
   });
 
   describe('GET /api/escrow/:id/delivery-status', () => {
-
     beforeEach(() => {
       jest.clearAllMocks();
     });

@@ -74,6 +74,7 @@ pnpm build
 ## Stripe Connect Flow
 
 ### 1. Seller Onboarding
+
 ```typescript
 // Create Stripe Connect account for seller
 const account = await stripe.accounts.create({
@@ -84,6 +85,7 @@ const account = await stripe.accounts.create({
 ```
 
 ### 2. Escrow Creation
+
 ```typescript
 // Create escrow with Stripe Connect
 const escrow = await EscrowService.createEscrow({
@@ -101,6 +103,7 @@ const escrow = await EscrowService.createEscrow({
 ```
 
 ### 3. Payment Processing
+
 ```typescript
 // Buyer completes payment
 // Webhook automatically transitions to FUNDS_HELD
