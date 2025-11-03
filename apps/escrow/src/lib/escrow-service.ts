@@ -279,8 +279,8 @@ export class EscrowService {
       throw new AppError('Escrow or Stripe escrow not found', 404);
     }
 
-    if (escrow.status !== 'FUNDS_HELD') {
-      throw new AppError('Escrow not in FUNDS_HELD status', 400);
+    if (escrow.status !== 'DELIVERED') {
+      throw new AppError('Escrow not in DELIVERED status', 400);
     }
 
     // Get the payment intent to find the charge
