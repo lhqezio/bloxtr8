@@ -90,30 +90,65 @@ export async function executeContract(
       );
 
       try {
-        // Clean up existing escrows
-        for (const escrow of contract.escrows) {
-          // Delete rail-specific escrow records first
-          if (escrow.rail === 'STRIPE') {
-            await db.stripeEscrow.deleteMany({
+        // Clean up existing escrows within a transaction
+        // If we're already in a transaction (tx is provided), use that
+        // Otherwise, create a new transaction for cleanup
+        const cleanupDb = tx || prisma;
+        
+        if (tx) {
+          // Already in a transaction, execute cleanup directly
+          for (const escrow of contract.escrows) {
+            // Delete rail-specific escrow records first
+            if (escrow.rail === 'STRIPE') {
+              await cleanupDb.stripeEscrow.deleteMany({
+                where: { escrowId: escrow.id },
+              });
+            } else if (escrow.rail === 'USDC_BASE') {
+              await cleanupDb.stablecoinEscrow.deleteMany({
+                where: { escrowId: escrow.id },
+              });
+            }
+
+            // Delete milestone escrows if any
+            await cleanupDb.milestoneEscrow.deleteMany({
               where: { escrowId: escrow.id },
             });
-          } else if (escrow.rail === 'USDC_BASE') {
-            await db.stablecoinEscrow.deleteMany({
-              where: { escrowId: escrow.id },
+
+            // Delete the escrow
+            await cleanupDb.escrow.delete({
+              where: { id: escrow.id },
             });
+
+            console.log(`Cleaned up escrow ${escrow.id} before new execution`);
           }
+        } else {
+          // Not in a transaction, wrap cleanup in a transaction
+          await prisma.$transaction(async cleanupTx => {
+            for (const escrow of contract.escrows) {
+              // Delete rail-specific escrow records first
+              if (escrow.rail === 'STRIPE') {
+                await cleanupTx.stripeEscrow.deleteMany({
+                  where: { escrowId: escrow.id },
+                });
+              } else if (escrow.rail === 'USDC_BASE') {
+                await cleanupTx.stablecoinEscrow.deleteMany({
+                  where: { escrowId: escrow.id },
+                });
+              }
 
-          // Delete milestone escrows if any
-          await db.milestoneEscrow.deleteMany({
-            where: { escrowId: escrow.id },
+              // Delete milestone escrows if any
+              await cleanupTx.milestoneEscrow.deleteMany({
+                where: { escrowId: escrow.id },
+              });
+
+              // Delete the escrow
+              await cleanupTx.escrow.delete({
+                where: { id: escrow.id },
+              });
+
+              console.log(`Cleaned up escrow ${escrow.id} before new execution`);
+            }
           });
-
-          // Delete the escrow
-          await db.escrow.delete({
-            where: { id: escrow.id },
-          });
-
-          console.log(`Cleaned up escrow ${escrow.id} before new execution`);
         }
       } catch (cleanupError) {
         console.error(`Failed to cleanup escrows:`, cleanupError);
@@ -187,6 +222,7 @@ export async function executeContract(
           escrowId: escrow.id,
           chain: 'BASE',
           depositAddr,
+          mintAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
         },
       });
     }
