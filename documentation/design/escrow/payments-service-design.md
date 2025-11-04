@@ -232,7 +232,7 @@ export class CreatePaymentIntentCommandHandler {
             aggregateId: escrow.id,
             eventType: 'PaymentIntentCreated',
             payload: Buffer.from(
-              JSON.stringify({
+              protobufSerialize({
                 escrowId: escrow.id,
                 provider: 'stripe',
                 providerPaymentId: paymentIntent.id,
@@ -367,7 +367,7 @@ export class TransferToSellerCommandHandler {
             aggregateId: escrow.id,
             eventType: 'TransferSucceeded',
             payload: Buffer.from(
-              JSON.stringify({
+              protobufSerialize({
                 escrowId: escrow.id,
                 provider: 'stripe',
                 transferId: transfer.id,
@@ -497,7 +497,7 @@ export class RefundBuyerCommandHandler {
             aggregateId: escrow.id,
             eventType: 'RefundSucceeded',
             payload: Buffer.from(
-              JSON.stringify({
+              protobufSerialize({
                 escrowId: escrow.id,
                 provider: 'stripe',
                 refundId: refund.id,
@@ -657,7 +657,7 @@ export class StripeWebhookHandler {
         aggregateId: escrowId,
         eventType: 'StripeWebhookValidated',
         payload: Buffer.from(
-          JSON.stringify({
+          protobufSerialize({
             escrowId,
             webhookEventId: event.id,
             eventType: event.type,
@@ -673,7 +673,7 @@ export class StripeWebhookHandler {
         aggregateId: escrowId,
         eventType: 'PaymentSucceeded',
         payload: Buffer.from(
-          JSON.stringify({
+          protobufSerialize({
             escrowId,
             provider: 'stripe',
             providerPaymentId: paymentIntent.id,
@@ -702,7 +702,7 @@ export class StripeWebhookHandler {
         aggregateId: escrowId,
         eventType: 'PaymentFailed',
         payload: Buffer.from(
-          JSON.stringify({
+          protobufSerialize({
             escrowId,
             provider: 'stripe',
             providerPaymentId: paymentIntent.id,
@@ -731,7 +731,7 @@ export class StripeWebhookHandler {
         aggregateId: escrowId,
         eventType: 'TransferConfirmed',
         payload: Buffer.from(
-          JSON.stringify({
+          protobufSerialize({
             escrowId,
             provider: 'stripe',
             transferId: transfer.id,
@@ -759,7 +759,7 @@ export class StripeWebhookHandler {
         aggregateId: escrowId,
         eventType: 'RefundConfirmed',
         payload: Buffer.from(
-          JSON.stringify({
+          protobufSerialize({
             escrowId,
             provider: 'stripe',
             chargeId: charge.id,
@@ -953,7 +953,7 @@ export class CreateCustodianPaymentIntentHandler {
             aggregateId: escrow.id,
             eventType: 'PaymentIntentCreated',
             payload: Buffer.from(
-              JSON.stringify({
+              protobufSerialize({
                 escrowId: escrow.id,
                 provider: 'custodian',
                 depositAddress: addressResponse.address,
@@ -1063,7 +1063,7 @@ export class TransferToSellerCustodianHandler {
             aggregateId: escrow.id,
             eventType: 'TransferSucceeded',
             payload: Buffer.from(
-              JSON.stringify({
+              protobufSerialize({
                 escrowId: escrow.id,
                 provider: 'custodian',
                 transferId: transferResponse.transactionHash,
@@ -1177,7 +1177,7 @@ export class RefundBuyerCustodianHandler {
             aggregateId: escrow.id,
             eventType: 'RefundSucceeded',
             payload: Buffer.from(
-              JSON.stringify({
+              protobufSerialize({
                 escrowId: escrow.id,
                 provider: 'custodian',
                 refundId: refundResponse.transactionHash,
@@ -1320,16 +1320,19 @@ export class CustodianWebhookHandler {
     const walletRisk = await this.walletScreeningService.screenWallet(sender);
 
     if (walletRisk === 'SANCTIONED' || walletRisk === 'HIGH') {
-      // Initiate automatic refund
+      // Emit domain event: wallet screening failed
+      // Note: Escrow Service consumes this event and internally creates RefundBuyerCommand
       await tx.outbox.create({
         data: {
           aggregateId: stablecoinEscrow.escrowId,
-          eventType: 'RefundBuyerCommand',
+          eventType: 'WalletScreeningFailed',
           payload: Buffer.from(
-            JSON.stringify({
+            protobufSerialize({
               escrowId: stablecoinEscrow.escrowId,
-              refundAmount: amount,
-              reason: `Automatic refund: wallet risk ${walletRisk}`,
+              walletAddress: sender,
+              riskLevel: walletRisk,
+              amount: amount,
+              timestamp: new Date().toISOString(),
             })
           ),
           version: 1,
@@ -1394,7 +1397,7 @@ export class CustodianWebhookHandler {
         aggregateId: stablecoinEscrow.escrowId,
         eventType: 'CustodianWebhookValidated',
         payload: Buffer.from(
-          JSON.stringify({
+          protobufSerialize({
             escrowId: stablecoinEscrow.escrowId,
             webhookEventId: event.id,
             eventType: event.type,
@@ -1410,7 +1413,7 @@ export class CustodianWebhookHandler {
         aggregateId: stablecoinEscrow.escrowId,
         eventType: 'PaymentSucceeded',
         payload: Buffer.from(
-          JSON.stringify({
+          protobufSerialize({
             escrowId: stablecoinEscrow.escrowId,
             provider: 'custodian',
             providerPaymentId: transactionHash,
@@ -1442,7 +1445,7 @@ export class CustodianWebhookHandler {
         aggregateId: stablecoinEscrow.escrowId,
         eventType: 'PaymentFailed',
         payload: Buffer.from(
-          JSON.stringify({
+          protobufSerialize({
             escrowId: stablecoinEscrow.escrowId,
             provider: 'custodian',
             providerPaymentId: transactionHash,
@@ -1470,7 +1473,7 @@ export class CustodianWebhookHandler {
         aggregateId: escrowId,
         eventType: 'TransferConfirmed',
         payload: Buffer.from(
-          JSON.stringify({
+          protobufSerialize({
             escrowId,
             provider: 'custodian',
             transferId: transactionHash,
@@ -1495,7 +1498,7 @@ export class CustodianWebhookHandler {
         aggregateId: escrowId,
         eventType: 'TransferFailed',
         payload: Buffer.from(
-          JSON.stringify({
+          protobufSerialize({
             escrowId,
             provider: 'custodian',
             transferId: transactionHash,
@@ -1988,16 +1991,18 @@ export class SanctionedWalletHandler {
     walletAddress: string
   ): Promise<void> {
     await this.prisma.$transaction(async tx => {
-      // Emit refund command
+      // Emit domain event: wallet sanctioned
+      // Note: Escrow Service consumes this event and internally creates RefundBuyerCommand
       await tx.outbox.create({
         data: {
           aggregateId: escrowId,
-          eventType: 'RefundBuyerCommand',
+          eventType: 'WalletScreeningFailed',
           payload: Buffer.from(
-            JSON.stringify({
+            protobufSerialize({
               escrowId,
-              refundAmount: null, // Full refund
-              reason: `Automatic refund: wallet ${walletAddress} is sanctioned`,
+              walletAddress,
+              riskLevel: 'SANCTIONED',
+              timestamp: new Date().toISOString(),
             })
           ),
           version: 1,
@@ -2317,6 +2322,49 @@ export class PaymentAuditTrail {
 }
 ```
 
+### Command Structure Differences
+
+**Important**: Commands have different structures depending on their origin:
+
+**RefundBuyerCommand**:
+
+- **Escrow Service** (Line 1050): Emitted by Escrow Service for internal use
+
+  ```typescript
+  {
+    userId: string;      // Admin user ID
+    refundAmount?: number; // Optional partial refund
+    reason: string;
+  }
+  ```
+
+- **Payments Service** (Line 395): Received by Payments Service from Escrow Service via `EscrowRefunded` event
+  ```typescript
+  {
+    escrowId: string;
+    refundAmount?: string; // Optional partial refund (cents, BigInt serialized as string)
+    reason: string;
+  }
+  ```
+
+**Note**: Escrow Service emits `EscrowRefunded` domain event. Payments Service consumes this event and internally creates `RefundBuyerCommand` with the structure shown above.
+
+**TransferToSellerCommand**:
+
+- **Payments Service** (Line 268): Structure used internally by Payments Service
+
+  ```typescript
+  {
+    escrowId: string;
+    sellerStripeAccountId: string;  // For STRIPE rail
+    transferAmount: string;          // Net amount after seller fee (cents)
+    sellerFee: number;               // Platform fee deducted from seller (cents)
+    reason?: string;
+  }
+  ```
+
+- **Note**: Payments Service constructs this command internally after consuming `EscrowReleased` event from Escrow Service. The `EscrowReleased` event includes all required fields (see Escrow Service Design for event structure).
+
 ## Command Handlers
 
 ### Command Handler Base Class
@@ -2517,19 +2565,25 @@ export class PaymentCommandValidator {
 
 ### Integration with Escrow Service State Machine
 
-**Command Flow**:
+**Event Flow**:
 
 ```
-Escrow Service (FUNDS_HELD) → Kafka: TransferToSellerCommand
+Escrow Service → EscrowReleased event (via outbox)
     ↓
-Payments Service → Process Transfer
+Payments Service → Consumes EscrowReleased event
     ↓
-Payments Service → Kafka: TransferSucceeded event
+Payments Service → Creates TransferToSellerCommand internally
     ↓
-Escrow Service → Consume TransferSucceeded
+Payments Service → Publishes TransferToSellerCommand directly to Kafka
     ↓
-Escrow Service → Transition to RELEASED
+Payments Service → Processes transfer
+    ↓
+Payments Service → TransferSucceeded event (via outbox)
+    ↓
+Escrow Service → Consumes TransferSucceeded event
 ```
+
+**Note**: Commands are published directly to Kafka, not through outbox. Only domain events use the transactional outbox pattern.
 
 **State Validation**:
 
@@ -2538,6 +2592,56 @@ The Payments Service does not enforce escrow state transitions. It relies on the
 1. Escrow exists
 2. Escrow has required payment artifacts (PaymentIntent or deposit address)
 3. Payment provider confirms operation succeeded
+
+### Commands vs Events Pattern
+
+**Important Distinction**:
+
+- **Commands**: Instructions to perform an action (e.g., `CreatePaymentIntentCommand`, `TransferToSellerCommand`, `RefundBuyerCommand`)
+  - Published **directly to Kafka** command topics
+  - **NOT** stored in outbox table
+  - Used for service-to-service communication
+  - Example: Escrow Service → Payments Service command
+
+- **Domain Events**: Facts that have occurred (e.g., `PaymentSucceeded`, `TransferSucceeded`, `EscrowReleased`)
+  - Published via **Transactional Outbox Pattern**
+  - Stored in outbox table first, then published to Kafka
+  - Used for event-driven communication and audit trail
+  - Example: Payments Service → Escrow Service event
+
+**Command Publishing Pattern**:
+
+```typescript
+// Commands publish directly to Kafka (NOT through outbox)
+await kafkaProducer.send({
+  topic: 'payments-commands',
+  messages: [
+    {
+      key: command.escrowId,
+      value: JSON.stringify(command),
+      headers: {
+        'command-id': command.commandId,
+        'command-type': command.commandType,
+      },
+    },
+  ],
+});
+```
+
+**Event Publishing Pattern**:
+
+```typescript
+// Events use transactional outbox pattern
+await tx.outbox.create({
+  data: {
+    aggregateId: escrowId,
+    eventType: 'PaymentSucceeded',
+    payload: Buffer.from(protobufSerialize(event)),
+    version: 1,
+  },
+});
+// Outbox publisher process will publish to Kafka asynchronously
+```
 
 ## Event Emission Patterns
 
@@ -2623,8 +2727,18 @@ export class OutboxPublisher {
 
   private deserializeProtobuf(buffer: Buffer): unknown {
     // Deserialize Protobuf message
-    // Implementation depends on Protobuf schema
-    return JSON.parse(buffer.toString());
+    // Implementation depends on Protobuf schema definitions
+    // Example using protobufjs or @grpc/proto-loader:
+    const { PaymentSucceeded } = require('./generated/payments_pb');
+    const message = PaymentSucceeded.deserializeBinary(buffer);
+    return {
+      escrowId: message.getEscrowId(),
+      provider: message.getProvider(),
+      providerPaymentId: message.getProviderPaymentId(),
+      amount: message.getAmount(),
+      currency: message.getCurrency(),
+      timestamp: message.getTimestamp(),
+    };
   }
 }
 ```
