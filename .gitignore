@@ -111,3 +111,6 @@ packages/database/src/generated/
 
 # Turborepo
 .turbo
+
+# 42c
+.42c
