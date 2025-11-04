@@ -1,0 +1,1174 @@
+openapi: 3.0.3
+info:
+  title: Bloxtr8 Escrow API
+  version: 1.0.0
+  description: API Gateway for escrow operations in Bloxtr8
+  contact:
+    name: Bloxtr8 API Support
+    email: api@bloxtr8.com
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://api.bloxtr8.com
+    description: Production server
+
+tags:
+  - name: Escrow
+    description: Escrow management operations
+  - name: Payment
+    description: Payment confirmation and delivery operations
+  - name: Dispute
+    description: Dispute management operations
+  - name: Admin
+    description: Administrative operations
+  - name: Milestone
+    description: Milestone-based escrow operations
+
+paths:
+  /api/escrow:
+    post:
+      tags:
+        - Escrow
+      summary: Create a new escrow
+      description: Creates a new escrow for an accepted offer. The rail is automatically determined based on amount (≤$10k = STRIPE, >$10k = USDC_BASE).
+      operationId: createEscrow
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEscrowRequest'
+      responses:
+        '201':
+          description: Escrow created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateEscrowResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    get:
+      tags:
+        - Escrow
+      summary: List escrows
+      description: Retrieve a paginated list of escrows with optional filtering
+      operationId: listEscrows
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filter by escrow status
+          schema:
+            type: string
+            enum:
+              [
+                AWAIT_FUNDS,
+                FUNDS_HELD,
+                DELIVERED,
+                RELEASED,
+                DISPUTED,
+                REFUNDED,
+                CANCELLED,
+              ]
+        - name: rail
+          in: query
+          description: Filter by payment rail
+          schema:
+            type: string
+            enum: [STRIPE, USDC_BASE]
+        - name: buyerId
+          in: query
+          description: Filter by buyer ID
+          schema:
+            type: string
+        - name: sellerId
+          in: query
+          description: Filter by seller ID
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: List of escrows
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscrowListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/escrow/{id}:
+    get:
+      tags:
+        - Escrow
+      summary: Get escrow by ID
+      description: Retrieve detailed information about a specific escrow
+      operationId: getEscrow
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Escrow ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Escrow details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscrowResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/escrow/{id}/confirm-payment:
+    post:
+      tags:
+        - Payment
+      summary: Confirm payment manually
+      description: Manually confirm payment for off-band payments (e.g., custodial fiat wires)
+      operationId: confirmPayment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Escrow ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmPaymentRequest'
+      responses:
+        '200':
+          description: Payment confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/escrow/{id}/mark-delivered:
+    post:
+      tags:
+        - Payment
+      summary: Mark delivery as complete
+      description: Seller marks delivery as complete with proof
+      operationId: markDelivered
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Escrow ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkDeliveredRequest'
+      responses:
+        '200':
+          description: Delivery marked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/escrow/{id}/confirm-delivery:
+    post:
+      tags:
+        - Payment
+      summary: Confirm delivery receipt
+      description: Buyer confirms receipt of delivery, triggering fund release
+      operationId: confirmDelivery
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Escrow ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Delivery confirmed, funds released
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmDeliveryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/escrow/{id}/dispute:
+    post:
+      tags:
+        - Dispute
+      summary: Open a dispute
+      description: Buyer or seller opens a dispute for an escrow
+      operationId: createDispute
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Escrow ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDisputeRequest'
+      responses:
+        '201':
+          description: Dispute created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisputeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/escrow/{id}/dispute/{disputeId}/resolve:
+    post:
+      tags:
+        - Dispute
+      summary: Resolve dispute
+      description: Admin resolves a dispute by releasing funds or refunding buyer
+      operationId: resolveDispute
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Escrow ID
+          schema:
+            type: string
+        - name: disputeId
+          in: path
+          required: true
+          description: Dispute ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveDisputeRequest'
+      responses:
+        '200':
+          description: Dispute resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/escrow/{id}/release:
+    post:
+      tags:
+        - Admin
+      summary: Release funds to seller
+      description: Admin manually releases funds to seller
+      operationId: releaseFunds
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Escrow ID
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseFundsRequest'
+      responses:
+        '200':
+          description: Funds released
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/escrow/{id}/refund:
+    post:
+      tags:
+        - Admin
+      summary: Refund buyer
+      description: Admin issues refund to buyer
+      operationId: refundBuyer
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Escrow ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+      responses:
+        '200':
+          description: Refund processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/escrow/{id}/milestones:
+    post:
+      tags:
+        - Milestone
+      summary: Create milestones
+      description: Create milestones for an escrow
+      operationId: createMilestones
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Escrow ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMilestonesRequest'
+      responses:
+        '201':
+          description: Milestones created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MilestonesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/escrow/{id}/milestones/{milestoneId}/release:
+    post:
+      tags:
+        - Milestone
+      summary: Release milestone funds
+      description: Release funds for a specific milestone
+      operationId: releaseMilestone
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Escrow ID
+          schema:
+            type: string
+        - name: milestoneId
+          in: path
+          required: true
+          description: Milestone ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Milestone funds released
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained via Better Auth endpoints
+
+  schemas:
+    Escrow:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Escrow ID
+        rail:
+          type: string
+          enum: [STRIPE, USDC_BASE]
+          description: Payment rail
+        amount:
+          type: string
+          description: Amount in cents (BigInt serialized as string)
+        currency:
+          type: string
+          enum: [USD, USDC]
+          description: Currency code
+        status:
+          type: string
+          enum:
+            [
+              AWAIT_FUNDS,
+              FUNDS_HELD,
+              DELIVERED,
+              RELEASED,
+              DISPUTED,
+              REFUNDED,
+              CANCELLED,
+            ]
+          description: Current escrow status
+        offerId:
+          type: string
+          description: Associated offer ID
+        contractId:
+          type: string
+          description: Associated contract ID
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Expiration timestamp
+        autoRefundAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Auto-refund timestamp
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        version:
+          type: integer
+          description: Optimistic locking version
+
+    CreateEscrowRequest:
+      type: object
+      required:
+        - offerId
+        - contractId
+        - rail
+        - amount
+        - currency
+      properties:
+        offerId:
+          type: string
+          description: Offer ID
+        contractId:
+          type: string
+          description: Contract ID
+        rail:
+          type: string
+          enum: [STRIPE, USDC_BASE]
+          description: Payment rail
+        amount:
+          type: string
+          description: Amount in cents (BigInt serialized as string)
+        currency:
+          type: string
+          enum: [USD, USDC]
+          description: Currency code
+        sellerStripeAccountId:
+          type: string
+          description: Seller's Stripe Connect account ID (required for STRIPE rail)
+        buyerFee:
+          type: number
+          minimum: 0
+          description: Platform fee charged to buyer (in cents)
+        sellerFee:
+          type: number
+          minimum: 0
+          description: Platform fee charged to seller (in cents)
+        idempotencyKey:
+          type: string
+          format: uuid
+          description: Idempotency key for request deduplication
+
+    CreateEscrowResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            escrowId:
+              type: string
+            clientSecret:
+              type: string
+              description: Stripe client secret (STRIPE rail only)
+            paymentIntentId:
+              type: string
+              description: Stripe payment intent ID (STRIPE rail only)
+            depositAddress:
+              type: string
+              description: Deposit address (USDC_BASE rail only)
+            status:
+              type: string
+              enum: [AWAIT_FUNDS]
+
+    EscrowResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/EscrowDetail'
+
+    EscrowDetail:
+      allOf:
+        - $ref: '#/components/schemas/Escrow'
+        - type: object
+          properties:
+            offer:
+              $ref: '#/components/schemas/Offer'
+            contract:
+              $ref: '#/components/schemas/Contract'
+            stripeEscrow:
+              $ref: '#/components/schemas/StripeEscrow'
+              nullable: true
+            stablecoinEscrow:
+              $ref: '#/components/schemas/StablecoinEscrow'
+              nullable: true
+            deliveries:
+              type: array
+              items:
+                $ref: '#/components/schemas/Delivery'
+            disputes:
+              type: array
+              items:
+                $ref: '#/components/schemas/Dispute'
+            auditLogs:
+              type: array
+              items:
+                $ref: '#/components/schemas/AuditLog'
+
+    EscrowListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Escrow'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+        hasPrev:
+          type: boolean
+        hasNext:
+          type: boolean
+
+    Offer:
+      type: object
+      properties:
+        id:
+          type: string
+        buyerId:
+          type: string
+        sellerId:
+          type: string
+        amount:
+          type: string
+        currency:
+          type: string
+        status:
+          type: string
+
+    Contract:
+      type: object
+      properties:
+        id:
+          type: string
+        offerId:
+          type: string
+        status:
+          type: string
+
+    StripeEscrow:
+      type: object
+      properties:
+        id:
+          type: string
+        paymentIntentId:
+          type: string
+        transferId:
+          type: string
+          nullable: true
+        refundId:
+          type: string
+          nullable: true
+        amountCaptured:
+          type: integer
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+
+    StablecoinEscrow:
+      type: object
+      properties:
+        id:
+          type: string
+        chain:
+          type: string
+        depositAddr:
+          type: string
+        depositTx:
+          type: string
+          nullable: true
+        releaseTx:
+          type: string
+          nullable: true
+        custodyProvider:
+          type: string
+          nullable: true
+        mintAddress:
+          type: string
+
+    Delivery:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+        deliveredAt:
+          type: string
+          format: date-time
+          nullable: true
+        deliveredBy:
+          type: string
+        evidence:
+          type: object
+          nullable: true
+
+    Dispute:
+      type: object
+      properties:
+        id:
+          type: string
+        escrowId:
+          type: string
+        userId:
+          type: string
+        reason:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+        action:
+          type: string
+        details:
+          type: object
+        userId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ConfirmPaymentRequest:
+      type: object
+      required:
+        - transactionId
+      properties:
+        transactionId:
+          type: string
+          description: Transaction ID or hash
+        evidence:
+          type: string
+          description: Additional evidence (optional)
+
+    MarkDeliveredRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          description: Delivery title
+        description:
+          type: string
+          description: Delivery description
+        evidence:
+          type: object
+          description: Delivery evidence (screenshots, API responses, etc.)
+
+    DeliveryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        escrow:
+          $ref: '#/components/schemas/Escrow'
+        delivery:
+          $ref: '#/components/schemas/Delivery'
+
+    ConfirmDeliveryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        escrow:
+          $ref: '#/components/schemas/Escrow'
+        transferId:
+          type: string
+          nullable: true
+
+    CreateDisputeRequest:
+      type: object
+      required:
+        - reason
+        - description
+      properties:
+        reason:
+          type: string
+          description: Dispute reason
+        description:
+          type: string
+          description: Detailed description
+        evidence:
+          type: array
+          items:
+            type: object
+          description: Evidence attachments
+
+    DisputeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Dispute'
+
+    ResolveDisputeRequest:
+      type: object
+      required:
+        - resolution
+        - reason
+      properties:
+        resolution:
+          type: string
+          enum: [RELEASE, REFUND]
+          description: Resolution decision
+        reason:
+          type: string
+          description: Resolution reason
+
+    ReleaseFundsRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: Optional reason for release
+
+    ReleaseResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            transferId:
+              type: string
+            amount:
+              type: string
+            currency:
+              type: string
+
+    RefundRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        refundAmount:
+          type: number
+          minimum: 0
+          description: Partial refund amount in cents (optional, defaults to full)
+        reason:
+          type: string
+          description: Refund reason
+
+    RefundResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            refundId:
+              type: string
+            amount:
+              type: string
+            currency:
+              type: string
+
+    CreateMilestonesRequest:
+      type: object
+      required:
+        - milestones
+      properties:
+        milestones:
+          type: array
+          items:
+            $ref: '#/components/schemas/MilestoneInput'
+          minItems: 1
+
+    MilestoneInput:
+      type: object
+      required:
+        - title
+        - amountCents
+      properties:
+        title:
+          type: string
+          description: Milestone title
+        amountCents:
+          type: integer
+          minimum: 1
+          description: Milestone amount in cents
+
+    MilestonesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Milestone'
+
+    Milestone:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        amountCents:
+          type: integer
+        status:
+          type: string
+          enum:
+            [
+              AWAIT_FUNDS,
+              FUNDS_HELD,
+              DELIVERED,
+              RELEASED,
+              DISPUTED,
+              REFUNDED,
+              CANCELLED,
+            ]
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+          format: uri
+          description: Error type URI
+        title:
+          type: string
+          description: Error title
+        status:
+          type: integer
+          description: HTTP status code
+        detail:
+          type: string
+          description: Detailed error message
+        instance:
+          type: string
+          format: uri
+          description: Request instance URI
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+          description: Validation errors (if applicable)
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://bloxtr8.com/problems/bad-request
+            title: Bad Request
+            status: 400
+            detail: Invalid request format
+            instance: /api/escrow
+            timestamp: '2025-01-02T12:00:00.000Z'
+
+    Unauthorized:
+      description: Unauthorized - missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://bloxtr8.com/problems/unauthorized
+            title: Unauthorized
+            status: 401
+            detail: Missing or invalid authentication token
+            instance: /api/escrow
+            timestamp: '2025-01-02T12:00:00.000Z'
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://bloxtr8.com/problems/forbidden
+            title: Forbidden
+            status: 403
+            detail: Insufficient permissions to access this resource
+            instance: /api/escrow/123
+            timestamp: '2025-01-02T12:00:00.000Z'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://bloxtr8.com/problems/not-found
+            title: Not Found
+            status: 404
+            detail: The requested escrow was not found
+            instance: /api/escrow/123
+            timestamp: '2025-01-02T12:00:00.000Z'
+
+    Conflict:
+      description: Resource conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://bloxtr8.com/problems/conflict
+            title: Conflict
+            status: 409
+            detail: Invalid state transition or resource conflict
+            instance: /api/escrow/123/dispute
+            timestamp: '2025-01-02T12:00:00.000Z'
+
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://bloxtr8.com/problems/validation-error
+            title: Validation Error
+            status: 422
+            detail: Invalid request payload
+            instance: /api/escrow
+            errors:
+              - field: amount
+                message: Amount must be a positive integer
+            timestamp: '2025-01-02T12:00:00.000Z'
+
+    RateLimitExceeded:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://bloxtr8.com/problems/rate-limit-exceeded
+            title: Rate Limit Exceeded
+            status: 429
+            detail: Too many requests
+            instance: /api/escrow
+            timestamp: '2025-01-02T12:00:00.000Z'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://bloxtr8.com/problems/internal-server-error
+            title: Internal Server Error
+            status: 500
+            detail: An unexpected error occurred
+            instance: /api/escrow
+            timestamp: '2025-01-02T12:00:00.000Z'
