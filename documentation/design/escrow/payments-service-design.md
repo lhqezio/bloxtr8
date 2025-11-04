@@ -982,6 +982,7 @@ export class TransferToSellerCustodianHandler {
   constructor(
     private prisma: PrismaClient,
     private custodianClient: CustodianClient,
+    private walletScreeningService: WalletScreeningService,
     private eventEmitter: EventEmitter
   ) {}
 
@@ -1007,7 +1008,9 @@ export class TransferToSellerCustodianHandler {
         }
 
         // 2. Screen seller wallet before transfer
-        const walletRisk = await this.screenWallet(seller.walletAddress);
+        const walletRisk = await this.walletScreeningService.screenWallet(
+          seller.walletAddress
+        );
         if (walletRisk === 'SANCTIONED' || walletRisk === 'HIGH') {
           throw new ValidationError('Seller wallet risk too high for transfer');
         }
