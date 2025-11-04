@@ -10,10 +10,11 @@ info:
     name: Proprietary
 
 servers:
-  - url: http://localhost:3000
-    description: Development server
   - url: https://api.bloxtr8.com
     description: Production server
+
+security:
+  - bearerAuth: []
 
 tags:
   - name: Escrow
@@ -56,8 +57,16 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        default:
+          $ref: '#/components/responses/InternalServerError'
 
     get:
       tags:
@@ -94,17 +103,22 @@ paths:
           description: Filter by buyer ID
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            maxLength: 100
         - name: sellerId
           in: query
           description: Filter by seller ID
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            maxLength: 100
         - name: page
           in: query
           description: Page number
           schema:
             type: integer
             minimum: 1
+            maximum: 10000
             default: 1
         - name: limit
           in: query
@@ -125,6 +139,14 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        default:
+          $ref: '#/components/responses/InternalServerError'
 
   /api/escrow/{id}:
     get:
@@ -142,6 +164,8 @@ paths:
           description: Escrow ID
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            maxLength: 100
       responses:
         '200':
           description: Escrow details
@@ -155,6 +179,12 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        default:
+          $ref: '#/components/responses/InternalServerError'
 
   /api/escrow/{id}/confirm-payment:
     post:
@@ -172,6 +202,8 @@ paths:
           description: Escrow ID
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            maxLength: 100
       requestBody:
         required: true
         content:
@@ -193,6 +225,14 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        default:
+          $ref: '#/components/responses/InternalServerError'
 
   /api/escrow/{id}/mark-delivered:
     post:
@@ -210,6 +250,8 @@ paths:
           description: Escrow ID
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            maxLength: 100
       requestBody:
         required: true
         content:
@@ -231,6 +273,14 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        default:
+          $ref: '#/components/responses/InternalServerError'
 
   /api/escrow/{id}/confirm-delivery:
     post:
@@ -248,6 +298,8 @@ paths:
           description: Escrow ID
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            maxLength: 100
       responses:
         '200':
           description: Delivery confirmed, funds released
@@ -263,6 +315,14 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        default:
+          $ref: '#/components/responses/InternalServerError'
 
   /api/escrow/{id}/dispute:
     post:
@@ -280,6 +340,8 @@ paths:
           description: Escrow ID
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            maxLength: 100
       requestBody:
         required: true
         content:
@@ -301,6 +363,14 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        default:
+          $ref: '#/components/responses/InternalServerError'
         '409':
           $ref: '#/components/responses/Conflict'
 
@@ -320,12 +390,16 @@ paths:
           description: Escrow ID
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            maxLength: 100
         - name: disputeId
           in: path
           required: true
           description: Dispute ID
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            maxLength: 100
       requestBody:
         required: true
         content:
@@ -347,6 +421,14 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        default:
+          $ref: '#/components/responses/InternalServerError'
 
   /api/escrow/{id}/release:
     post:
@@ -364,6 +446,8 @@ paths:
           description: Escrow ID
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            maxLength: 100
       requestBody:
         content:
           application/json:
@@ -384,6 +468,14 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        default:
+          $ref: '#/components/responses/InternalServerError'
 
   /api/escrow/{id}/refund:
     post:
@@ -401,6 +493,8 @@ paths:
           description: Escrow ID
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            maxLength: 100
       requestBody:
         required: true
         content:
@@ -422,6 +516,14 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        default:
+          $ref: '#/components/responses/InternalServerError'
 
   /api/escrow/{id}/milestones:
     post:
@@ -439,6 +541,8 @@ paths:
           description: Escrow ID
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            maxLength: 100
       requestBody:
         required: true
         content:
@@ -460,6 +564,14 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        default:
+          $ref: '#/components/responses/InternalServerError'
 
   /api/escrow/{id}/milestones/{milestoneId}/release:
     post:
@@ -477,12 +589,16 @@ paths:
           description: Escrow ID
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            maxLength: 100
         - name: milestoneId
           in: path
           required: true
           description: Milestone ID
           schema:
             type: string
+            pattern: '^[a-zA-Z0-9_-]+$'
+            maxLength: 100
       responses:
         '200':
           description: Milestone funds released
@@ -498,6 +614,14 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+        default:
+          $ref: '#/components/responses/InternalServerError'
 
 components:
   securitySchemes:
@@ -505,14 +629,17 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT token obtained via Better Auth endpoints
+      description: JWT token obtained via Better Auth endpoints. Must be used over HTTPS only.
 
   schemas:
     Escrow:
       type: object
+      additionalProperties: false
       properties:
         id:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
           description: Escrow ID
         rail:
           type: string
@@ -520,6 +647,8 @@ components:
           description: Payment rail
         amount:
           type: string
+          pattern: '^[0-9]+$'
+          maxLength: 20
           description: Amount in cents (BigInt serialized as string)
         currency:
           type: string
@@ -540,9 +669,13 @@ components:
           description: Current escrow status
         offerId:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
           description: Associated offer ID
         contractId:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
           description: Associated contract ID
         expiresAt:
           type: string
@@ -564,10 +697,13 @@ components:
           description: Last update timestamp
         version:
           type: integer
+          minimum: 0
+          maximum: 2147483647
           description: Optimistic locking version
 
     CreateEscrowRequest:
       type: object
+      additionalProperties: false
       required:
         - offerId
         - contractId
@@ -577,9 +713,13 @@ components:
       properties:
         offerId:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
           description: Offer ID
         contractId:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
           description: Contract ID
         rail:
           type: string
@@ -587,6 +727,8 @@ components:
           description: Payment rail
         amount:
           type: string
+          pattern: '^[0-9]+$'
+          maxLength: 20
           description: Amount in cents (BigInt serialized as string)
         currency:
           type: string
@@ -594,38 +736,54 @@ components:
           description: Currency code
         sellerStripeAccountId:
           type: string
+          pattern: '^acct_[a-zA-Z0-9]+$'
+          maxLength: 200
           description: Seller's Stripe Connect account ID (required for STRIPE rail)
         buyerFee:
           type: number
           minimum: 0
+          maximum: 999999999
           description: Platform fee charged to buyer (in cents)
         sellerFee:
           type: number
           minimum: 0
+          maximum: 999999999
           description: Platform fee charged to seller (in cents)
         idempotencyKey:
           type: string
           format: uuid
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          maxLength: 36
           description: Idempotency key for request deduplication
 
     CreateEscrowResponse:
       type: object
+      additionalProperties: false
       properties:
         success:
           type: boolean
         data:
           type: object
+          additionalProperties: false
           properties:
             escrowId:
               type: string
+              pattern: '^[a-zA-Z0-9_-]+$'
+              maxLength: 100
             clientSecret:
               type: string
+              pattern: '^.{1,500}$'
+              maxLength: 500
               description: Stripe client secret (STRIPE rail only)
             paymentIntentId:
               type: string
+              pattern: '^pi_[a-zA-Z0-9]+$'
+              maxLength: 200
               description: Stripe payment intent ID (STRIPE rail only)
             depositAddress:
               type: string
+              pattern: '^0x[a-fA-F0-9]{40}$'
+              maxLength: 42
               description: Deposit address (USDC_BASE rail only)
             status:
               type: string
@@ -633,6 +791,7 @@ components:
 
     EscrowResponse:
       type: object
+      additionalProperties: false
       properties:
         success:
           type: boolean
@@ -656,24 +815,29 @@ components:
               nullable: true
             deliveries:
               type: array
+              maxItems: 100
               items:
                 $ref: '#/components/schemas/Delivery'
             disputes:
               type: array
+              maxItems: 100
               items:
                 $ref: '#/components/schemas/Dispute'
             auditLogs:
               type: array
+              maxItems: 1000
               items:
                 $ref: '#/components/schemas/AuditLog'
 
     EscrowListResponse:
       type: object
+      additionalProperties: false
       properties:
         success:
           type: boolean
         data:
           type: array
+          maxItems: 50
           items:
             $ref: '#/components/schemas/Escrow'
         pagination:
@@ -681,15 +845,24 @@ components:
 
     Pagination:
       type: object
+      additionalProperties: false
       properties:
         page:
           type: integer
+          minimum: 1
+          maximum: 10000
         limit:
           type: integer
+          minimum: 1
+          maximum: 50
         total:
           type: integer
+          minimum: 0
+          maximum: 2147483647
         totalPages:
           type: integer
+          minimum: 0
+          maximum: 2147483647
         hasPrev:
           type: boolean
         hasNext:
@@ -697,123 +870,197 @@ components:
 
     Offer:
       type: object
+      additionalProperties: false
       properties:
         id:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
         buyerId:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
         sellerId:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
         amount:
           type: string
+          pattern: '^[0-9]+$'
+          maxLength: 20
         currency:
           type: string
+          maxLength: 10
         status:
           type: string
+          maxLength: 50
 
     Contract:
       type: object
+      additionalProperties: false
       properties:
         id:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
         offerId:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
         status:
           type: string
+          maxLength: 50
 
     StripeEscrow:
       type: object
+      additionalProperties: false
       properties:
         id:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
         paymentIntentId:
           type: string
+          pattern: '^pi_[a-zA-Z0-9]+$'
+          maxLength: 200
         transferId:
           type: string
+          pattern: '^tr_[a-zA-Z0-9]+$'
+          maxLength: 200
           nullable: true
         refundId:
           type: string
+          pattern: '^re_[a-zA-Z0-9]+$'
+          maxLength: 200
           nullable: true
         amountCaptured:
           type: integer
+          minimum: 0
+          maximum: 2147483647
           nullable: true
         currency:
           type: string
+          maxLength: 10
           nullable: true
 
     StablecoinEscrow:
       type: object
+      additionalProperties: false
       properties:
         id:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
         chain:
           type: string
+          maxLength: 50
         depositAddr:
           type: string
+          pattern: '^0x[a-fA-F0-9]{40}$'
+          maxLength: 42
         depositTx:
           type: string
+          pattern: '^0x[a-fA-F0-9]{64}$'
+          maxLength: 66
           nullable: true
         releaseTx:
           type: string
+          pattern: '^0x[a-fA-F0-9]{64}$'
+          maxLength: 66
           nullable: true
         custodyProvider:
           type: string
+          maxLength: 100
           nullable: true
         mintAddress:
           type: string
+          pattern: '^0x[a-fA-F0-9]{40}$'
+          maxLength: 42
 
     Delivery:
       type: object
+      additionalProperties: false
       properties:
         id:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
         title:
           type: string
+          pattern: '^.{1,200}$'
+          maxLength: 200
         description:
           type: string
+          pattern: '^.{0,5000}$'
+          maxLength: 5000
           nullable: true
         status:
           type: string
+          pattern: '^.{1,50}$'
+          maxLength: 50
         deliveredAt:
           type: string
           format: date-time
           nullable: true
         deliveredBy:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
         evidence:
           type: object
+          additionalProperties: true
           nullable: true
 
     Dispute:
       type: object
+      additionalProperties: false
       properties:
         id:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
         escrowId:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
         userId:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
         reason:
           type: string
+          pattern: '^.{1,100}$'
+          maxLength: 100
         description:
           type: string
+          pattern: '^.{0,5000}$'
+          maxLength: 5000
         status:
           type: string
+          pattern: '^.{1,50}$'
+          maxLength: 50
         createdAt:
           type: string
           format: date-time
 
     AuditLog:
       type: object
+      additionalProperties: false
       properties:
         id:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
         action:
           type: string
+          maxLength: 100
         details:
           type: object
+          additionalProperties: true
         userId:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
           nullable: true
         createdAt:
           type: string
@@ -821,33 +1068,45 @@ components:
 
     ConfirmPaymentRequest:
       type: object
+      additionalProperties: false
       required:
         - transactionId
       properties:
         transactionId:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 200
           description: Transaction ID or hash
         evidence:
           type: string
+          pattern: '^.{0,5000}$'
+          maxLength: 5000
           description: Additional evidence (optional)
 
     MarkDeliveredRequest:
       type: object
+      additionalProperties: false
       required:
         - title
       properties:
         title:
           type: string
+          pattern: '^.{1,200}$'
+          maxLength: 200
           description: Delivery title
         description:
           type: string
+          pattern: '^.{0,5000}$'
+          maxLength: 5000
           description: Delivery description
         evidence:
           type: object
+          additionalProperties: true
           description: Delivery evidence (screenshots, API responses, etc.)
 
     DeliveryResponse:
       type: object
+      additionalProperties: false
       properties:
         success:
           type: boolean
@@ -858,6 +1117,7 @@ components:
 
     ConfirmDeliveryResponse:
       type: object
+      additionalProperties: false
       properties:
         success:
           type: boolean
@@ -865,28 +1125,38 @@ components:
           $ref: '#/components/schemas/Escrow'
         transferId:
           type: string
+          pattern: '^tr_[a-zA-Z0-9]+$'
+          maxLength: 200
           nullable: true
 
     CreateDisputeRequest:
       type: object
+      additionalProperties: false
       required:
         - reason
         - description
       properties:
         reason:
           type: string
+          pattern: '^.{1,100}$'
+          maxLength: 100
           description: Dispute reason
         description:
           type: string
+          pattern: '^.{0,5000}$'
+          maxLength: 5000
           description: Detailed description
         evidence:
           type: array
+          maxItems: 50
           items:
             type: object
+            additionalProperties: true
           description: Evidence attachments
 
     DisputeResponse:
       type: object
+      additionalProperties: false
       properties:
         success:
           type: boolean
@@ -895,6 +1165,7 @@ components:
 
     ResolveDisputeRequest:
       type: object
+      additionalProperties: false
       required:
         - resolution
         - reason
@@ -905,102 +1176,142 @@ components:
           description: Resolution decision
         reason:
           type: string
+          pattern: '^.{1,5000}$'
+          maxLength: 5000
           description: Resolution reason
 
     ReleaseFundsRequest:
       type: object
+      additionalProperties: false
       properties:
         reason:
           type: string
+          pattern: '^.{1,5000}$'
+          maxLength: 5000
           description: Optional reason for release
 
     ReleaseResponse:
       type: object
+      additionalProperties: false
       properties:
         success:
           type: boolean
         data:
           type: object
+          additionalProperties: false
           properties:
             transferId:
               type: string
+              pattern: '^tr_[a-zA-Z0-9]+$'
+              maxLength: 200
             amount:
               type: string
+              pattern: '^[0-9]+$'
+              maxLength: 20
             currency:
               type: string
+              pattern: '^[A-Z]{2,10}$'
+              maxLength: 10
 
     RefundRequest:
       type: object
+      additionalProperties: false
       required:
         - reason
       properties:
         refundAmount:
           type: number
           minimum: 0
+          maximum: 999999999
           description: Partial refund amount in cents (optional, defaults to full)
         reason:
           type: string
+          pattern: '^.{1,5000}$'
+          maxLength: 5000
           description: Refund reason
 
     RefundResponse:
       type: object
+      additionalProperties: false
       properties:
         success:
           type: boolean
         data:
           type: object
+          additionalProperties: false
           properties:
             refundId:
               type: string
+              pattern: '^re_[a-zA-Z0-9]+$'
+              maxLength: 200
             amount:
               type: string
+              pattern: '^[0-9]+$'
+              maxLength: 20
             currency:
               type: string
+              pattern: '^[A-Z]{2,10}$'
+              maxLength: 10
 
     CreateMilestonesRequest:
       type: object
+      additionalProperties: false
       required:
         - milestones
       properties:
         milestones:
           type: array
+          minItems: 1
+          maxItems: 50
           items:
             $ref: '#/components/schemas/MilestoneInput'
-          minItems: 1
 
     MilestoneInput:
       type: object
+      additionalProperties: false
       required:
         - title
         - amountCents
       properties:
         title:
           type: string
+          pattern: '^.{1,200}$'
+          maxLength: 200
           description: Milestone title
         amountCents:
           type: integer
           minimum: 1
+          maximum: 999999999
           description: Milestone amount in cents
 
     MilestonesResponse:
       type: object
+      additionalProperties: false
       properties:
         success:
           type: boolean
         data:
           type: array
+          maxItems: 50
           items:
             $ref: '#/components/schemas/Milestone'
 
     Milestone:
       type: object
+      additionalProperties: false
       properties:
         id:
           type: string
+          pattern: '^[a-zA-Z0-9_-]+$'
+          maxLength: 100
         title:
           type: string
+          pattern: '^.{1,200}$'
+          maxLength: 200
         amountCents:
           type: integer
+          minimum: 0
+          maximum: 2147483647
         status:
           type: string
           enum:
@@ -1016,41 +1327,61 @@ components:
 
     SuccessResponse:
       type: object
+      additionalProperties: false
       properties:
         success:
           type: boolean
         message:
           type: string
+          pattern: '^.{0,5000}$'
+          maxLength: 5000
 
     ProblemDetails:
       type: object
+      additionalProperties: false
       properties:
         type:
           type: string
           format: uri
+          pattern: '^https?://.+$'
+          maxLength: 500
           description: Error type URI
         title:
           type: string
+          pattern: '^.{1,200}$'
+          maxLength: 200
           description: Error title
         status:
           type: integer
+          minimum: 100
+          maximum: 599
           description: HTTP status code
         detail:
           type: string
+          pattern: '^.{0,5000}$'
+          maxLength: 5000
           description: Detailed error message
         instance:
           type: string
           format: uri
+          pattern: '^https?://.+$'
+          maxLength: 500
           description: Request instance URI
         errors:
           type: array
+          maxItems: 100
           items:
             type: object
+            additionalProperties: false
             properties:
               field:
                 type: string
+                pattern: '^.{1,100}$'
+                maxLength: 100
               message:
                 type: string
+                pattern: '^.{1,5000}$'
+                maxLength: 5000
           description: Validation errors (if applicable)
         timestamp:
           type: string
@@ -1112,6 +1443,34 @@ components:
             status: 404
             detail: The requested escrow was not found
             instance: /api/escrow/123
+            timestamp: '2025-01-02T12:00:00.000Z'
+
+    NotAcceptable:
+      description: Not acceptable - requested content type not supported
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://bloxtr8.com/problems/not-acceptable
+            title: Not Acceptable
+            status: 406
+            detail: Requested content type not supported
+            instance: /api/escrow
+            timestamp: '2025-01-02T12:00:00.000Z'
+
+    UnsupportedMediaType:
+      description: Unsupported media type
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://bloxtr8.com/problems/unsupported-media-type
+            title: Unsupported Media Type
+            status: 415
+            detail: Request content type not supported
+            instance: /api/escrow
             timestamp: '2025-01-02T12:00:00.000Z'
 
     Conflict:
