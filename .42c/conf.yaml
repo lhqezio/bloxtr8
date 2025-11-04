@@ -1,3 +1,0 @@
-apis:
-  documentation/design/escrow/api-gateway-openapi.yaml:
-    alias: bloxtr8-escrow-api
