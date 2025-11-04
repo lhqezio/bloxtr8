@@ -156,6 +156,7 @@ export class EscrowStateMachine {
           id: true,
           status: true,
           version: true,
+          metadata: true,
           offer: {
             select: {
               buyerId: true,
@@ -187,7 +188,15 @@ export class EscrowStateMachine {
           version: { increment: 1 },
           updatedAt: new Date(),
           metadata: metadata
-            ? { ...(current.metadata as object), ...metadata }
+            ? {
+                ...(current.metadata &&
+                typeof current.metadata === 'object' &&
+                current.metadata !== null &&
+                !Array.isArray(current.metadata)
+                  ? current.metadata
+                  : {}),
+                ...metadata,
+              }
             : current.metadata,
         },
       });
@@ -2278,7 +2287,7 @@ export class AutoRefundProcessor {
 
     for (const escrow of escrowsToRefund) {
       try {
-        await this.processAutoRefund(escrow.id);
+        await this.processAutoRefund(escrow.id, escrow.amount);
       } catch (error) {
         console.error(`Failed to auto-refund escrow ${escrow.id}:`, error);
         // Continue processing other escrows
@@ -2286,7 +2295,10 @@ export class AutoRefundProcessor {
     }
   }
 
-  private async processAutoRefund(escrowId: string): Promise<void> {
+  private async processAutoRefund(
+    escrowId: string,
+    refundAmount: Decimal
+  ): Promise<void> {
     await this.prisma.$transaction(async tx => {
       // Transition to REFUNDED
       await this.stateMachine.transition(
@@ -2309,7 +2321,7 @@ export class AutoRefundProcessor {
           payload: Buffer.from(
             JSON.stringify({
               escrowId,
-              refundAmount: escrow.amount.toString(),
+              refundAmount: refundAmount.toString(),
               reason: 'Buyer confirmation timeout',
               autoRefund: true,
             })
