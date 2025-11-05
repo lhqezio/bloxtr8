@@ -609,6 +609,94 @@ export abstract class EventHandler<TEvent> {
     const jitter = delay * 0.2 * Math.random(); // 0-20% jitter
     return delay + jitter;
   }
+
+  /**
+   * Retry sending a notification after a failure
+   * This method is called by the retry mechanism after exponential backoff delay
+   */
+  async retryNotification(deliveryId: string): Promise<void> {
+    const delivery = await this.prisma.notificationDelivery.findUnique({
+      where: { id: deliveryId },
+    });
+
+    if (!delivery || delivery.status !== 'RETRYING') {
+      return; // Already handled or no longer in retry state
+    }
+
+    // Check if max retries exceeded
+    if (delivery.retryCount >= 5) {
+      await this.prisma.notificationDelivery.update({
+        where: { id: deliveryId },
+        data: {
+          status: 'FAILED',
+          failedAt: new Date(),
+        },
+      });
+      return;
+    }
+
+    try {
+      // Fetch user data
+      const userData = await this.fetchUserData(delivery.userId);
+
+      // Fetch the original event data from event store
+      // Note: In a real implementation, this would fetch from Kafka or event store
+      // For now, we'll need to reconstruct the event or fetch it from storage
+      // This is a simplified version - actual implementation would need event store access
+      const event = await this.fetchEventData(delivery.eventId, delivery.eventType);
+
+      if (!event) {
+        // Event not found - mark as failed
+        await this.prisma.notificationDelivery.update({
+          where: { id: deliveryId },
+          data: {
+            status: 'FAILED',
+            failedAt: new Date(),
+            errorMessage: 'Original event data not found',
+          },
+        });
+        return;
+      }
+
+      // Build embed
+      const embed = this.buildEmbed(event, userData);
+
+      // Re-attempt sending
+      const user = await this.discordClient
+        .getClient()
+        .users.fetch(delivery.discordUserId);
+      const result = await this.rateLimiter.execute(delivery.discordUserId, () =>
+        sendDMWithEmbed(user, embed)
+      );
+
+      if (result.success) {
+        await this.prisma.notificationDelivery.update({
+          where: { id: deliveryId },
+          data: {
+            status: 'SENT',
+            sentAt: new Date(),
+          },
+        });
+      } else {
+        // Handle failure again (will trigger another retry if applicable)
+        await this.handleDeliveryFailure(deliveryId, result.error!);
+      }
+    } catch (error) {
+      await this.handleDeliveryFailure(
+        deliveryId,
+        error instanceof Error ? error.message : 'Unknown error occurred'
+      );
+    }
+  }
+
+  /**
+   * Fetch event data from event store
+   * This is an abstract method that subclasses should implement based on their event source
+   */
+  protected abstract fetchEventData(
+    eventId: string,
+    eventType: string
+  ): Promise<TEvent | null>;
 }
 ```
 
@@ -1324,6 +1412,12 @@ export class DeadLetterQueue {
 
 ```typescript
 export class NotificationPreferenceService {
+  private quietHoursChecker: QuietHoursChecker;
+
+  constructor(private prisma: PrismaClient) {
+    this.quietHoursChecker = new QuietHoursChecker();
+  }
+
   async getPreference(
     userId: string,
     eventType: string
@@ -1380,6 +1474,10 @@ export class NotificationPreferenceService {
         quietHoursEnd: updates.quietHoursEnd,
       },
     });
+  }
+
+  isQuietHours(preference: NotificationPreference): boolean {
+    return this.quietHoursChecker.isQuietHours(preference);
   }
 }
 ```
