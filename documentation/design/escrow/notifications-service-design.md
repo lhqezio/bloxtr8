@@ -330,12 +330,14 @@ export class RateLimiter {
       );
     }
 
-    recentRequests.push(Date.now());
-    // Keep only last 100 timestamps
-    if (recentRequests.length > 100) {
-      recentRequests.shift();
+    // Add new timestamp to the original array
+    timestamps.push(Date.now());
+    // Keep only last 100 timestamps in the original array
+    if (timestamps.length > 100) {
+      timestamps.shift();
     }
-    this.requestTimestamps.set(userId, recentRequests);
+    // Save the updated original array back to the map
+    this.requestTimestamps.set(userId, timestamps);
   }
 
   private async processQueue(userId: string): Promise<void> {
@@ -572,7 +574,8 @@ export abstract class EventHandler<TEvent> {
       });
 
       // Schedule retry with exponential backoff
-      const delay = this.calculateRetryDelay(delivery.retryCount);
+      // Use retryCount + 1 because the database update just incremented it
+      const delay = this.calculateRetryDelay(delivery.retryCount + 1);
       setTimeout(() => {
         this.retryNotification(deliveryId);
       }, delay);
