@@ -423,6 +423,7 @@ export abstract class EventHandler<TEvent> {
   abstract getEventType(): string;
   abstract getRecipients(event: TEvent): Promise<string[]>; // Returns user IDs
   abstract buildEmbed(event: TEvent, userData: UserData): EmbedBuilder;
+  abstract fetchUserData(userId: string): Promise<UserData>;
 
   async handle(event: TEvent, eventId: string): Promise<void> {
     // 1. Check idempotency
