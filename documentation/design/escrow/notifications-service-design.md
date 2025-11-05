@@ -563,7 +563,7 @@ export abstract class EventHandler<TEvent> {
     const shouldRetry = delivery.retryCount < 5 && isRetryable;
 
     if (shouldRetry) {
-      await this.prisma.notificationDelivery.update({
+      const updatedDelivery = await this.prisma.notificationDelivery.update({
         where: { id: deliveryId },
         data: {
           status: 'RETRYING',
@@ -574,8 +574,10 @@ export abstract class EventHandler<TEvent> {
       });
 
       // Schedule retry with exponential backoff
-      // Use retryCount + 1 because the database update just incremented it
-      const delay = this.calculateRetryDelay(delivery.retryCount + 1);
+      // Use the updated retryCount from the database after the increment
+      // Subtract 1 because retryCount represents attempts made, but delay calculation
+      // expects attempt number (0-indexed). retryCount=1 means first retry = attempt 0
+      const delay = this.calculateRetryDelay(updatedDelivery.retryCount - 1);
       setTimeout(() => {
         this.retryNotification(deliveryId);
       }, delay);
@@ -1403,6 +1405,7 @@ export class DeadLetterQueue {
 - Channel (DISCORD_DM, EMAIL, PUSH - future)
 - Enabled (boolean)
 - Quiet hours (optional time range)
+- Timezone (optional IANA timezone, defaults to UTC)
 
 ### Default Preferences
 
@@ -1448,6 +1451,7 @@ export class NotificationPreferenceService {
       enabled: true,
       quietHoursStart: null,
       quietHoursEnd: null,
+      timezone: null, // Defaults to UTC in QuietHoursChecker
     };
   }
 
@@ -1471,11 +1475,13 @@ export class NotificationPreferenceService {
         enabled: updates.enabled ?? true,
         quietHoursStart: updates.quietHoursStart ?? null,
         quietHoursEnd: updates.quietHoursEnd ?? null,
+        timezone: updates.timezone ?? null,
       },
       update: {
         enabled: updates.enabled,
         quietHoursStart: updates.quietHoursStart,
         quietHoursEnd: updates.quietHoursEnd,
+        timezone: updates.timezone,
       },
     });
   }
@@ -1513,24 +1519,64 @@ export class NotificationPreferenceService {
 
 ```typescript
 export class QuietHoursChecker {
+  /**
+   * Converts a time string in HH:mm format to minutes since midnight.
+   * Validates format and throws if invalid.
+   */
+  private timeToMinutes(timeStr: string): number {
+    // Validate format: should be HH:mm
+    const timeRegex = /^([0-1][0-9]|2[0-3]):([0-5][0-9])$/;
+    if (!timeRegex.test(timeStr)) {
+      throw new Error(
+        `Invalid time format: ${timeStr}. Expected HH:mm format (e.g., "09:30")`
+      );
+    }
+
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
+
+  /**
+   * Gets the current time in the user's timezone (or UTC if not specified).
+   * Returns minutes since midnight in the user's timezone.
+   */
+  private getCurrentTimeInTimezone(timezone?: string): number {
+    const now = new Date();
+
+    // Use user's timezone if provided, otherwise use UTC
+    const timeZone = timezone || 'UTC';
+
+    // Format time in user's timezone
+    const timeStr = now.toLocaleTimeString('en-US', {
+      timeZone,
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    return this.timeToMinutes(timeStr);
+  }
+
   isQuietHours(preference: NotificationPreference): boolean {
     if (!preference.quietHoursStart || !preference.quietHoursEnd) {
       return false;
     }
 
-    const now = new Date();
-    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    // Get current time in user's timezone (or UTC if not specified)
+    const currentMinutes = this.getCurrentTimeInTimezone(preference.timezone);
 
-    const start = preference.quietHoursStart;
-    const end = preference.quietHoursEnd;
+    // Convert quiet hours to minutes since midnight
+    const startMinutes = this.timeToMinutes(preference.quietHoursStart);
+    const endMinutes = this.timeToMinutes(preference.quietHoursEnd);
 
     // Handle overnight quiet hours (e.g., 22:00 to 08:00)
-    if (start > end) {
-      return currentTime >= start || currentTime <= end;
+    // If start > end, it means the quiet hours span midnight
+    if (startMinutes > endMinutes) {
+      return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
     }
 
     // Handle same-day quiet hours (e.g., 09:00 to 17:00)
-    return currentTime >= start && currentTime <= end;
+    return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
   }
 }
 ```
@@ -1590,6 +1636,7 @@ model NotificationPreference {
   enabled         Boolean  @default(true)
   quietHoursStart String?  // HH:mm format (e.g., "22:00")
   quietHoursEnd   String?  // HH:mm format (e.g., "08:00")
+  timezone        String?  // IANA timezone (e.g., "America/New_York", "Europe/London"). Defaults to UTC if not specified.
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -1664,6 +1711,7 @@ export class KafkaConsumer {
     this.isRunning = true;
 
     await this.consumer.run({
+      autoCommit: false, // Manual commit for at-least-once processing
       eachMessage: async (payload: EachMessagePayload) => {
         await this.handleMessage(payload);
       },
@@ -1700,6 +1748,13 @@ export class KafkaConsumer {
 
       // Commit offset after successful processing
       // Note: In production, consider committing after processing all messages in batch
+      await this.consumer.commitOffsets([
+        {
+          topic: payload.topic,
+          partition: payload.partition,
+          offset: (parseInt(payload.message.offset) + 1).toString(),
+        },
+      ]);
     } catch (error) {
       console.error(`Error processing event ${eventType}:`, error);
       // Don't commit offset on error - allows retry
