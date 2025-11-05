@@ -653,7 +653,7 @@ export class CreateEscrowCommandHandler extends EscrowCommandHandler<CreateEscro
             aggregateId: escrow.id,
             eventType: 'EscrowCreated',
             payload: Buffer.from(
-              JSON.stringify({
+              protobufSerialize({
                 escrowId: escrow.id,
                 offerId: command.payload.offerId,
                 contractId: command.payload.contractId,
@@ -756,7 +756,7 @@ export class ConfirmPaymentCommandHandler extends EscrowCommandHandler<ConfirmPa
             aggregateId: command.escrowId,
             eventType: 'EscrowFundsHeld',
             payload: Buffer.from(
-              JSON.stringify({
+              protobufSerialize({
                 escrowId: command.escrowId,
                 transactionId: command.payload.transactionId,
                 timestamp: new Date().toISOString(),
@@ -863,7 +863,7 @@ export class MarkDeliveredCommandHandler extends EscrowCommandHandler<MarkDelive
             aggregateId: command.escrowId,
             eventType: 'EscrowDelivered',
             payload: Buffer.from(
-              JSON.stringify({
+              protobufSerialize({
                 escrowId: command.escrowId,
                 deliveryId: delivery.id,
                 deliveredBy: command.payload.userId,
@@ -941,17 +941,18 @@ export class ConfirmDeliveryCommandHandler extends EscrowCommandHandler<ConfirmD
           data: { autoRefundAt: null },
         });
 
-        // Emit command to Payments Service to release funds
-        // (This will be handled by separate ReleaseFundsCommand)
+        // Emit domain event: delivery confirmed
+        // Note: This event will be consumed by Escrow Service to trigger ReleaseFundsCommand
         await tx.outbox.create({
           data: {
             aggregateId: command.escrowId,
-            eventType: 'ReleaseFundsCommand',
+            eventType: 'DeliveryConfirmed',
             payload: Buffer.from(
-              JSON.stringify({
+              protobufSerialize({
                 escrowId: command.escrowId,
-                reason: 'Buyer confirmed delivery',
-                userId: command.payload.userId,
+                deliveryId: latestDelivery.id,
+                confirmedBy: command.payload.userId,
+                timestamp: new Date().toISOString(),
               })
             ),
             version: 1,
@@ -989,7 +990,15 @@ export class ReleaseFundsCommandHandler extends EscrowCommandHandler<ReleaseFund
       await this.prisma.$transaction(async tx => {
         const escrow = await tx.escrow.findUnique({
           where: { id: command.escrowId },
-          include: { offer: true },
+          include: {
+            offer: {
+              include: {
+                seller: true,
+              },
+            },
+            stripeEscrow: true,
+            stablecoinEscrow: true,
+          },
         });
 
         if (!escrow) {
@@ -1011,6 +1020,11 @@ export class ReleaseFundsCommandHandler extends EscrowCommandHandler<ReleaseFund
           throw new AuthorizationError('Only admin or buyer can release funds');
         }
 
+        // Calculate transfer amount and fees
+        // Note: Fee calculation logic should be centralized in a fee service
+        const sellerFee = this.calculateSellerFee(escrow.amount, escrow.rail);
+        const transferAmount = escrow.amount - sellerFee;
+
         // Transition to RELEASED
         await this.stateMachine.transition(
           tx,
@@ -1020,17 +1034,26 @@ export class ReleaseFundsCommandHandler extends EscrowCommandHandler<ReleaseFund
           command.payload.reason || 'Funds released'
         );
 
-        // Emit command to Payments Service to transfer funds
+        // Emit domain event: escrow released
+        // Note: Payments Service consumes EscrowReleased event and internally creates TransferToSellerCommand
         await tx.outbox.create({
           data: {
             aggregateId: command.escrowId,
-            eventType: 'TransferToSellerCommand',
+            eventType: 'EscrowReleased',
             payload: Buffer.from(
-              JSON.stringify({
+              protobufSerialize({
                 escrowId: command.escrowId,
                 rail: escrow.rail,
                 amount: escrow.amount.toString(),
                 currency: escrow.currency,
+                transferAmount: transferAmount.toString(),
+                sellerFee: sellerFee.toString(),
+                sellerStripeAccountId:
+                  escrow.offer.seller.stripeAccountId || null,
+                sellerWalletAddress: escrow.offer.seller.walletAddress || null,
+                releasedBy: command.payload.userId,
+                reason: command.payload.reason || 'Funds released',
+                timestamp: new Date().toISOString(),
               })
             ),
             version: 1,
@@ -1039,10 +1062,23 @@ export class ReleaseFundsCommandHandler extends EscrowCommandHandler<ReleaseFund
       });
     });
   }
+
+  /**
+   * Calculate seller fee based on rail and amount
+   * Note: This should be centralized in a fee service in production
+   */
+  private calculateSellerFee(amount: BigInt, rail: EscrowRail): BigInt {
+    if (rail === 'STRIPE') {
+      // Stripe seller fee: $0.50 per transaction
+      return BigInt(50); // 50 cents
+    } else if (rail === 'USDC_BASE') {
+      // USDC seller fee: 0.5% of amount
+      return (amount * BigInt(5)) / BigInt(1000); // 0.5%
+    }
+    return BigInt(0);
+  }
 }
 ```
-
-### RefundBuyerCommand Handler
 
 **Command Structure**:
 
@@ -1112,18 +1148,20 @@ export class RefundBuyerCommandHandler extends EscrowCommandHandler<RefundBuyerC
           }
         );
 
-        // Emit command to Payments Service to process refund
+        // Emit domain event: escrow refunded
+        // Note: Payments Service consumes EscrowRefunded event and internally creates RefundBuyerCommand
         await tx.outbox.create({
           data: {
             aggregateId: command.escrowId,
-            eventType: 'RefundBuyerCommand',
+            eventType: 'EscrowRefunded',
             payload: Buffer.from(
-              JSON.stringify({
+              protobufSerialize({
                 escrowId: command.escrowId,
-                rail: escrow.rail,
                 refundAmount: refundAmount.toString(),
-                currency: escrow.currency,
+                refundType: refundAmount === escrow.amount ? 'FULL' : 'PARTIAL',
+                refundedBy: command.payload.userId,
                 reason: command.payload.reason,
+                timestamp: new Date().toISOString(),
               })
             ),
             version: 1,
@@ -1227,7 +1265,7 @@ export class CreateDisputeCommandHandler extends EscrowCommandHandler<CreateDisp
             aggregateId: command.escrowId,
             eventType: 'DisputeOpened',
             payload: Buffer.from(
-              JSON.stringify({
+              protobufSerialize({
                 escrowId: command.escrowId,
                 disputeId: dispute.id,
                 openedBy: command.payload.userId,
@@ -1272,7 +1310,14 @@ export class ResolveDisputeCommandHandler extends EscrowCommandHandler<ResolveDi
       await this.prisma.$transaction(async tx => {
         const escrow = await tx.escrow.findUnique({
           where: { id: command.escrowId },
-          include: { disputes: true },
+          include: {
+            disputes: true,
+            offer: {
+              include: {
+                seller: true,
+              },
+            },
+          },
         });
 
         if (!escrow) {
@@ -1327,18 +1372,33 @@ export class ResolveDisputeCommandHandler extends EscrowCommandHandler<ResolveDi
           }
         );
 
-        // Emit command to Payments Service if needed
+        // Emit domain event based on resolution
+        // Note: Payments Service consumes these events and internally creates commands
         if (command.payload.resolution === 'RELEASE') {
+          // Calculate transfer amount and fees
+          const sellerFee = this.calculateSellerFee(escrow.amount, escrow.rail);
+          const transferAmount = escrow.amount - sellerFee;
+
           await tx.outbox.create({
             data: {
               aggregateId: command.escrowId,
-              eventType: 'TransferToSellerCommand',
+              eventType: 'EscrowReleased',
               payload: Buffer.from(
-                JSON.stringify({
+                protobufSerialize({
                   escrowId: command.escrowId,
                   rail: escrow.rail,
                   amount: escrow.amount.toString(),
                   currency: escrow.currency,
+                  transferAmount: transferAmount.toString(),
+                  sellerFee: sellerFee.toString(),
+                  sellerStripeAccountId:
+                    escrow.offer.seller.stripeAccountId || null,
+                  sellerWalletAddress:
+                    escrow.offer.seller.walletAddress || null,
+                  releasedBy: command.payload.userId,
+                  reason: `Dispute resolved: ${command.payload.reason}`,
+                  disputeId: command.payload.disputeId,
+                  timestamp: new Date().toISOString(),
                 })
               ),
               version: 1,
@@ -1348,14 +1408,16 @@ export class ResolveDisputeCommandHandler extends EscrowCommandHandler<ResolveDi
           await tx.outbox.create({
             data: {
               aggregateId: command.escrowId,
-              eventType: 'RefundBuyerCommand',
+              eventType: 'EscrowRefunded',
               payload: Buffer.from(
-                JSON.stringify({
+                protobufSerialize({
                   escrowId: command.escrowId,
-                  rail: escrow.rail,
                   refundAmount: escrow.amount.toString(),
-                  currency: escrow.currency,
-                  reason: command.payload.reason,
+                  refundType: 'FULL',
+                  refundedBy: command.payload.userId,
+                  reason: `Dispute resolved: ${command.payload.reason}`,
+                  disputeId: command.payload.disputeId,
+                  timestamp: new Date().toISOString(),
                 })
               ),
               version: 1,
@@ -1434,7 +1496,7 @@ export class CancelEscrowCommandHandler extends EscrowCommandHandler<CancelEscro
             aggregateId: command.escrowId,
             eventType: 'EscrowCancelled',
             payload: Buffer.from(
-              JSON.stringify({
+              protobufSerialize({
                 escrowId: command.escrowId,
                 cancelledBy: command.payload.userId,
                 reason: command.payload.reason,
@@ -1450,7 +1512,113 @@ export class CancelEscrowCommandHandler extends EscrowCommandHandler<CancelEscro
 }
 ```
 
+### Commands vs Events Pattern
+
+**Important Distinction**:
+
+- **Commands**: Instructions to perform an action (e.g., `CreateEscrowCommand`, `ReleaseFundsCommand`, `RefundBuyerCommand`)
+  - Published **directly to Kafka** command topics
+  - **NOT** stored in outbox table
+  - Used for service-to-service communication
+  - Example: API Gateway → Escrow Service command
+
+- **Domain Events**: Facts that have occurred (e.g., `EscrowCreated`, `EscrowReleased`, `EscrowRefunded`)
+  - Published via **Transactional Outbox Pattern**
+  - Stored in outbox table first, then published to Kafka
+  - Used for event-driven communication and audit trail
+  - Example: Escrow Service → Payments Service event
+
+**Command Publishing Pattern**:
+
+```typescript
+// Commands publish directly to Kafka (NOT through outbox)
+await kafkaProducer.send({
+  topic: 'escrow-commands',
+  messages: [
+    {
+      key: command.escrowId,
+      value: JSON.stringify(command),
+      headers: {
+        'command-id': command.commandId,
+        'command-type': command.commandType,
+      },
+    },
+  ],
+});
+```
+
+**Event Publishing Pattern**:
+
+```typescript
+// Events use transactional outbox pattern
+await tx.outbox.create({
+  data: {
+    aggregateId: escrowId,
+    eventType: 'EscrowReleased',
+    payload: Buffer.from(protobufSerialize(event)),
+    version: 1,
+  },
+});
+// Outbox publisher process will publish to Kafka asynchronously
+```
+
+**Flow Example**:
+
+```
+Escrow Service: ReleaseFundsCommand processed
+  ↓
+Escrow Service: State transition to RELEASED
+  ↓
+Escrow Service: Emit EscrowReleased event (via outbox)
+  ↓
+Payments Service: Consumes EscrowReleased event
+  ↓
+Payments Service: Creates TransferToSellerCommand internally
+  ↓
+Payments Service: Publishes TransferToSellerCommand directly to Kafka
+  ↓
+Payments Service: Processes transfer
+  ↓
+Payments Service: Emits TransferSucceeded event (via outbox)
+```
+
 ## Event Emission Patterns
+
+### Event Naming Conventions
+
+**Important**: Two different naming conventions are used for different purposes:
+
+1. **Kafka Events** (Outbox table `eventType` field): PascalCase
+   - Examples: `EscrowCreated`, `EscrowReleased`, `EscrowRefunded`, `PaymentSucceeded`, `TransferSucceeded`
+   - Used for: Event-driven communication between services via Kafka
+   - Format: `{Aggregate}{Action}` or `{Action}{Result}`
+
+2. **EscrowEvent Table** (`eventType` field): SCREAMING_SNAKE_CASE
+   - Examples: `ESCROW_CREATED`, `FUNDS_HELD`, `DELIVERED`, `RELEASED`, `REFUNDED`
+   - Used for: Internal audit trail and event sourcing within Escrow Service
+   - Format: `{STATUS}` or `{ACTION}_{RESULT}`
+
+**Rationale**:
+
+- Kafka events use PascalCase for consistency with common event-driven architecture patterns
+- EscrowEvent table uses SCREAMING_SNAKE_CASE to match database naming conventions and clearly distinguish from Kafka events
+- This separation allows for different event schemas and purposes
+
+**Example**:
+
+```typescript
+// EscrowEvent table (internal audit)
+await tx.escrowEvent.create({
+  eventType: 'ESCROW_CREATED',  // SCREAMING_SNAKE_CASE
+  payload: { ... },
+});
+
+// Outbox table (Kafka event)
+await tx.outbox.create({
+  eventType: 'EscrowCreated',   // PascalCase
+  payload: Buffer.from(protobufSerialize({ ... })),
+});
+```
 
 ### Outbox Pattern Implementation
 
@@ -1516,8 +1684,19 @@ export class OutboxPublisher {
 
   private deserializeProtobuf(buffer: Buffer): unknown {
     // Deserialize Protobuf message
-    // Implementation depends on Protobuf schema
-    return JSON.parse(buffer.toString());
+    // Implementation depends on Protobuf schema definitions
+    // Example using protobufjs or @grpc/proto-loader:
+    const { EscrowCreated } = require('./generated/escrow_pb');
+    const message = EscrowCreated.deserializeBinary(buffer);
+    return {
+      escrowId: message.getEscrowId(),
+      offerId: message.getOfferId(),
+      contractId: message.getContractId(),
+      rail: message.getRail(),
+      amount: message.getAmount(),
+      currency: message.getCurrency(),
+      createdAt: message.getCreatedAt(),
+    };
   }
 }
 ```
@@ -1581,19 +1760,37 @@ message EscrowDelivered {
   string timestamp = 4;
 }
 
+message DeliveryConfirmed {
+  string escrow_id = 1;
+  string delivery_id = 2;
+  string confirmed_by = 3; // Buyer user ID
+  string timestamp = 4;
+}
+
 message EscrowReleased {
   string escrow_id = 1;
-  string transfer_id = 2;
-  string released_by = 3;
-  string timestamp = 4;
+  string rail = 2; // "STRIPE" | "USDC_BASE"
+  string amount = 3; // Original escrow amount
+  string currency = 4; // "USD" | "USDC"
+  string transfer_amount = 5; // Net amount after seller fee
+  string seller_fee = 6; // Platform fee deducted from seller
+  string seller_stripe_account_id = 7; // Stripe Connect account ID (for STRIPE rail)
+  string seller_wallet_address = 8; // Wallet address (for USDC_BASE rail)
+  string released_by = 9; // User ID who released funds
+  string reason = 10; // Reason for release
+  string dispute_id = 11; // Optional: dispute ID if resolved via dispute
+  string timestamp = 12; // ISO8601 timestamp
 }
 
 message EscrowRefunded {
   string escrow_id = 1;
-  string refund_id = 2;
-  string refund_amount = 3;
-  string refunded_by = 4;
-  string timestamp = 5;
+  string refund_amount = 2; // Amount refunded
+  string refund_type = 3; // "FULL" | "PARTIAL"
+  string refunded_by = 4; // User ID who initiated refund
+  string reason = 5; // Reason for refund
+  string dispute_id = 6; // Optional: dispute ID if resolved via dispute
+  bool auto_refund = 7; // True if auto-refund due to timeout
+  string timestamp = 8; // ISO8601 timestamp
 }
 ```
 
@@ -2233,7 +2430,7 @@ export class EscrowExpirationProcessor {
           aggregateId: escrowId,
           eventType: 'EscrowExpired',
           payload: Buffer.from(
-            JSON.stringify({
+            protobufSerialize({
               escrowId,
               expiredAt: new Date().toISOString(),
               reason: 'Payment deadline exceeded',
@@ -2313,17 +2510,21 @@ export class AutoRefundProcessor {
         }
       );
 
-      // Create outbox event to trigger refund
+      // Emit domain event: escrow refunded (auto-refund)
+      // Note: Payments Service consumes EscrowRefunded event and internally creates RefundBuyerCommand
       await tx.outbox.create({
         data: {
           aggregateId: escrowId,
-          eventType: 'RefundBuyerCommand',
+          eventType: 'EscrowRefunded',
           payload: Buffer.from(
-            JSON.stringify({
+            protobufSerialize({
               escrowId,
               refundAmount: refundAmount.toString(),
+              refundType: 'FULL',
+              refundedBy: 'system',
               reason: 'Buyer confirmation timeout',
               autoRefund: true,
+              timestamp: new Date().toISOString(),
             })
           ),
           version: 1,
