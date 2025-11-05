@@ -1958,22 +1958,29 @@ Rebuilds projections for specific escrows:
 
 ```typescript
 async rebuildEscrow(escrowId: string): Promise<void> {
-  // 1. Delete existing projections
-  // Note: EscrowStats is NOT deleted here because:
-  // - EscrowStats tracks userId, period, and periodStart (not escrowId)
-  // - EscrowStats are user-level aggregations shared across multiple escrows
-  // - Deleting EscrowStats would require identifying all affected users and their periods,
-  //   which is complex and unnecessary since event handlers will update stats correctly
-  // - The event replay will trigger handlers that update EscrowStats for affected users
-  await this.prisma.$transaction(async tx => {
-    await tx.escrowSummary.deleteMany({ where: { id: escrowId } });
-    await tx.userEscrowHistory.deleteMany({ where: { escrowId } });
-    await tx.paymentHistory.deleteMany({ where: { escrowId } });
-    await tx.eventProcessingState.deleteMany({ where: { aggregateId: escrowId } });
-    // EscrowStats is intentionally NOT deleted - it will be updated via event handlers during replay
+  // 1. Fetch escrow data and existing projections to identify affected users and periods
+  // This is needed to properly reset stats before replay
+  const escrow = await this.prisma.escrow.findUnique({
+    where: { id: escrowId },
+    include: {
+      offer: {
+        select: {
+          buyerId: true,
+          sellerId: true,
+        },
+      },
+    },
   });
 
-  // 2. Replay events for this escrow
+  if (!escrow) {
+    throw new Error(`Escrow ${escrowId} not found`);
+  }
+
+  const existingSummary = await this.prisma.escrowSummary.findUnique({
+    where: { id: escrowId },
+  });
+
+  // 2. Collect all events to identify affected periods
   const events = await this.prisma.escrowEvent.findMany({
     where: { escrowId },
     orderBy: [
@@ -1987,7 +1994,134 @@ async rebuildEscrow(escrowId: string): Promise<void> {
     return;
   }
 
-  // 3. Process events through handlers
+  // 3. Extract all timestamps from events that affect stats
+  // Stats-affecting events: EscrowCreated, EscrowReleased, EscrowRefunded, EscrowCancelled
+  const statsAffectingEventTypes = new Set([
+    'EscrowCreated',
+    'EscrowReleased',
+    'EscrowRefunded',
+    'EscrowCancelled',
+  ]);
+
+  const statsEventTimestamps = events
+    .filter(e => statsAffectingEventTypes.has(e.eventType))
+    .map(e => {
+      const payload = typeof e.payload === 'string' ? JSON.parse(e.payload) : e.payload;
+      return new Date(payload.timestamp || e.createdAt);
+    });
+
+  // If no stats-affecting events, still process the escrow creation timestamp
+  if (statsEventTimestamps.length === 0 && existingSummary) {
+    statsEventTimestamps.push(existingSummary.createdAt);
+  }
+
+  // 4. Calculate all affected periods for both users
+  const affectedPeriods = new Set<string>();
+  const buyerId = escrow.offer.buyerId;
+  const sellerId = escrow.offer.sellerId;
+
+  for (const timestamp of statsEventTimestamps) {
+    const periods = this.getPeriodsForTimestamp(timestamp);
+    for (const { period, start } of periods) {
+      affectedPeriods.add(`${buyerId}:${period}:${start.toISOString()}`);
+      affectedPeriods.add(`${sellerId}:${period}:${start.toISOString()}`);
+    }
+  }
+
+  // 5. Reset stats for affected users/periods by reversing this escrow's contributions
+  // This prevents double-counting when replaying events
+  await this.prisma.$transaction(async tx => {
+    // First, get the escrow amount if available
+    const amount = existingSummary?.amount || escrow.amount;
+
+    // Determine which stats-affecting events occurred by checking event types
+    const hasCreatedEvent = events.some(e => e.eventType === 'EscrowCreated');
+    const hasReleasedEvent = events.some(e => e.eventType === 'EscrowReleased');
+    const hasRefundedEvent = events.some(e => e.eventType === 'EscrowRefunded');
+    const hasCancelledEvent = events.some(e => e.eventType === 'EscrowCancelled');
+
+    // Reverse stats changes for each affected user/period
+    for (const periodKey of affectedPeriods) {
+      const [userId, period, periodStartStr] = periodKey.split(':');
+      const periodStart = new Date(periodStartStr);
+
+      // Determine if user was buyer or seller
+      const role = userId === buyerId ? 'BUYER' : 'SELLER';
+
+      // Reverse EscrowCreated: always increments totalEscrows, totalVolume, activeEscrows, buyer/seller counts
+      if (hasCreatedEvent) {
+        await tx.escrowStats.updateMany({
+          where: {
+            userId,
+            period: period as StatsPeriod,
+            periodStart,
+          },
+          data: {
+            totalEscrows: { decrement: 1 },
+            totalVolume: { decrement: amount },
+            activeEscrows: { decrement: 1 },
+            buyerEscrows: role === 'BUYER' ? { decrement: 1 } : undefined,
+            buyerVolume: role === 'BUYER' ? { decrement: amount } : undefined,
+            sellerEscrows: role === 'SELLER' ? { decrement: 1 } : undefined,
+            sellerVolume: role === 'SELLER' ? { decrement: amount } : undefined,
+          },
+        });
+      }
+
+      // Reverse EscrowReleased: decrements activeEscrows, increments completedEscrows
+      if (hasReleasedEvent) {
+        await tx.escrowStats.updateMany({
+          where: {
+            userId,
+            period: period as StatsPeriod,
+            periodStart,
+          },
+          data: {
+            activeEscrows: { increment: 1 }, // Reverse the decrement
+            completedEscrows: { decrement: 1 }, // Reverse the increment
+          },
+        });
+      }
+
+      // Reverse EscrowRefunded: decrements activeEscrows, increments refundedEscrows
+      if (hasRefundedEvent) {
+        await tx.escrowStats.updateMany({
+          where: {
+            userId,
+            period: period as StatsPeriod,
+            periodStart,
+          },
+          data: {
+            activeEscrows: { increment: 1 }, // Reverse the decrement
+            refundedEscrows: { decrement: 1 }, // Reverse the increment
+          },
+        });
+      }
+
+      // Reverse EscrowCancelled: decrements activeEscrows
+      if (hasCancelledEvent) {
+        await tx.escrowStats.updateMany({
+          where: {
+            userId,
+            period: period as StatsPeriod,
+            periodStart,
+          },
+          data: {
+            activeEscrows: { increment: 1 }, // Reverse the decrement
+          },
+        });
+      }
+    }
+
+    // 6. Delete existing projections (after resetting stats)
+    await tx.escrowSummary.deleteMany({ where: { id: escrowId } });
+    await tx.userEscrowHistory.deleteMany({ where: { escrowId } });
+    await tx.paymentHistory.deleteMany({ where: { escrowId } });
+    await tx.eventProcessingState.deleteMany({ where: { aggregateId: escrowId } });
+  });
+
+  // 7. Replay events for this escrow
+  // Event handlers will now correctly increment stats from the reset baseline
   for (const event of events) {
     const handler = this.handlerRegistry.getHandler(event.eventType);
 
@@ -2011,6 +2145,17 @@ async rebuildEscrow(escrowId: string): Promise<void> {
   }
 
   console.log(`Rebuilt projections for escrow ${escrowId} from ${events.length} events`);
+}
+
+private getPeriodsForTimestamp(
+  timestamp: Date
+): Array<{ period: StatsPeriod; start: Date }> {
+  return [
+    { period: 'DAILY', start: startOfDay(timestamp) },
+    { period: 'WEEKLY', start: startOfWeek(timestamp) },
+    { period: 'MONTHLY', start: startOfMonth(timestamp) },
+    { period: 'ALL_TIME', start: new Date(0) },
+  ];
 }
 ```
 
