@@ -514,7 +514,10 @@ export abstract class EventHandler<TEvent> {
         await this.handleDeliveryFailure(delivery.id, result.error!);
       }
     } catch (error) {
-      await this.handleDeliveryFailure(delivery.id, error.message);
+      await this.handleDeliveryFailure(
+        delivery.id,
+        error instanceof Error ? error.message : 'Unknown error occurred'
+      );
     }
   }
 
