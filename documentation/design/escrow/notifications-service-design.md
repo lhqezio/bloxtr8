@@ -295,10 +295,7 @@ export class RateLimiter {
   private readonly maxRequestsPerUserPerSecond = 50;
   private requestTimestamps: Map<string, number[]> = new Map();
 
-  async execute<T>(
-    userId: string,
-    fn: () => Promise<T>
-  ): Promise<T> {
+  async execute<T>(userId: string, fn: () => Promise<T>): Promise<T> {
     return new Promise((resolve, reject) => {
       const queue = this.queues.get(userId) || [];
       queue.push(async () => {
@@ -423,7 +420,7 @@ export abstract class EventHandler<TEvent> {
   async handle(event: TEvent, eventId: string): Promise<void> {
     // 1. Check idempotency
     const recipients = await this.getRecipients(event);
-    
+
     for (const userId of recipients) {
       const existing = await this.prisma.notificationDelivery.findUnique({
         where: {
@@ -435,7 +432,9 @@ export abstract class EventHandler<TEvent> {
       });
 
       if (existing) {
-        console.log(`Notification already sent for event ${eventId} to user ${userId}`);
+        console.log(
+          `Notification already sent for event ${eventId} to user ${userId}`
+        );
         continue;
       }
 
@@ -446,7 +445,9 @@ export abstract class EventHandler<TEvent> {
       );
 
       if (!preference.enabled) {
-        console.log(`Notification disabled for user ${userId}, event ${this.getEventType()}`);
+        console.log(
+          `Notification disabled for user ${userId}, event ${this.getEventType()}`
+        );
         await this.recordSkippedNotification(eventId, userId, 'DISABLED');
         continue;
       }
@@ -465,7 +466,12 @@ export abstract class EventHandler<TEvent> {
       const embed = this.buildEmbed(event, userData);
 
       // 6. Send notification
-      await this.sendNotification(userId, userData.discordUserId, embed, eventId);
+      await this.sendNotification(
+        userId,
+        userData.discordUserId,
+        embed,
+        eventId
+      );
     }
   }
 
@@ -488,7 +494,9 @@ export abstract class EventHandler<TEvent> {
 
     try {
       // Send via Discord
-      const user = await this.discordClient.getClient().users.fetch(discordUserId);
+      const user = await this.discordClient
+        .getClient()
+        .users.fetch(discordUserId);
       const result = await this.rateLimiter.execute(discordUserId, () =>
         sendDMWithEmbed(user, embed)
       );
@@ -658,9 +666,7 @@ interface EscrowCreatedData {
   rail: 'STRIPE' | 'USDC_BASE';
 }
 
-export function buildEscrowCreatedEmbed(
-  data: EscrowCreatedData
-): EmbedBuilder {
+export function buildEscrowCreatedEmbed(data: EscrowCreatedData): EmbedBuilder {
   return new EmbedBuilder()
     .setTitle('📋 Escrow Created')
     .setColor(0x3b82f6) // Blue
@@ -669,11 +675,19 @@ export function buildEscrowCreatedEmbed(
     )
     .addFields(
       { name: '💰 Amount', value: formatCurrency(data.amount), inline: true },
-      { name: '💳 Payment Method', value: data.rail === 'STRIPE' ? 'Card Payment' : 'USDC (Base)', inline: true },
+      {
+        name: '💳 Payment Method',
+        value: data.rail === 'STRIPE' ? 'Card Payment' : 'USDC (Base)',
+        inline: true,
+      },
       { name: '📋 Escrow ID', value: data.escrowId, inline: false },
       { name: '👤 Buyer', value: data.buyerName, inline: true },
       { name: '👤 Seller', value: data.sellerName, inline: true },
-      { name: '📋 Next Steps', value: 'Waiting for buyer to complete payment...', inline: false }
+      {
+        name: '📋 Next Steps',
+        value: 'Waiting for buyer to complete payment...',
+        inline: false,
+      }
     )
     .setTimestamp(data.timestamp)
     .setFooter({
@@ -890,9 +904,7 @@ export function buildPaymentIntentCreatedEmbed(
   const embed = new EmbedBuilder()
     .setTitle('💳 Payment Required')
     .setColor(0x3b82f6) // Blue
-    .setDescription(
-      '**Complete your payment to proceed with the escrow**'
-    )
+    .setDescription('**Complete your payment to proceed with the escrow**')
     .addFields(
       { name: '💰 Amount', value: formatCurrency(data.amount), inline: true },
       { name: '📋 Escrow ID', value: data.escrowId, inline: true }
@@ -966,9 +978,7 @@ interface PaymentFailedData {
   timestamp: Date;
 }
 
-export function buildPaymentFailedEmbed(
-  data: PaymentFailedData
-): EmbedBuilder {
+export function buildPaymentFailedEmbed(data: PaymentFailedData): EmbedBuilder {
   return new EmbedBuilder()
     .setTitle('❌ Payment Failed')
     .setColor(0xef4444) // Red
@@ -1008,7 +1018,9 @@ export function buildTransferSucceededEmbed(
   const embed = new EmbedBuilder()
     .setTitle('💸 Funds Transferred')
     .setColor(0x10b981) // Green
-    .setDescription('**Funds have been successfully transferred to your account**')
+    .setDescription(
+      '**Funds have been successfully transferred to your account**'
+    )
     .addFields(
       { name: '💰 Amount', value: formatCurrency(data.amount), inline: true },
       { name: '📋 Escrow ID', value: data.escrowId, inline: true }
@@ -1114,7 +1126,7 @@ export class RetryManager {
 
     // Calculate delay with exponential backoff and jitter
     const delay = this.calculateDelay(delivery.retryCount);
-    
+
     // Schedule retry
     setTimeout(async () => {
       try {
@@ -1134,7 +1146,10 @@ export class RetryManager {
     return exponentialDelay + jitter;
   }
 
-  private async markAsFailed(deliveryId: string, reason: string): Promise<void> {
+  private async markAsFailed(
+    deliveryId: string,
+    reason: string
+  ): Promise<void> {
     await this.prisma.notificationDelivery.update({
       where: { id: deliveryId },
       data: {
@@ -1205,15 +1220,17 @@ export class ErrorClassifier {
 ```typescript
 export class DeadLetterQueue {
   async processFailedNotifications(): Promise<void> {
-    const failedNotifications = await this.prisma.notificationDelivery.findMany({
-      where: {
-        status: 'FAILED',
-        failedAt: {
-          lte: new Date(Date.now() - 24 * 60 * 60 * 1000), // 24 hours ago
+    const failedNotifications = await this.prisma.notificationDelivery.findMany(
+      {
+        where: {
+          status: 'FAILED',
+          failedAt: {
+            lte: new Date(Date.now() - 24 * 60 * 60 * 1000), // 24 hours ago
+          },
         },
-      },
-      take: 100,
-    });
+        take: 100,
+      }
+    );
 
     for (const notification of failedNotifications) {
       await this.logFailedNotification(notification);
@@ -1395,7 +1412,7 @@ model NotificationDelivery {
   eventType       String   // Event type (e.g., "EscrowFundsHeld")
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   discordUserId   String   // Discord user ID
   status          NotificationStatus @default(PENDING)
   retryCount      Int      @default(0)
@@ -1404,10 +1421,10 @@ model NotificationDelivery {
   failedAt        DateTime?
   errorMessage    String?
   discordMessageId String? // Discord message ID if successful
-  
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   @@unique([eventId, userId]) // Prevent duplicate notifications
   @@index([userId])
   @@index([status])
@@ -1432,16 +1449,16 @@ model NotificationPreference {
   id              String   @id @default(cuid())
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   eventType       String   // Event type or category
   channel         NotificationChannel @default(DISCORD_DM)
   enabled         Boolean  @default(true)
   quietHoursStart String?  // HH:mm format (e.g., "22:00")
   quietHoursEnd   String?  // HH:mm format (e.g., "08:00")
-  
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+
   @@unique([userId, eventType, channel])
   @@index([userId])
   @@index([eventType])
@@ -1463,7 +1480,7 @@ Add relations to User model:
 ```prisma
 model User {
   // ... existing fields ...
-  
+
   notificationDeliveries NotificationDelivery[]
   notificationPreferences NotificationPreference[]
 }
@@ -1678,7 +1695,9 @@ export class UserCache {
     }
 
     try {
-      const user = await this.discordClient.getClient().users.fetch(discordUserId);
+      const user = await this.discordClient
+        .getClient()
+        .users.fetch(discordUserId);
       this.cache.set(discordUserId, {
         user,
         timestamp: Date.now(),
@@ -1774,15 +1793,17 @@ export class Logger {
     eventType: string,
     latency: number
   ): void {
-    console.log(JSON.stringify({
-      level: 'info',
-      event: 'notification_sent',
-      eventId,
-      userId,
-      eventType,
-      latency,
-      timestamp: new Date().toISOString(),
-    }));
+    console.log(
+      JSON.stringify({
+        level: 'info',
+        event: 'notification_sent',
+        eventId,
+        userId,
+        eventType,
+        latency,
+        timestamp: new Date().toISOString(),
+      })
+    );
   }
 
   logNotificationFailed(
@@ -1791,15 +1812,17 @@ export class Logger {
     eventType: string,
     error: string
   ): void {
-    console.error(JSON.stringify({
-      level: 'error',
-      event: 'notification_failed',
-      eventId,
-      userId,
-      eventType,
-      error,
-      timestamp: new Date().toISOString(),
-    }));
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'notification_failed',
+        eventId,
+        userId,
+        eventType,
+        error,
+        timestamp: new Date().toISOString(),
+      })
+    );
   }
 
   logNotificationSkipped(
@@ -1808,15 +1831,17 @@ export class Logger {
     eventType: string,
     reason: string
   ): void {
-    console.log(JSON.stringify({
-      level: 'info',
-      event: 'notification_skipped',
-      eventId,
-      userId,
-      eventType,
-      reason,
-      timestamp: new Date().toISOString(),
-    }));
+    console.log(
+      JSON.stringify({
+        level: 'info',
+        event: 'notification_skipped',
+        eventId,
+        userId,
+        eventType,
+        reason,
+        timestamp: new Date().toISOString(),
+      })
+    );
   }
 }
 ```
@@ -1843,7 +1868,9 @@ export class HealthCheckService {
     ]);
 
     return {
-      status: checks.every(c => c.status === 'fulfilled') ? 'healthy' : 'unhealthy',
+      status: checks.every(c => c.status === 'fulfilled')
+        ? 'healthy'
+        : 'unhealthy',
       discord: checks[0].status === 'fulfilled' ? 'ok' : 'error',
       kafka: checks[1].status === 'fulfilled' ? 'ok' : 'error',
       database: checks[2].status === 'fulfilled' ? 'ok' : 'error',
@@ -1936,18 +1963,19 @@ export class HealthCheckService {
 
 ### Key Differences
 
-| Aspect | Existing (Discord Bot) | New (Notifications Service) |
-|--------|------------------------|----------------------------|
-| **Architecture** | HTTP Polling (30s interval) | Event-driven (Kafka) |
-| **Delay** | Up to 30 seconds | Real-time |
-| **Scope** | Offers, Links, Contracts | Escrow, Payments |
-| **Location** | Discord bot app | Separate service |
-| **Scalability** | Limited by polling rate | Scales with Kafka partitions |
-| **Decoupling** | Tightly coupled to API | Decoupled via events |
+| Aspect           | Existing (Discord Bot)      | New (Notifications Service)  |
+| ---------------- | --------------------------- | ---------------------------- |
+| **Architecture** | HTTP Polling (30s interval) | Event-driven (Kafka)         |
+| **Delay**        | Up to 30 seconds            | Real-time                    |
+| **Scope**        | Offers, Links, Contracts    | Escrow, Payments             |
+| **Location**     | Discord bot app             | Separate service             |
+| **Scalability**  | Limited by polling rate     | Scales with Kafka partitions |
+| **Decoupling**   | Tightly coupled to API      | Decoupled via events         |
 
 ### Contract Handling Clarification
 
 **Important**: According to the Escrow Service design:
+
 - **Contracts are handled by the API** (`apps/api/src/routes/contracts.ts`)
   - Contract generation: `POST /api/contracts/generate` (API)
   - Contract execution: `executeContract()` function (API)
@@ -1958,6 +1986,7 @@ export class HealthCheckService {
   - Emits escrow events to Kafka
 
 **Contract Notifications**:
+
 - Currently handled by Discord bot (`contract-notifications.ts`)
 - Called directly from API routes (not polling)
 - Would need to migrate to event-driven if moved to Notifications Service
@@ -2016,4 +2045,3 @@ The service is designed to be:
 - **User-Friendly**: Respects user preferences and quiet hours
 - **Maintainable**: Clear separation of concerns and comprehensive error handling
 - **Consistent**: Follows existing notification patterns and styling
-
