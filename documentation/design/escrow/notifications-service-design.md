@@ -643,7 +643,10 @@ export abstract class EventHandler<TEvent> {
       // Note: In a real implementation, this would fetch from Kafka or event store
       // For now, we'll need to reconstruct the event or fetch it from storage
       // This is a simplified version - actual implementation would need event store access
-      const event = await this.fetchEventData(delivery.eventId, delivery.eventType);
+      const event = await this.fetchEventData(
+        delivery.eventId,
+        delivery.eventType
+      );
 
       if (!event) {
         // Event not found - mark as failed
@@ -665,8 +668,9 @@ export abstract class EventHandler<TEvent> {
       const user = await this.discordClient
         .getClient()
         .users.fetch(delivery.discordUserId);
-      const result = await this.rateLimiter.execute(delivery.discordUserId, () =>
-        sendDMWithEmbed(user, embed)
+      const result = await this.rateLimiter.execute(
+        delivery.discordUserId,
+        () => sendDMWithEmbed(user, embed)
       );
 
       if (result.success) {
