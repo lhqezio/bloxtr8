@@ -69,12 +69,14 @@ This document provides complete infrastructure design for deploying and operatin
 #### Production Environment
 
 **Broker Configuration**:
+
 - **Broker Count**: 3 brokers (minimum for high availability)
 - **Deployment**: One broker per availability zone
 - **Instance Type**: Minimum 4 vCPU, 16GB RAM, 500GB SSD per broker
 - **Network**: VPC with private subnets, security groups for inter-broker communication
 
 **Replication Settings**:
+
 - **Replication Factor**: 3 (each partition replicated across all brokers)
 - **Minimum In-Sync Replicas (ISR)**: 2 (allows 1 broker failure)
 - **Unclean Leader Election**: Disabled (prevents data loss)
@@ -82,6 +84,7 @@ This document provides complete infrastructure design for deploying and operatin
 #### Development Environment
 
 **Broker Configuration**:
+
 - **Broker Count**: 1 broker (single-node cluster)
 - **Instance Type**: 2 vCPU, 8GB RAM, 100GB SSD
 - **Replication Factor**: 1
@@ -569,14 +572,14 @@ kafka-topics --create \
 
 **Topic-Specific Configurations**:
 
-| Topic | Retention | Compaction | Min ISR |
-|-------|-----------|------------|---------|
-| `escrow.commands.v1` | 7 days | No | 2 |
-| `escrow.events.v1` | 90 days | Yes | 2 |
-| `payments.commands.v1` | 7 days | No | 2 |
-| `payments.events.v1` | 90 days | Yes | 2 |
-| `webhook.events.v1` | 90 days | Yes | 2 |
-| `contracts.events.v1` | 90 days | Yes | 2 |
+| Topic                  | Retention | Compaction | Min ISR |
+| ---------------------- | --------- | ---------- | ------- |
+| `escrow.commands.v1`   | 7 days    | No         | 2       |
+| `escrow.events.v1`     | 90 days   | Yes        | 2       |
+| `payments.commands.v1` | 7 days    | No         | 2       |
+| `payments.events.v1`   | 90 days   | Yes        | 2       |
+| `webhook.events.v1`    | 90 days   | Yes        | 2       |
+| `contracts.events.v1`  | 90 days   | Yes        | 2       |
 
 ### Validation Scripts
 
@@ -686,10 +689,12 @@ async function sendToDLQ(
 
   await producer.send({
     topic: `${originalMessage.topic}.dlq`,
-    messages: [{
-      key: originalMessage.key,
-      value: protobufEncode(dlqMessage),
-    }],
+    messages: [
+      {
+        key: originalMessage.key,
+        value: protobufEncode(dlqMessage),
+      },
+    ],
   });
 }
 ```
@@ -736,7 +741,7 @@ rules:
     name: kafka_server_$1_$2
     type: GAUGE
     labels:
-      "$3": "$4"
+      '$3': '$4'
 ```
 
 **Kafka Exporter Deployment**:
@@ -746,7 +751,7 @@ rules:
 kafka-exporter:
   image: danielqsj/kafka-exporter:latest
   ports:
-    - "9308:9308"
+    - '9308:9308'
   environment:
     KAFKA_BROKERS: kafka-broker-1:9092,kafka-broker-2:9092,kafka-broker-3:9092
     KAFKA_LOG_LEVEL: info
@@ -795,7 +800,8 @@ scrape_configs:
   # Kafka JMX Metrics
   - job_name: 'kafka-jmx'
     static_configs:
-      - targets: ['kafka-broker-1:9999', 'kafka-broker-2:9999', 'kafka-broker-3:9999']
+      - targets:
+          ['kafka-broker-1:9999', 'kafka-broker-2:9999', 'kafka-broker-3:9999']
     metrics_path: /metrics
 ```
 
@@ -815,8 +821,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "DLQ messages detected"
-          description: "{{ $value }} messages in DLQ topics"
+          summary: 'DLQ messages detected'
+          description: '{{ $value }} messages in DLQ topics'
 
       - alert: DLQMessagesHigh
         expr: sum(kafka_topic_partition_current_offset{topic=~".*\\.dlq"}) > 100
@@ -824,8 +830,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "High DLQ message count"
-          description: "{{ $value }} messages in DLQ topics"
+          summary: 'High DLQ message count'
+          description: '{{ $value }} messages in DLQ topics'
 
       # Consumer Lag Alerts
       - alert: ConsumerLagHigh
@@ -834,8 +840,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "High consumer lag detected"
-          description: "Consumer lag is {{ $value }} messages"
+          summary: 'High consumer lag detected'
+          description: 'Consumer lag is {{ $value }} messages'
 
       - alert: ConsumerLagCritical
         expr: sum(kafka_consumer_lag_sum) > 5000
@@ -843,8 +849,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Critical consumer lag"
-          description: "Consumer lag is {{ $value }} messages"
+          summary: 'Critical consumer lag'
+          description: 'Consumer lag is {{ $value }} messages'
 
       # Broker Availability
       - alert: KafkaBrokerDown
@@ -853,8 +859,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Kafka broker down"
-          description: "Broker {{ $labels.instance }} is down"
+          summary: 'Kafka broker down'
+          description: 'Broker {{ $labels.instance }} is down'
 
       # Partition Leader Unavailable
       - alert: KafkaPartitionLeaderUnavailable
@@ -863,8 +869,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Kafka partition leader unavailable"
-          description: "{{ $value }} partitions have no leader"
+          summary: 'Kafka partition leader unavailable'
+          description: '{{ $value }} partitions have no leader'
 
       # Under-Replicated Partitions
       - alert: KafkaUnderReplicatedPartitions
@@ -873,8 +879,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Under-replicated partitions"
-          description: "{{ $value }} partitions are under-replicated"
+          summary: 'Under-replicated partitions'
+          description: '{{ $value }} partitions are under-replicated'
 
       # ISR Shrinking
       - alert: KafkaISRShrinking
@@ -883,8 +889,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "ISR shrinking detected"
-          description: "{{ $value }} partitions have shrinking ISR"
+          summary: 'ISR shrinking detected'
+          description: '{{ $value }} partitions have shrinking ISR'
 
   - name: schema_registry_alerts
     interval: 30s
@@ -896,8 +902,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: "Schema Registry down"
-          description: "Schema Registry is unavailable"
+          summary: 'Schema Registry down'
+          description: 'Schema Registry is unavailable'
 
       # Schema Compatibility Failures
       - alert: SchemaCompatibilityFailure
@@ -906,8 +912,8 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "Schema compatibility check failed"
-          description: "Schema compatibility check failed for subject {{ $labels.subject }}"
+          summary: 'Schema compatibility check failed'
+          description: 'Schema compatibility check failed for subject {{ $labels.subject }}'
 ```
 
 ### Grafana Dashboards
@@ -951,13 +957,13 @@ groups:
 
 #### Service Level Objectives (SLOs)
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Kafka Producer Latency | P95 < 10ms | Producer send latency |
-| Kafka Consumer Lag | P95 < 100ms | Consumer lag per partition |
-| Schema Registry Availability | 99.9% | Uptime percentage |
-| DLQ Message Count | 0 | Messages in DLQ |
-| Topic Availability | 99.95% | Partition leader availability |
+| Metric                       | Target      | Measurement                   |
+| ---------------------------- | ----------- | ----------------------------- |
+| Kafka Producer Latency       | P95 < 10ms  | Producer send latency         |
+| Kafka Consumer Lag           | P95 < 100ms | Consumer lag per partition    |
+| Schema Registry Availability | 99.9%       | Uptime percentage             |
+| DLQ Message Count            | 0           | Messages in DLQ               |
+| Topic Availability           | 99.95%      | Partition leader availability |
 
 #### Critical Metrics
 
@@ -1017,7 +1023,7 @@ sleep 30
 kafka:
   image: apache/kafka:3.5.0
   ports:
-    - "9092:9092"
+    - '9092:9092'
   environment:
     KAFKA_NODE_ID: 1
     KAFKA_PROCESS_ROLES: broker,controller
@@ -1031,7 +1037,7 @@ kafka:
 schema-registry:
   image: confluentinc/cp-schema-registry:7.5.0
   ports:
-    - "8081:8081"
+    - '8081:8081'
   environment:
     SCHEMA_REGISTRY_HOST_NAME: schema-registry
     SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
@@ -1057,6 +1063,7 @@ schema-registry:
 **Deployment Steps**:
 
 1. **Provision Infrastructure**:
+
    ```bash
    # Provision Kafka brokers
    terraform apply -target=module.kafka
@@ -1066,6 +1073,7 @@ schema-registry:
    ```
 
 2. **Configure Security**:
+
    ```bash
    # Generate certificates
    ./scripts/infrastructure/generate-certificates.sh
@@ -1075,6 +1083,7 @@ schema-registry:
    ```
 
 3. **Start Kafka Cluster**:
+
    ```bash
    # Start brokers
    systemctl start kafka
@@ -1084,16 +1093,19 @@ schema-registry:
    ```
 
 4. **Create Topics**:
+
    ```bash
    ./scripts/infrastructure/create-kafka-topics.sh --env production
    ```
 
 5. **Setup Schema Registry**:
+
    ```bash
    ./scripts/infrastructure/setup-schema-registry.sh --env production
    ```
 
 6. **Deploy Monitoring**:
+
    ```bash
    # Start Prometheus
    docker-compose -f monitoring-compose.yml up -d
@@ -1134,10 +1146,12 @@ curl http://schema-registry:8081/subjects | jq length
 #### Issue: Broker Not Starting
 
 **Symptoms**:
+
 - Broker fails to start
 - Port already in use error
 
 **Diagnosis**:
+
 ```bash
 # Check if port is in use
 netstat -tuln | grep 9092
@@ -1147,6 +1161,7 @@ tail -f /var/log/kafka/server.log
 ```
 
 **Resolution**:
+
 - Stop conflicting process
 - Check `server.properties` for correct port configuration
 - Verify disk space availability
@@ -1154,10 +1169,12 @@ tail -f /var/log/kafka/server.log
 #### Issue: Consumer Lag Increasing
 
 **Symptoms**:
+
 - Consumer lag metrics increasing
 - Messages not being processed
 
 **Diagnosis**:
+
 ```bash
 # Check consumer lag
 kafka-consumer-groups --bootstrap-server localhost:9092 \
@@ -1168,6 +1185,7 @@ tail -f /var/log/escrow-service/consumer.log
 ```
 
 **Resolution**:
+
 - Scale consumers horizontally
 - Check consumer processing time
 - Investigate slow database queries
@@ -1176,10 +1194,12 @@ tail -f /var/log/escrow-service/consumer.log
 #### Issue: Schema Compatibility Failure
 
 **Symptoms**:
+
 - Schema registration fails
 - Producer unable to publish messages
 
 **Diagnosis**:
+
 ```bash
 # Check compatibility
 curl -X POST http://schema-registry:8081/compatibility/subjects/escrow.commands.v1-value/versions/latest \
@@ -1188,6 +1208,7 @@ curl -X POST http://schema-registry:8081/compatibility/subjects/escrow.commands.
 ```
 
 **Resolution**:
+
 - Review schema changes for breaking changes
 - Update compatibility mode if needed
 - Use schema versioning for breaking changes
@@ -1195,10 +1216,12 @@ curl -X POST http://schema-registry:8081/compatibility/subjects/escrow.commands.
 #### Issue: DLQ Messages Accumulating
 
 **Symptoms**:
+
 - DLQ message count increasing
 - Errors in consumer logs
 
 **Diagnosis**:
+
 ```bash
 # Check DLQ messages
 kafka-console-consumer --bootstrap-server localhost:9092 \
@@ -1211,6 +1234,7 @@ kafka-console-consumer --bootstrap-server localhost:9092 \
 ```
 
 **Resolution**:
+
 - Investigate root cause of errors
 - Fix application bugs
 - Replay DLQ messages after fix
@@ -1221,17 +1245,20 @@ kafka-console-consumer --bootstrap-server localhost:9092 \
 #### Recovering from Broker Failure
 
 1. **Identify Failed Broker**:
+
    ```bash
    kafka-broker-api-versions --bootstrap-server kafka-broker-1:9093
    ```
 
 2. **Check Partition Leaders**:
+
    ```bash
    kafka-topics --describe --topic escrow.commands.v1 \
      --bootstrap-server kafka-broker-1:9093
    ```
 
 3. **Restart Broker**:
+
    ```bash
    systemctl restart kafka
    ```
@@ -1246,11 +1273,13 @@ kafka-console-consumer --bootstrap-server localhost:9092 \
 #### Recovering from Schema Registry Failure
 
 1. **Check Schema Registry Status**:
+
    ```bash
    curl http://schema-registry:8081/subjects
    ```
 
 2. **Restart Schema Registry**:
+
    ```bash
    systemctl restart schema-registry
    ```
@@ -1266,12 +1295,14 @@ kafka-console-consumer --bootstrap-server localhost:9092 \
 #### Reducing Consumer Lag
 
 **Actions**:
+
 - Increase consumer instances
 - Optimize consumer processing logic
 - Increase `fetch.max.bytes` and `fetch.max.wait.ms`
 - Use parallel processing within consumer
 
 **Configuration**:
+
 ```properties
 fetch.min.bytes=1024
 fetch.max.wait.ms=500
@@ -1281,12 +1312,14 @@ max.partition.fetch.bytes=1048576
 #### Improving Producer Throughput
 
 **Actions**:
+
 - Enable compression (`compression.type=snappy`)
 - Increase batch size (`batch.size=16384`)
 - Tune linger time (`linger.ms=10`)
 - Use async sending
 
 **Configuration**:
+
 ```properties
 compression.type=snappy
 batch.size=16384
@@ -1301,4 +1334,3 @@ acks=1  # For high throughput (with durability tradeoff)
 - [Escrow System Architecture](../../architecture/escrow/escrow-system-architecture.md) - Architecture overview
 - [Observability](../../architecture/escrow/observability.md) - Monitoring and metrics
 - [Error Handling](../../architecture/escrow/error-handling-retries.md) - DLQ and retry strategies
-

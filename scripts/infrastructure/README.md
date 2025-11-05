@@ -25,6 +25,7 @@ Creates all Kafka topics and Dead Letter Queue (DLQ) topics required for the esc
 ```
 
 **Options**:
+
 - `--env`: Environment (development|production) [default: development]
 - `--broker`: Kafka broker address [default: localhost:9092]
 - `--topic`: Create specific topic only
@@ -32,6 +33,7 @@ Creates all Kafka topics and Dead Letter Queue (DLQ) topics required for the esc
 - `--help`: Show help message
 
 **Topics Created**:
+
 - `escrow.commands.v1` (12 partitions, 7 days retention)
 - `escrow.events.v1` (12 partitions, 90 days retention, compaction enabled)
 - `payments.commands.v1` (12 partitions, 7 days retention)
@@ -60,6 +62,7 @@ Initializes Schema Registry and registers Protobuf schemas for the escrow system
 ```
 
 **Options**:
+
 - `--env`: Environment (development|production) [default: development]
 - `--schema-registry-url`: Schema Registry URL [default: http://localhost:8081]
 - `--schema-dir`: Directory containing Protobuf schema files [default: scripts/schemas/protobuf]
@@ -67,6 +70,7 @@ Initializes Schema Registry and registers Protobuf schemas for the escrow system
 - `--help`: Show help message
 
 **Schemas Registered**:
+
 - `escrow.commands.v1-value`
 - `escrow.events.v1-value`
 - `payments.commands.v1-value`
@@ -126,10 +130,12 @@ Pre-configured Grafana dashboards for monitoring:
 ### Environment Setup
 
 **Development**:
+
 - Kafka running on `localhost:9092`
 - Schema Registry running on `http://localhost:8081`
 
 **Production**:
+
 - Kafka brokers accessible via configured addresses
 - Schema Registry accessible via configured URL
 - Proper authentication configured (SASL/SCRAM, TLS)
@@ -175,4 +181,3 @@ curl http://localhost:8081/health
 - [Infrastructure Design Document](../../documentation/design/escrow/infrastructure-design.md)
 - [Topic Catalog](../../documentation/architecture/escrow/topic-catalog.md)
 - [Event Schemas](../../documentation/architecture/escrow/event-schemas.md)
-

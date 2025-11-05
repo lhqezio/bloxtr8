@@ -14,8 +14,8 @@ groups:
           severity: critical
           component: kafka
         annotations:
-          summary: "Kafka broker is down"
-          description: "Kafka broker {{ $labels.instance }} has been down for more than 1 minute."
+          summary: 'Kafka broker is down'
+          description: 'Kafka broker {{ $labels.instance }} has been down for more than 1 minute.'
 
       # Partition Leader Unavailable
       - alert: KafkaPartitionLeaderUnavailable
@@ -25,8 +25,8 @@ groups:
           severity: critical
           component: kafka
         annotations:
-          summary: "Kafka partition leader unavailable"
-          description: "{{ $value }} partitions have no leader for more than 5 minutes."
+          summary: 'Kafka partition leader unavailable'
+          description: '{{ $value }} partitions have no leader for more than 5 minutes.'
 
       # Under-Replicated Partitions
       - alert: KafkaUnderReplicatedPartitions
@@ -36,8 +36,8 @@ groups:
           severity: warning
           component: kafka
         annotations:
-          summary: "Under-replicated partitions detected"
-          description: "{{ $value }} partitions are under-replicated for more than 10 minutes."
+          summary: 'Under-replicated partitions detected'
+          description: '{{ $value }} partitions are under-replicated for more than 10 minutes.'
 
       # ISR Shrinking
       - alert: KafkaISRShrinking
@@ -47,8 +47,8 @@ groups:
           severity: warning
           component: kafka
         annotations:
-          summary: "ISR shrinking detected"
-          description: "{{ $value }} partitions have shrinking ISR for more than 5 minutes."
+          summary: 'ISR shrinking detected'
+          description: '{{ $value }} partitions have shrinking ISR for more than 5 minutes.'
 
       # High Message Rate
       - alert: KafkaHighMessageRate
@@ -59,8 +59,8 @@ groups:
           severity: warning
           component: kafka
         annotations:
-          summary: "High message rate detected"
-          description: "Message rate is {{ $value }} messages/second, exceeding threshold of 10000."
+          summary: 'High message rate detected'
+          description: 'Message rate is {{ $value }} messages/second, exceeding threshold of 10000.'
 
       # Low Disk Space
       - alert: KafkaLowDiskSpace
@@ -71,8 +71,8 @@ groups:
           severity: critical
           component: kafka
         annotations:
-          summary: "Low disk space on Kafka broker"
-          description: "Disk space on {{ $labels.instance }} is below 10% ({{ $value | humanizePercentage }})."
+          summary: 'Low disk space on Kafka broker'
+          description: 'Disk space on {{ $labels.instance }} is below 10% ({{ $value | humanizePercentage }}).'
 
   # Consumer Lag Alerts
   - name: kafka_consumer_lag
@@ -86,8 +86,8 @@ groups:
           severity: warning
           component: kafka
         annotations:
-          summary: "High consumer lag detected"
-          description: "Consumer lag is {{ $value }} messages for more than 5 minutes."
+          summary: 'High consumer lag detected'
+          description: 'Consumer lag is {{ $value }} messages for more than 5 minutes.'
 
       # Consumer Lag Critical
       - alert: ConsumerLagCritical
@@ -97,8 +97,8 @@ groups:
           severity: critical
           component: kafka
         annotations:
-          summary: "Critical consumer lag"
-          description: "Consumer lag is {{ $value }} messages. Consumers are falling behind."
+          summary: 'Critical consumer lag'
+          description: 'Consumer lag is {{ $value }} messages. Consumers are falling behind.'
 
       # Consumer Lag by Topic
       - alert: ConsumerLagByTopicHigh
@@ -108,8 +108,8 @@ groups:
           severity: warning
           component: kafka
         annotations:
-          summary: "High consumer lag for topic"
-          description: "Topic {{ $labels.topic }} has consumer lag of {{ $value }} messages."
+          summary: 'High consumer lag for topic'
+          description: 'Topic {{ $labels.topic }} has consumer lag of {{ $value }} messages.'
 
   # Dead Letter Queue Alerts
   - name: kafka_dlq
@@ -123,8 +123,8 @@ groups:
           severity: warning
           component: kafka
         annotations:
-          summary: "DLQ messages detected"
-          description: "{{ $value }} messages in DLQ topics. Investigation required."
+          summary: 'DLQ messages detected'
+          description: '{{ $value }} messages in DLQ topics. Investigation required.'
 
       # DLQ Messages High
       - alert: DLQMessagesHigh
@@ -134,8 +134,8 @@ groups:
           severity: critical
           component: kafka
         annotations:
-          summary: "High DLQ message count"
-          description: "{{ $value }} messages in DLQ topics. Immediate attention required."
+          summary: 'High DLQ message count'
+          description: '{{ $value }} messages in DLQ topics. Immediate attention required.'
 
       # DLQ Message Rate
       - alert: DLQMessageRateHigh
@@ -146,8 +146,8 @@ groups:
           severity: warning
           component: kafka
         annotations:
-          summary: "High DLQ message rate"
-          description: "DLQ message rate is {{ $value }} messages/second."
+          summary: 'High DLQ message rate'
+          description: 'DLQ message rate is {{ $value }} messages/second.'
 
       # Oldest DLQ Message Age
       - alert: DLQMessageAgeHigh
@@ -158,8 +158,8 @@ groups:
           severity: warning
           component: kafka
         annotations:
-          summary: "Old DLQ messages detected"
-          description: "Oldest DLQ message is {{ $value | humanizeDuration }} old."
+          summary: 'Old DLQ messages detected'
+          description: 'Oldest DLQ message is {{ $value | humanizeDuration }} old.'
 
   # Schema Registry Alerts
   - name: schema_registry
@@ -173,8 +173,8 @@ groups:
           severity: critical
           component: schema-registry
         annotations:
-          summary: "Schema Registry is down"
-          description: "Schema Registry has been down for more than 1 minute."
+          summary: 'Schema Registry is down'
+          description: 'Schema Registry has been down for more than 1 minute.'
 
       # Schema Compatibility Failure
       - alert: SchemaCompatibilityFailure
@@ -185,8 +185,8 @@ groups:
           severity: warning
           component: schema-registry
         annotations:
-          summary: "Schema compatibility check failed"
-          description: "Schema compatibility check failed for subject {{ $labels.subject }}."
+          summary: 'Schema compatibility check failed'
+          description: 'Schema compatibility check failed for subject {{ $labels.subject }}.'
 
       # Schema Registry High Error Rate
       - alert: SchemaRegistryHighErrorRate
@@ -197,8 +197,8 @@ groups:
           severity: warning
           component: schema-registry
         annotations:
-          summary: "High Schema Registry error rate"
-          description: "Schema Registry error rate is {{ $value }} errors/second."
+          summary: 'High Schema Registry error rate'
+          description: 'Schema Registry error rate is {{ $value }} errors/second.'
 
   # Application Service Alerts
   - name: application_services
@@ -212,8 +212,8 @@ groups:
           severity: critical
           component: application
         annotations:
-          summary: "Application service is down"
-          description: "Service {{ $labels.job }} has been down for more than 1 minute."
+          summary: 'Application service is down'
+          description: 'Service {{ $labels.job }} has been down for more than 1 minute.'
 
       # High Error Rate
       - alert: ServiceHighErrorRate
@@ -224,8 +224,8 @@ groups:
           severity: critical
           component: application
         annotations:
-          summary: "High error rate for service"
-          description: "Error rate for {{ $labels.service }} is {{ $value | humanizePercentage }}."
+          summary: 'High error rate for service'
+          description: 'Error rate for {{ $labels.service }} is {{ $value | humanizePercentage }}.'
 
       # High Latency
       - alert: ServiceHighLatency
@@ -236,8 +236,8 @@ groups:
           severity: warning
           component: application
         annotations:
-          summary: "High latency for service"
-          description: "P95 latency for {{ $labels.service }} is {{ $value }}s."
+          summary: 'High latency for service'
+          description: 'P95 latency for {{ $labels.service }} is {{ $value }}s.'
 
       # Low Request Rate (Potential Issue)
       - alert: ServiceLowRequestRate
@@ -248,8 +248,8 @@ groups:
           severity: warning
           component: application
         annotations:
-          summary: "Low request rate for service"
-          description: "Request rate for {{ $labels.service }} is {{ $value }} requests/second."
+          summary: 'Low request rate for service'
+          description: 'Request rate for {{ $labels.service }} is {{ $value }} requests/second.'
 
   # Business Metrics Alerts
   - name: business_metrics
@@ -264,8 +264,8 @@ groups:
           severity: warning
           component: business
         annotations:
-          summary: "Escrow creation rate dropped"
-          description: "Escrow creation rate is {{ $value }} escrows/second."
+          summary: 'Escrow creation rate dropped'
+          description: 'Escrow creation rate is {{ $value }} escrows/second.'
 
       # Payment Failure Rate High
       - alert: PaymentFailureRateHigh
@@ -276,8 +276,8 @@ groups:
           severity: critical
           component: business
         annotations:
-          summary: "High payment failure rate"
-          description: "Payment failure rate is {{ $value | humanizePercentage }}."
+          summary: 'High payment failure rate'
+          description: 'Payment failure rate is {{ $value | humanizePercentage }}.'
 
       # Dispute Rate High
       - alert: DisputeRateHigh
@@ -288,8 +288,8 @@ groups:
           severity: warning
           component: business
         annotations:
-          summary: "High dispute rate"
-          description: "Dispute rate is {{ $value | humanizePercentage }} of escrows."
+          summary: 'High dispute rate'
+          description: 'Dispute rate is {{ $value | humanizePercentage }} of escrows.'
 
       # Stuck Escrows
       - alert: StuckEscrows
@@ -300,8 +300,8 @@ groups:
           severity: warning
           component: business
         annotations:
-          summary: "Stuck escrows detected"
-          description: "{{ $value }} escrows have been in non-terminal state for more than 24 hours."
+          summary: 'Stuck escrows detected'
+          description: '{{ $value }} escrows have been in non-terminal state for more than 24 hours.'
 
   # System Resource Alerts
   - name: system_resources
@@ -316,8 +316,8 @@ groups:
           severity: warning
           component: system
         annotations:
-          summary: "High CPU usage"
-          description: "CPU usage on {{ $labels.instance }} is {{ $value }}%."
+          summary: 'High CPU usage'
+          description: 'CPU usage on {{ $labels.instance }} is {{ $value }}%.'
 
       # High Memory Usage
       - alert: HighMemoryUsage
@@ -328,8 +328,8 @@ groups:
           severity: warning
           component: system
         annotations:
-          summary: "High memory usage"
-          description: "Memory usage on {{ $labels.instance }} is {{ $value }}%."
+          summary: 'High memory usage'
+          description: 'Memory usage on {{ $labels.instance }} is {{ $value }}%.'
 
       # Disk Space Low
       - alert: DiskSpaceLow
@@ -340,8 +340,8 @@ groups:
           severity: warning
           component: system
         annotations:
-          summary: "Low disk space"
-          description: "Disk space on {{ $labels.instance }} is {{ $value | humanizePercentage }}."
+          summary: 'Low disk space'
+          description: 'Disk space on {{ $labels.instance }} is {{ $value | humanizePercentage }}.'
 
       # Disk Space Critical
       - alert: DiskSpaceCritical
@@ -352,6 +352,5 @@ groups:
           severity: critical
           component: system
         annotations:
-          summary: "Critical disk space"
-          description: "Disk space on {{ $labels.instance }} is {{ $value | humanizePercentage }}."
-
+          summary: 'Critical disk space'
+          description: 'Disk space on {{ $labels.instance }} is {{ $value | humanizePercentage }}.'

@@ -5,10 +5,10 @@
 global:
   # How frequently to scrape targets
   scrape_interval: 15s
-  
+
   # How frequently to evaluate rules
   evaluation_interval: 15s
-  
+
   # External labels to add to any time series
   external_labels:
     cluster: 'bloxtr8-escrow'
@@ -19,7 +19,7 @@ alerting:
   alertmanagers:
     - static_configs:
         - targets:
-          - 'alertmanager:9093'
+            - 'alertmanager:9093'
 
 # Load rules once and periodically evaluate them
 rule_files:
@@ -151,7 +151,6 @@ scrape_configs:
           - 'cadvisor:8080'
     metrics_path: /metrics
     scrape_interval: 30s
-
 # Remote write configuration (optional)
 # Uncomment to send metrics to external systems
 # remote_write:
