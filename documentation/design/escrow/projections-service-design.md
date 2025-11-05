@@ -802,8 +802,6 @@ export class EscrowReleasedHandler extends ProjectionHandler<EscrowReleasedEvent
           status: 'RELEASED',
           releasedAt: eventTimestamp,
           updatedAt: eventTimestamp,
-          activeEscrows: { decrement: 1 },
-          completedEscrows: { increment: 1 },
           lastEventVersion: version,
           lastProcessedAt: eventTimestamp,
         },
@@ -916,14 +914,14 @@ export class EscrowRefundedHandler extends ProjectionHandler<EscrowRefundedEvent
       const eventTimestamp = new Date(timestamp);
 
       // Update EscrowSummary
+      // Note: activeEscrows and refundedEscrows fields do NOT exist on EscrowSummary.
+      // They only exist on EscrowStats and are updated separately via updateStatsForRefund().
       await tx.escrowSummary.update({
         where: { id: event.escrowId },
         data: {
           status: 'REFUNDED',
           refundedAt: eventTimestamp,
           updatedAt: eventTimestamp,
-          activeEscrows: { decrement: 1 },
-          refundedEscrows: { increment: 1 },
           lastEventVersion: version,
           lastProcessedAt: eventTimestamp,
         },
@@ -1102,13 +1100,14 @@ export class EscrowCancelledHandler extends ProjectionHandler<EscrowCancelledEve
       const eventTimestamp = new Date(timestamp);
 
       // Update EscrowSummary
+      // Note: activeEscrows field does NOT exist on EscrowSummary.
+      // It only exists on EscrowStats and is updated separately via updateStatsForCancellation().
       await tx.escrowSummary.update({
         where: { id: event.escrowId },
         data: {
           status: 'CANCELLED',
           cancelledAt: eventTimestamp,
           updatedAt: eventTimestamp,
-          activeEscrows: { decrement: 1 },
           lastEventVersion: version,
           lastProcessedAt: eventTimestamp,
         },
@@ -1960,11 +1959,18 @@ Rebuilds projections for specific escrows:
 ```typescript
 async rebuildEscrow(escrowId: string): Promise<void> {
   // 1. Delete existing projections
+  // Note: EscrowStats is NOT deleted here because:
+  // - EscrowStats tracks userId, period, and periodStart (not escrowId)
+  // - EscrowStats are user-level aggregations shared across multiple escrows
+  // - Deleting EscrowStats would require identifying all affected users and their periods,
+  //   which is complex and unnecessary since event handlers will update stats correctly
+  // - The event replay will trigger handlers that update EscrowStats for affected users
   await this.prisma.$transaction(async tx => {
     await tx.escrowSummary.deleteMany({ where: { id: escrowId } });
     await tx.userEscrowHistory.deleteMany({ where: { escrowId } });
     await tx.paymentHistory.deleteMany({ where: { escrowId } });
     await tx.eventProcessingState.deleteMany({ where: { aggregateId: escrowId } });
+    // EscrowStats is intentionally NOT deleted - it will be updated via event handlers during replay
   });
 
   // 2. Replay events for this escrow
@@ -2658,7 +2664,10 @@ export class ProjectionMetrics {
     };
   }
 
-  private percentile(sorted: number[], p: number): number {
+  private percentile(values: number[], p: number): number {
+    if (values.length === 0) return 0;
+    // Sort array in ascending order before calculating percentile
+    const sorted = [...values].sort((a, b) => a - b);
     const index = Math.ceil((p / 100) * sorted.length) - 1;
     return sorted[index] || 0;
   }
