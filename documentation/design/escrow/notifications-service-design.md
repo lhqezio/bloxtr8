@@ -313,9 +313,9 @@ export class RateLimiter {
   }
 
   private async waitForRateLimit(userId: string): Promise<void> {
-    const now = Date.now();
+    let now = Date.now();
     const timestamps = this.requestTimestamps.get(userId) || [];
-    const recentRequests = timestamps.filter(
+    let recentRequests = timestamps.filter(
       ts => now - ts < 1000 // Last second
     );
 
@@ -323,14 +323,19 @@ export class RateLimiter {
       const oldestRequest = recentRequests[0];
       const waitTime = 1000 - (now - oldestRequest);
       await new Promise(resolve => setTimeout(resolve, waitTime));
+      // Re-filter after waiting since time has passed
+      now = Date.now();
+      recentRequests = timestamps.filter(
+        ts => now - ts < 1000 // Last second
+      );
     }
 
-    timestamps.push(Date.now());
+    recentRequests.push(Date.now());
     // Keep only last 100 timestamps
-    if (timestamps.length > 100) {
-      timestamps.shift();
+    if (recentRequests.length > 100) {
+      recentRequests.shift();
     }
-    this.requestTimestamps.set(userId, timestamps);
+    this.requestTimestamps.set(userId, recentRequests);
   }
 
   private async processQueue(userId: string): Promise<void> {
@@ -473,6 +478,27 @@ export abstract class EventHandler<TEvent> {
         eventId
       );
     }
+  }
+
+  private async recordSkippedNotification(
+    eventId: string,
+    userId: string,
+    reason: string
+  ): Promise<void> {
+    // Fetch user data to get discordUserId (required for NotificationDelivery record)
+    const userData = await this.fetchUserData(userId);
+
+    // Create delivery record with SKIPPED status
+    await this.prisma.notificationDelivery.create({
+      data: {
+        eventId,
+        eventType: this.getEventType(),
+        userId,
+        discordUserId: userData.discordUserId,
+        status: 'SKIPPED',
+        errorMessage: `Notification skipped: ${reason}`,
+      },
+    });
   }
 
   private async sendNotification(
@@ -1398,7 +1424,7 @@ export class QuietHoursChecker {
       return currentTime >= start || currentTime <= end;
     }
 
-    // Handle same-day quiet hours (e.g., 22:00 to 08:00 next day)
+    // Handle same-day quiet hours (e.g., 09:00 to 17:00)
     return currentTime >= start && currentTime <= end;
   }
 }
@@ -1442,6 +1468,7 @@ enum NotificationStatus {
   SENT
   FAILED
   RETRYING
+  SKIPPED
 }
 ```
 
