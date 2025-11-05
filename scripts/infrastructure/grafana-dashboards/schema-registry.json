@@ -1,0 +1,147 @@
+{
+  "dashboard": {
+    "title": "Schema Registry",
+    "tags": ["schema-registry", "infrastructure"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Schema Registry Status",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "up{job=\"schema-registry\"}",
+            "legendFormat": "Status"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Schema Versions by Subject",
+        "type": "bargauge",
+        "gridPos": {"h": 8, "w": 9, "x": 6, "y": 0},
+        "targets": [
+          {
+            "expr": "schema_registry_schema_count_total",
+            "legendFormat": "{{subject}}"
+          }
+        ],
+        "options": {
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 3,
+        "title": "Schema Registrations Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 9, "x": 15, "y": 0},
+        "targets": [
+          {
+            "expr": "rate(schema_registry_schema_count_total[5m])",
+            "legendFormat": "{{subject}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Registrations/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Compatibility Check Success Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "rate(schema_registry_schema_compatibility_rate{compatibility=\"SUCCESS\"}[5m])",
+            "legendFormat": "Success - {{subject}}"
+          },
+          {
+            "expr": "rate(schema_registry_schema_compatibility_rate{compatibility=\"FAILURE\"}[5m])",
+            "legendFormat": "Failure - {{subject}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Rate"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Schema Registry Errors",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(schema_registry_schema_registry_errors_total[5m]))",
+            "legendFormat": "Error Rate"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 0.1, "color": "yellow"},
+                {"value": 1, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "Request Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "rate(schema_registry_http_request_total[5m])",
+            "legendFormat": "{{method}} {{path}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Requests/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Request Latency",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(schema_registry_http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P95 - {{path}}"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(schema_registry_http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P99 - {{path}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Latency"},
+          {"format": "short"}
+        ]
+      }
+    ]
+  }
+}
+
