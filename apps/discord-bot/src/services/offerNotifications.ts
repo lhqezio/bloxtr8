@@ -121,6 +121,10 @@ export class OfferNotificationService {
       );
 
       if (!response.ok) {
+        // Suppress 429 (Too Many Requests) errors - these are expected during rate limiting
+        if (response.status === 429) {
+          return;
+        }
         console.error(`Failed to fetch offer events: ${response.statusText}`);
         return;
       }

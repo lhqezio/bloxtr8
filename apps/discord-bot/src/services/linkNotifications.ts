@@ -95,6 +95,10 @@ export class LinkNotificationService {
       );
 
       if (!response.ok) {
+        // Suppress 429 (Too Many Requests) errors - these are expected during rate limiting
+        if (response.status === 429) {
+          return;
+        }
         console.error(
           `Failed to fetch link events: ${response.status} ${response.statusText}`
         );
