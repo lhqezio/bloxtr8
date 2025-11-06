@@ -19,9 +19,9 @@ Schema Registry is configured via environment variables in `docker-compose.yml`:
 ## Verification
 
 Test Schema Registry connectivity:
+
 ```bash
 curl http://localhost:8081/subjects
 ```
 
 Expected response: `[]` (empty array if no schemas registered)
-

@@ -36,7 +36,7 @@ services:
       - '9093:9093'
     environment:
       # KRaft mode configuration
-      KAFKA_KRAFT_MODE: "true"
+      KAFKA_KRAFT_MODE: 'true'
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       CLUSTER_ID: dVH63prxRmWAHj90SHWmyQ
@@ -56,7 +56,13 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      test:
+        [
+          'CMD',
+          'kafka-broker-api-versions',
+          '--bootstrap-server',
+          'localhost:9092',
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -73,12 +79,12 @@ services:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
       SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
-      SCHEMA_REGISTRY_MASTER_ELIGIBILITY: "true"
+      SCHEMA_REGISTRY_MASTER_ELIGIBILITY: 'true'
     depends_on:
       kafka:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8081/subjects || exit 1"]
+      test: ['CMD-SHELL', 'curl -f http://localhost:8081/subjects || exit 1']
       interval: 10s
       timeout: 5s
       retries: 15

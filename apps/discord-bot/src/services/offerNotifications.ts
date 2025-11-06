@@ -152,7 +152,10 @@ export class OfferNotificationService {
       }
     } catch (error: any) {
       // Suppress connection errors when API server is not available
-      if (error?.cause?.code === 'ECONNREFUSED' || error?.code === 'ECONNREFUSED') {
+      if (
+        error?.cause?.code === 'ECONNREFUSED' ||
+        error?.code === 'ECONNREFUSED'
+      ) {
         // Silently ignore connection refused errors (API server not ready)
         return;
       }

@@ -71,18 +71,26 @@ print_status "Setting up environment variables..."
 
 # Override DATABASE_URL to use local Docker database
 LOCAL_DB_URL="postgresql://postgres:postgres@localhost:5432/bloxtr8-db"
+
+# Detect OS for sed -i portability (macOS requires backup extension, Linux doesn't)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    SED_IN_PLACE="sed -i ''"
+else
+    SED_IN_PLACE="sed -i"
+fi
+
 update_env_file() {
     local file=$1
     [ -f "$file" ] || return 0
     
     if grep -q "^DATABASE_URL=" "$file"; then
-        sed -i "s|^DATABASE_URL=.*|DATABASE_URL=\"$LOCAL_DB_URL\"|" "$file"
+        $SED_IN_PLACE "s|^DATABASE_URL=.*|DATABASE_URL=\"$LOCAL_DB_URL\"|" "$file"
     else
         echo "DATABASE_URL=\"$LOCAL_DB_URL\"" >> "$file"
     fi
     
     if grep -q "^DATABASE_URL_PRISMA=" "$file"; then
-        sed -i "s|^DATABASE_URL_PRISMA=.*|DATABASE_URL_PRISMA=\"$LOCAL_DB_URL\"|" "$file"
+        $SED_IN_PLACE "s|^DATABASE_URL_PRISMA=.*|DATABASE_URL_PRISMA=\"$LOCAL_DB_URL\"|" "$file"
     else
         echo "DATABASE_URL_PRISMA=\"$LOCAL_DB_URL\"" >> "$file"
     fi
