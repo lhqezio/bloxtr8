@@ -57,7 +57,6 @@ stop_service() {
         local port=""
         case $service_name in
             "api") port=3000 ;;
-            "escrow") port=3001 ;;
             "web-app") port=5173 ;;
         esac
         
@@ -80,7 +79,6 @@ stop_service() {
 
 # Stop all services
 stop_service "api"
-stop_service "escrow"
 stop_service "discord-bot"
 stop_service "web-app"
 
@@ -92,8 +90,53 @@ docker compose down
 print_status "Cleaning up any remaining processes..."
 
 # Kill any remaining node processes that might be from our dev servers
+pkill -f "tsx watch.*@bloxtr8/api" 2>/dev/null || true
+pkill -f "tsx watch.*apps/api" 2>/dev/null || true
+pkill -f "tsx watch.*discord-bot" 2>/dev/null || true
+pkill -f "tsx watch.*apps/discord-bot" 2>/dev/null || true
 pkill -f "tsx watch.*src/index.ts" 2>/dev/null || true
 pkill -f "vite.*5173" 2>/dev/null || true
+
+# More aggressive cleanup for Discord bot - catch all variations
+print_status "Performing aggressive Discord bot cleanup..."
+
+# First, try graceful shutdown (SIGTERM) for Discord bot processes
+pkill -f "discord-bot" 2>/dev/null || true
+pkill -f "discord.*bot" 2>/dev/null || true
+pkill -f "@bloxtr8/discord-bot" 2>/dev/null || true
+pkill -f "apps/discord-bot" 2>/dev/null || true
+pkill -f "tsx.*discord" 2>/dev/null || true
+pkill -f "node.*discord" 2>/dev/null || true
+
+# Wait a moment for graceful shutdown
+sleep 2
+
+# Then force kill any remaining processes
+pkill -9 -f "discord-bot" 2>/dev/null || true
+pkill -9 -f "discord.*bot" 2>/dev/null || true
+pkill -9 -f "@bloxtr8/discord-bot" 2>/dev/null || true
+pkill -9 -f "apps/discord-bot" 2>/dev/null || true
+pkill -9 -f "tsx.*discord" 2>/dev/null || true
+pkill -9 -f "node.*discord" 2>/dev/null || true
+
+# Kill any pnpm processes that might be running our services
+if pgrep -f "pnpm.*dev" > /dev/null 2>&1; then
+    print_status "Found pnpm dev processes, stopping..."
+    pkill -9 -f "pnpm.*dev" 2>/dev/null || true
+fi
+
+# Kill any tsx processes that might be running our services
+if pgrep -f "tsx watch" > /dev/null 2>&1; then
+    print_status "Found tsx watch processes, stopping..."
+    pkill -9 -f "tsx watch" 2>/dev/null || true
+fi
+
+# Final check - if any Discord bot processes still exist, show them
+if pgrep -f "discord" > /dev/null 2>&1; then
+    print_warning "Some Discord-related processes may still be running:"
+    pgrep -f "discord" | xargs ps -p 2>/dev/null || true
+    print_warning "You may need to manually kill these processes"
+fi
 
 print_success "All development services stopped!"
 echo ""

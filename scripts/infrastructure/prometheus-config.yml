@@ -1,0 +1,161 @@
+# Prometheus Configuration for Bloxtr8 Kafka Infrastructure
+# This configuration file defines scrape targets and alert rules for monitoring
+# Kafka, Schema Registry, and application services
+
+global:
+  # How frequently to scrape targets
+  scrape_interval: 15s
+
+  # How frequently to evaluate rules
+  evaluation_interval: 15s
+
+  # External labels to add to any time series
+  external_labels:
+    cluster: 'bloxtr8-escrow'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - '/etc/prometheus/alerts.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: /metrics
+
+  # Kafka Exporter
+  # Exports Kafka broker and topic metrics
+  - job_name: 'kafka'
+    static_configs:
+      - targets:
+          - 'kafka-exporter:9308'
+    metrics_path: /metrics
+    scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'kafka-exporter'
+
+  # Kafka JMX Metrics
+  # Direct JMX metrics from Kafka brokers
+  - job_name: 'kafka-jmx'
+    static_configs:
+      - targets:
+          - 'kafka-broker-1:9999'
+          - 'kafka-broker-2:9999'
+          - 'kafka-broker-3:9999'
+    metrics_path: /metrics
+    scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: 'kafka-broker-(\d+):\d+'
+        target_label: broker_id
+        replacement: '${1}'
+
+  # Schema Registry
+  # Confluent Schema Registry metrics
+  - job_name: 'schema-registry'
+    static_configs:
+      - targets:
+          - 'schema-registry:8081'
+    metrics_path: /metrics
+    scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'schema-registry'
+
+  # Escrow Service
+  # Application service metrics
+  - job_name: 'escrow-service'
+    static_configs:
+      - targets:
+          - 'escrow-service:9090'
+    metrics_path: /metrics
+    scrape_interval: 15s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'escrow-service'
+
+  # Payments Service
+  - job_name: 'payments-service'
+    static_configs:
+      - targets:
+          - 'payments-service:9090'
+    metrics_path: /metrics
+    scrape_interval: 15s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'payments-service'
+
+  # Notifications Service
+  - job_name: 'notifications-service'
+    static_configs:
+      - targets:
+          - 'notifications-service:9090'
+    metrics_path: /metrics
+    scrape_interval: 15s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'notifications-service'
+
+  # Projections Service
+  - job_name: 'projections-service'
+    static_configs:
+      - targets:
+          - 'projections-service:9090'
+    metrics_path: /metrics
+    scrape_interval: 15s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'projections-service'
+
+  # API Gateway
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets:
+          - 'api-gateway:9090'
+    metrics_path: /metrics
+    scrape_interval: 15s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'api-gateway'
+
+  # Node Exporter (System Metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets:
+          - 'node-exporter:9100'
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Docker Metrics (if using Docker)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets:
+          - 'cadvisor:8080'
+    metrics_path: /metrics
+    scrape_interval: 30s
+# Remote write configuration (optional)
+# Uncomment to send metrics to external systems
+# remote_write:
+#   - url: "https://your-remote-write-endpoint/api/v1/write"
+#     basic_auth:
+#       username: "your-username"
+#       password: "your-password"
+

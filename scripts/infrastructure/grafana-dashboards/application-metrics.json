@@ -1,0 +1,186 @@
+{
+  "dashboard": {
+    "title": "Application Metrics",
+    "tags": ["application", "services"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "15s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Status",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "up{job=~\".*-service|api-gateway\"}",
+            "legendFormat": "{{service}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 1, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Request Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 9, "x": 6, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total[5m])) by (service)",
+            "legendFormat": "{{service}}"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Requests/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Error Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 9, "x": 15, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) by (service)",
+            "legendFormat": "{{service}}"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Errors/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Request Latency (P50, P95, P99)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket[5m])) by (service, le))",
+            "legendFormat": "P50 - {{service}}"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (service, le))",
+            "legendFormat": "P95 - {{service}}"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (service, le))",
+            "legendFormat": "P99 - {{service}}"
+          }
+        ],
+        "yaxes": [{ "format": "s", "label": "Latency" }, { "format": "short" }]
+      },
+      {
+        "id": 5,
+        "title": "Business Metrics - Escrow Creation",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "rate(escrow_created_total[5m])",
+            "legendFormat": "Escrows Created"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Escrows/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Business Metrics - Payment Success Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "rate(payment_succeeded_total[5m]) / rate(payment_intent_created_total[5m])",
+            "legendFormat": "Success Rate"
+          }
+        ],
+        "yaxes": [
+          { "format": "percentunit", "label": "Success Rate" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Business Metrics - Active Escrows",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
+        "targets": [
+          {
+            "expr": "sum(escrow_active) by (status)",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Business Metrics - Escrow Value",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+        "targets": [
+          {
+            "expr": "sum(rate(escrow_value_total[5m]))",
+            "legendFormat": "Total Value"
+          }
+        ],
+        "yaxes": [
+          { "format": "currencyUSD", "label": "Value" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Kafka Consumer Lag by Service",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+        "targets": [
+          {
+            "expr": "sum(kafka_consumer_lag_sum) by (consumer_group)",
+            "legendFormat": "{{consumer_group}}"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Messages" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Database Query Duration",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(db_query_duration_seconds_bucket[5m])) by (service, le))",
+            "legendFormat": "P95 - {{service}}"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(db_query_duration_seconds_bucket[5m])) by (service, le))",
+            "legendFormat": "P99 - {{service}}"
+          }
+        ],
+        "yaxes": [{ "format": "s", "label": "Duration" }, { "format": "short" }]
+      }
+    ]
+  }
+}
