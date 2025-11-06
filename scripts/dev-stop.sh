@@ -57,7 +57,6 @@ stop_service() {
         local port=""
         case $service_name in
             "api") port=3000 ;;
-            "escrow") port=3001 ;;
             "web-app") port=5173 ;;
         esac
         
@@ -80,7 +79,6 @@ stop_service() {
 
 # Stop all services
 stop_service "api"
-stop_service "escrow"
 stop_service "discord-bot"
 stop_service "web-app"
 
@@ -92,8 +90,18 @@ docker compose down
 print_status "Cleaning up any remaining processes..."
 
 # Kill any remaining node processes that might be from our dev servers
+pkill -f "tsx watch.*@bloxtr8/api" 2>/dev/null || true
+pkill -f "tsx watch.*apps/api" 2>/dev/null || true
+pkill -f "tsx watch.*discord-bot" 2>/dev/null || true
+pkill -f "tsx watch.*apps/discord-bot" 2>/dev/null || true
 pkill -f "tsx watch.*src/index.ts" 2>/dev/null || true
 pkill -f "vite.*5173" 2>/dev/null || true
+
+# More aggressive cleanup for Discord bot
+if pgrep -f "discord-bot" > /dev/null 2>&1; then
+    print_status "Found remaining Discord bot processes, force stopping..."
+    pkill -9 -f "discord-bot" 2>/dev/null || true
+fi
 
 print_success "All development services stopped!"
 echo ""

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Development setup script for Bloxtr8
-# This script starts the database in Docker and runs API, bot, and web on host
+# Starts Docker services and application services on host
 
 set -e
 
@@ -31,6 +31,19 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Aggressive cleanup at the very start - kill any existing processes
+print_status "Performing initial cleanup of existing processes..."
+pkill -9 -f "tsx watch.*@bloxtr8/api" 2>/dev/null || true
+pkill -9 -f "tsx watch.*apps/api" 2>/dev/null || true
+pkill -9 -f "tsx watch.*discord-bot" 2>/dev/null || true
+pkill -9 -f "tsx watch.*apps/discord-bot" 2>/dev/null || true
+pkill -9 -f "discord-bot" 2>/dev/null || true
+pkill -9 -f "vite.*5173" 2>/dev/null || true
+# Kill any processes on our ports
+lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+lsof -ti :5173 | xargs kill -9 2>/dev/null || true
+sleep 1
+
 # Check if Docker is running
 if ! docker info > /dev/null 2>&1; then
     print_warning "Docker is not running. Starting Docker..."
@@ -56,24 +69,45 @@ fi
 print_status "Setting up environment variables..."
 ./scripts/env-dev.sh
 
-# Start database and MinIO services
-print_status "Starting database and MinIO services in Docker..."
-docker compose up -d test-db minio
+# Override DATABASE_URL to use local Docker database
+LOCAL_DB_URL="postgresql://postgres:postgres@localhost:5432/bloxtr8-db"
+update_env_file() {
+    local file=$1
+    [ -f "$file" ] || return 0
+    
+    if grep -q "^DATABASE_URL=" "$file"; then
+        sed -i "s|^DATABASE_URL=.*|DATABASE_URL=\"$LOCAL_DB_URL\"|" "$file"
+    else
+        echo "DATABASE_URL=\"$LOCAL_DB_URL\"" >> "$file"
+    fi
+    
+    if grep -q "^DATABASE_URL_PRISMA=" "$file"; then
+        sed -i "s|^DATABASE_URL_PRISMA=.*|DATABASE_URL_PRISMA=\"$LOCAL_DB_URL\"|" "$file"
+    else
+        echo "DATABASE_URL_PRISMA=\"$LOCAL_DB_URL\"" >> "$file"
+    fi
+}
 
-# Wait for database to be ready
-print_status "Waiting for database to be ready..."
+if [ -f ".env" ]; then
+    update_env_file ".env"
+    update_env_file "apps/api/.env"
+    update_env_file "apps/discord-bot/.env"
+    print_status "Updated DATABASE_URL to use local Docker database"
+fi
+
+# Start Docker services
+print_status "Starting Docker services..."
+docker compose up -d test-db minio zookeeper kafka schema-registry
+
+# Wait for database
+print_status "Waiting for database..."
 sleep 5
-
-# Check if database is accessible
 for i in {1..30}; do
     if docker compose exec -T test-db pg_isready -U postgres > /dev/null 2>&1; then
         print_success "Database is ready!"
         break
     fi
-    if [ $i -eq 30 ]; then
-        print_error "Database failed to start. Check Docker logs."
-        exit 1
-    fi
+    [ $i -eq 30 ] && print_error "Database failed to start. Check Docker logs." && exit 1
     sleep 2
 done
 
@@ -81,27 +115,158 @@ done
 print_status "Setting up database schema..."
 pnpm db:generate
 pnpm db:push
-
 print_success "Database setup complete!"
 
-# Start all services
-print_status "Starting all services..."
+# Wait for Zookeeper
+print_status "Waiting for Zookeeper..."
+for i in {1..30}; do
+    if docker compose ps zookeeper 2>/dev/null | grep -q "healthy\|Up" && \
+       docker compose exec -T zookeeper bash -c "echo ruok | nc localhost 2181" > /dev/null 2>&1; then
+        print_success "Zookeeper is ready!"
+        break
+    fi
+    [ $i -eq 30 ] && print_warning "Zookeeper may still be starting up..."
+    sleep 1
+done
 
-# Function to start service in background
+# Wait for Kafka
+print_status "Waiting for Kafka..."
+KAFKA_READY=false
+for i in {1..60}; do
+    if docker compose ps kafka 2>/dev/null | grep -q "healthy\|Up" && \
+       docker compose exec -T kafka kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1; then
+        print_success "Kafka is ready!"
+        KAFKA_READY=true
+        break
+    fi
+    [ $i -eq 60 ] && print_error "Kafka failed to start. Check logs: docker compose logs kafka"
+    sleep 2
+done
+
+# Create Kafka topics
+if [ "$KAFKA_READY" = true ] && [ -f "./scripts/infrastructure/create-kafka-topics.sh" ]; then
+    print_status "Creating Kafka topics..."
+    ./scripts/infrastructure/create-kafka-topics.sh --env development --broker localhost:9092 2>&1 && \
+        print_success "Kafka topics created!" || \
+        print_warning "Topic creation had issues (topics may already exist). Continuing..."
+fi
+
+# Wait for Schema Registry
+print_status "Waiting for Schema Registry..."
+SCHEMA_REGISTRY_READY=false
+for i in {1..40}; do
+    if curl -s http://localhost:8081/subjects > /dev/null 2>&1; then
+        print_success "Schema Registry is ready!"
+        SCHEMA_REGISTRY_READY=true
+        break
+    fi
+    [ $i -eq 40 ] && print_warning "Schema Registry not responding. Continuing without it..."
+    sleep 2
+done
+
+# Setup Schema Registry schemas
+if [ "$SCHEMA_REGISTRY_READY" = true ] && [ -f "./scripts/infrastructure/setup-schema-registry.sh" ]; then
+    print_status "Setting up Schema Registry schemas..."
+    ./scripts/infrastructure/setup-schema-registry.sh --env development --schema-registry-url http://localhost:8081 2>&1 && \
+        print_success "Schema Registry setup complete!" || \
+        print_warning "Schema setup had issues (schemas may already exist). Continuing..."
+fi
+
+# Check and stop existing services
+print_status "Checking for existing services..."
+
+stop_existing_service() {
+    local service_name=$1
+    local port=$2
+    
+    # Check PID file first
+    local pid_file=".${service_name}.pid"
+    if [ -f "$pid_file" ]; then
+        local pid=$(cat "$pid_file")
+        if kill -0 $pid 2>/dev/null; then
+            print_status "Stopping existing $service_name (PID: $pid)..."
+            kill $pid 2>/dev/null || true
+            sleep 1
+            if kill -0 $pid 2>/dev/null; then
+                kill -9 $pid 2>/dev/null || true
+            fi
+            print_success "Stopped existing $service_name"
+            rm -f "$pid_file"
+        else
+            rm -f "$pid_file"
+        fi
+    fi
+    
+    # Check by port if specified
+    if [ -n "$port" ]; then
+        local pids=$(lsof -t -i :$port 2>/dev/null || true)
+        if [ -n "$pids" ]; then
+            print_status "Found $service_name running on port $port (PIDs: $pids), stopping..."
+            for pid in $pids; do
+                kill $pid 2>/dev/null || true
+                sleep 1
+                if kill -0 $pid 2>/dev/null; then
+                    kill -9 $pid 2>/dev/null || true
+                fi
+            done
+            print_success "Stopped $service_name on port $port"
+        fi
+    fi
+    
+    # For Discord bot, also check by process pattern (no port)
+    if [ "$service_name" = "discord-bot" ]; then
+        local pids=$(pgrep -f "discord-bot" 2>/dev/null || true)
+        if [ -n "$pids" ]; then
+            print_status "Found $service_name processes (PIDs: $pids), stopping..."
+            for pid in $pids; do
+                kill $pid 2>/dev/null || true
+                sleep 1
+                if kill -0 $pid 2>/dev/null; then
+                    kill -9 $pid 2>/dev/null || true
+                fi
+            done
+            print_success "Stopped $service_name processes"
+        fi
+    fi
+}
+
+# Stop any existing services
+stop_existing_service "api" "3000"
+stop_existing_service "web-app" "5173"
+stop_existing_service "discord-bot" ""
+
+# Clean up any stale processes
+print_status "Cleaning up stale processes..."
+pkill -f "tsx watch.*@bloxtr8/api" 2>/dev/null || true
+pkill -f "tsx watch.*apps/api" 2>/dev/null || true
+pkill -f "vite.*5173" 2>/dev/null || true
+pkill -f "discord.*bot" 2>/dev/null || true
+pkill -f "tsx watch.*discord-bot" 2>/dev/null || true
+pkill -f "tsx watch.*apps/discord-bot" 2>/dev/null || true
+
+# More aggressive cleanup for Discord bot (catch any node processes running discord-bot)
+if pgrep -f "discord-bot" > /dev/null 2>&1; then
+    print_status "Found Discord bot processes, stopping..."
+    pkill -9 -f "discord-bot" 2>/dev/null || true
+    # Also catch tsx processes running discord-bot
+    pkill -9 -f "tsx.*discord-bot" 2>/dev/null || true
+fi
+
+sleep 2
+
+# Start application services
+print_status "Starting application services..."
+
 start_service() {
     local service_name=$1
     local filter=$2
-    local port=$3
     
-    print_status "Starting $service_name on port $port..."
+    print_status "Starting $service_name..."
     pnpm --filter=$filter dev &
     local pid=$!
     echo $pid > ".${service_name}.pid"
-    
-    # Wait a moment for service to start
     sleep 3
     
-    # Check if service is running
     if kill -0 $pid 2>/dev/null; then
         print_success "$service_name is running (PID: $pid)"
     else
@@ -110,39 +275,27 @@ start_service() {
     fi
 }
 
-# Start services
-start_service "api" "@bloxtr8/api" "3000"
-start_service "escrow" "@bloxtr8/escrow" "3001"
-start_service "discord-bot" "@bloxtr8/discord-bot" "discord"
-start_service "web-app" "web-app" "5173"
+start_service "api" "@bloxtr8/api"
+start_service "discord-bot" "@bloxtr8/discord-bot"
+start_service "web-app" "web-app"
 
-# Wait a moment for all services to start
 sleep 5
 
-# Check service status
+# Check service health
+check_health() {
+    local name=$1
+    local url=$2
+    if curl -s "$url" > /dev/null 2>&1; then
+        print_success "$name is healthy at $url"
+    else
+        print_warning "$name may not be ready yet at $url"
+    fi
+}
+
 print_status "Checking service status..."
+check_health "API server" "http://localhost:3000/health"
+check_health "Web app" "http://localhost:5173"
 
-# Check API
-if curl -s http://localhost:3000/health > /dev/null 2>&1; then
-    print_success "API server is healthy at http://localhost:3000"
-else
-    print_warning "API server may not be ready yet at http://localhost:3000"
-fi
-# Check Escrow
-if curl -s http://localhost:3001/health > /dev/null 2>&1; then
-    print_success "Escrow server is healthy at http://localhost:3001"
-else
-    print_warning "Escrow server may not be ready yet at http://localhost:3001"
-fi
-
-# Check Web App
-if curl -s http://localhost:5173 > /dev/null 2>&1; then
-    print_success "Web app is ready at http://localhost:5173"
-else
-    print_warning "Web app may not be ready yet at http://localhost:5173"
-fi
-
-# Check Discord Bot
 if ps aux | grep -E "discord.*bot" | grep -v grep > /dev/null 2>&1; then
     print_success "Discord bot is running"
 else
@@ -154,10 +307,11 @@ echo "🎉 Development Environment Ready!"
 echo "================================="
 echo "📊 API Server:     http://localhost:3000"
 echo "🌐 Web App:        http://localhost:5173"
-echo "🏦 Escrow:         http://localhost:3001"
 echo "🤖 Discord Bot:    Running in background"
 echo "🗄️  Database:      localhost:5432"
 echo "📁 MinIO Console:  http://localhost:9001 (admin/minioadmin123)"
+echo "📨 Kafka:          localhost:9092"
+echo "📋 Schema Registry: http://localhost:8081"
 echo ""
 echo "📝 To stop all services, run: pnpm dev:hoang:stop"
 echo "📊 To view logs, run: pnpm dev:hoang:logs"

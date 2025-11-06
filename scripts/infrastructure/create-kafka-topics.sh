@@ -17,9 +17,6 @@ BROKER="${BROKER:-localhost:9092}"
 TOPIC=""
 DRY_RUN=false
 
-# Topic configurations
-declare -A TOPIC_CONFIGS
-
 # Function to print colored messages
 info() {
     echo -e "${GREEN}[INFO]${NC} $1"
@@ -31,6 +28,27 @@ warn() {
 
 error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Detect if we should use Docker (when broker is localhost and kafka-topics not available)
+USE_DOCKER=false
+if [[ "$BROKER" == "localhost:9092"* ]] || [[ "$BROKER" == "127.0.0.1:9092"* ]]; then
+    if ! command -v kafka-topics &> /dev/null; then
+        # Check if Kafka container is running
+        if docker compose ps kafka 2>/dev/null | grep -q "Up\|healthy"; then
+            USE_DOCKER=true
+            info "Using Docker to run Kafka commands (kafka-topics not found on host)"
+        fi
+    fi
+fi
+
+# Function to run kafka-topics command (either directly or via Docker)
+run_kafka_topics() {
+    if [[ "$USE_DOCKER" == true ]]; then
+        docker compose exec -T kafka kafka-topics "$@"
+    else
+        kafka-topics "$@"
+    fi
 }
 
 # Function to show usage
@@ -114,7 +132,21 @@ fi
 check_kafka_connectivity() {
     info "Checking Kafka connectivity to $BROKER..."
     
-    if command -v kafka-topics &> /dev/null; then
+    if [[ "$USE_DOCKER" == true ]]; then
+        # Check if Kafka container is running
+        if docker compose ps kafka 2>/dev/null | grep -q "Up\|healthy"; then
+            if run_kafka_topics --bootstrap-server "$BROKER" --list &> /dev/null; then
+                info "Kafka is accessible via Docker"
+                return 0
+            else
+                error "Cannot connect to Kafka at $BROKER (Docker)"
+                return 1
+            fi
+        else
+            error "Kafka container is not running"
+            return 1
+        fi
+    elif command -v kafka-topics &> /dev/null; then
         if kafka-topics --bootstrap-server "$BROKER" --list &> /dev/null; then
             info "Kafka is accessible"
             return 0
@@ -123,7 +155,7 @@ check_kafka_connectivity() {
             return 1
         fi
     else
-        warn "kafka-topics command not found. Skipping connectivity check."
+        warn "kafka-topics command not found and Docker not available. Skipping connectivity check."
         return 0
     fi
 }
@@ -131,7 +163,7 @@ check_kafka_connectivity() {
 # Function to check if topic exists
 topic_exists() {
     local topic_name=$1
-    kafka-topics --bootstrap-server "$BROKER" --list 2>/dev/null | grep -q "^${topic_name}$" || return 1
+    run_kafka_topics --bootstrap-server "$BROKER" --list 2>/dev/null | grep -q "^${topic_name}$" || return 1
 }
 
 # Function to create topic
@@ -158,21 +190,23 @@ create_topic() {
     
     info "Creating topic: $topic_name"
     
-    local cmd="kafka-topics --create \
-        --topic $topic_name \
-        --bootstrap-server $BROKER \
-        --partitions $PARTITIONS \
-        --replication-factor $REPLICATION_FACTOR \
-        --config retention.ms=$retention_ms \
-        --config min.insync.replicas=$MIN_ISR \
-        --config compression.type=snappy \
-        --config cleanup.policy=$cleanup_policy"
+    local cmd_args=(
+        "--create"
+        "--topic" "$topic_name"
+        "--bootstrap-server" "$BROKER"
+        "--partitions" "$PARTITIONS"
+        "--replication-factor" "$REPLICATION_FACTOR"
+        "--config" "retention.ms=$retention_ms"
+        "--config" "min.insync.replicas=$MIN_ISR"
+        "--config" "compression.type=snappy"
+        "--config" "cleanup.policy=$cleanup_policy"
+    )
     
     if [[ "$enable_compaction" == true ]]; then
-        cmd="$cmd --config delete.retention.ms=86400000"
+        cmd_args+=("--config" "delete.retention.ms=86400000")
     fi
     
-    if eval "$cmd"; then
+    if run_kafka_topics "${cmd_args[@]}"; then
         info "Successfully created topic: $topic_name"
     else
         error "Failed to create topic: $topic_name"
@@ -201,7 +235,7 @@ verify_topic() {
         info "Verified topic exists: $topic_name"
         
         # Get topic details
-        local details=$(kafka-topics --bootstrap-server "$BROKER" \
+        local details=$(run_kafka_topics --bootstrap-server "$BROKER" \
             --describe --topic "$topic_name" 2>/dev/null)
         
         if [[ -n "$details" ]]; then

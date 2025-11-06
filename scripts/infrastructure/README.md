@@ -131,8 +131,9 @@ Pre-configured Grafana dashboards for monitoring:
 
 **Development**:
 
-- Kafka running on `localhost:9092`
-- Schema Registry running on `http://localhost:8081`
+- Kafka running on `localhost:9092` (via Docker Compose)
+- Schema Registry running on `http://localhost:8081` (via Docker Compose)
+- Use `pnpm dev:hoang` to start all services including Kafka and Schema Registry
 
 **Production**:
 

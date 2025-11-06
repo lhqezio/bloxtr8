@@ -150,7 +150,12 @@ export class OfferNotificationService {
           toDelete.forEach(key => this.processedOffers.delete(key));
         }
       }
-    } catch (error) {
+    } catch (error: any) {
+      // Suppress connection errors when API server is not available
+      if (error?.cause?.code === 'ECONNREFUSED' || error?.code === 'ECONNREFUSED') {
+        // Silently ignore connection refused errors (API server not ready)
+        return;
+      }
       console.error('Error polling offer events:', error);
     }
   }
