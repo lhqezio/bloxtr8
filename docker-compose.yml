@@ -27,53 +27,40 @@ services:
     volumes:
       - minio_data:/data
 
-  # Kafka broker
+  # Kafka broker (KRaft mode - no Zookeeper)
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: bloxtr8-kafka
     ports:
       - '9092:9092'
+      - '9093:9093'
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      # KRaft mode configuration
+      KAFKA_KRAFT_MODE: "true"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      CLUSTER_ID: dVH63prxRmWAHj90SHWmyQ
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # Topic configuration
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: false
+      # Log configuration
       KAFKA_LOG_DIRS: /var/lib/kafka/data
     volumes:
       - kafka-data:/var/lib/kafka/data
-    depends_on:
-      - zookeeper
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 30s
-
-  # Zookeeper
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    container_name: bloxtr8-zookeeper
-    ports:
-      - '2181:2181'
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    volumes:
-      - zookeeper-data:/var/lib/zookeeper/data
-      - zookeeper-logs:/var/lib/zookeeper/log
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo ruok | nc localhost 2181 || exit 1'"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
 
   # Schema Registry
   schema-registry:
@@ -89,8 +76,6 @@ services:
       SCHEMA_REGISTRY_MASTER_ELIGIBILITY: "true"
     depends_on:
       kafka:
-        condition: service_healthy
-      zookeeper:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8081/subjects || exit 1"]
@@ -131,5 +116,3 @@ volumes:
   pgdata:
   minio_data:
   kafka-data:
-  zookeeper-data:
-  zookeeper-logs:

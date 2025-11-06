@@ -97,7 +97,7 @@ fi
 
 # Start Docker services
 print_status "Starting Docker services..."
-docker compose up -d test-db minio zookeeper kafka schema-registry
+docker compose up -d test-db minio kafka schema-registry
 
 # Wait for database
 print_status "Waiting for database..."
@@ -116,18 +116,6 @@ print_status "Setting up database schema..."
 pnpm db:generate
 pnpm db:push
 print_success "Database setup complete!"
-
-# Wait for Zookeeper
-print_status "Waiting for Zookeeper..."
-for i in {1..30}; do
-    if docker compose ps zookeeper 2>/dev/null | grep -q "healthy\|Up" && \
-       docker compose exec -T zookeeper bash -c "echo ruok | nc localhost 2181" > /dev/null 2>&1; then
-        print_success "Zookeeper is ready!"
-        break
-    fi
-    [ $i -eq 30 ] && print_warning "Zookeeper may still be starting up..."
-    sleep 1
-done
 
 # Wait for Kafka
 print_status "Waiting for Kafka..."
