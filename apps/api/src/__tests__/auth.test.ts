@@ -37,7 +37,7 @@ jest.mock('@bloxtr8/database', () => ({
   prisma: mockPrismaClient,
 }));
 
-import app from '../index.js';
+import app from '../app.js';
 
 // Mock the lib functions
 jest.mock('../lib/discord-verification.js', () => ({

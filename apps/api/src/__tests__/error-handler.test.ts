@@ -10,7 +10,7 @@ jest.mock('@bloxtr8/database', () => ({
   })),
 }));
 
-import app from '../index.js';
+import app from '../app.js';
 import { AppError, createProblemDetails } from '../middleware/errorHandler.js';
 
 describe('Error Handling', () => {

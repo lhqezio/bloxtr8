@@ -1,6 +1,6 @@
 import request from 'supertest';
 
-import app from '../index.js';
+import app from '../app.js';
 import { metrics } from '../lib/metrics.js';
 
 // Mock the database

@@ -68,7 +68,7 @@ jest.mock('../lib/events.js', () => ({
   },
 }));
 
-import app from '../index.js';
+import app from '../app.js';
 
 describe('Offers API Routes', () => {
   beforeEach(() => {
