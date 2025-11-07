@@ -94,7 +94,7 @@ start_service() {
     print_status "Starting $service_name on port $port..."
     eval "$command" &
     local pid=$!
-    echo $pid > ".${service_name}.pid"
+    echo $pid 
     
     # Wait a moment for service to start
     sleep 3

@@ -29,38 +29,9 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Function to kill process by PID file
-kill_by_pid_file() {
-    local service_name=$1
-    local pid_file=".${service_name}.pid"
-    
-    if [ -f "$pid_file" ]; then
-        local pid=$(cat "$pid_file")
-        if kill -0 $pid 2>/dev/null; then
-            print_status "Stopping $service_name (PID: $pid)..."
-            kill $pid 2>/dev/null || true
-            # Wait for graceful shutdown
-            sleep 2
-            if kill -0 $pid 2>/dev/null; then
-                print_warning "Force killing $service_name..."
-                kill -9 $pid 2>/dev/null || true
-            fi
-            print_success "$service_name stopped"
-            rm -f "$pid_file"
-            return 0
-        else
-            print_warning "$service_name was not running (stale PID file)"
-            rm -f "$pid_file"
-        fi
-    fi
-    return 1
-}
 
 # Kill Discord bot
 print_status "Killing Discord bot..."
-
-# Try PID file first (this might kill parent process)
-kill_by_pid_file "discord-bot" || true
 
 # Always check for and kill all discord bot processes (including child processes)
 # This catches the actual node process even if PID file had parent process
@@ -122,8 +93,6 @@ else
     print_warning "No process found on port 3000"
 fi
 
-# Also try killing via PID file for API (which runs on port 3000)
-kill_by_pid_file "api" || true
 
 echo ""
 print_success "Done! Discord bot and Node process on port 3000 have been stopped."
