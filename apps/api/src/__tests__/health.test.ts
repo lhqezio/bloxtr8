@@ -9,9 +9,23 @@ jest.mock('@bloxtr8/database', () => ({
   })),
 }));
 
+// Mock PostgreSQL Pool to prevent hanging on database connection
+const mockQuery = jest.fn().mockResolvedValue({ rows: [{ '?column?': 1 }] });
+jest.mock('pg', () => ({
+  Pool: jest.fn().mockImplementation(() => ({
+    query: mockQuery,
+    end: jest.fn(),
+  })),
+}));
+
 import app from '../app.js';
 
 describe('Health Endpoint', () => {
+  beforeEach(() => {
+    // Reset mock to return success by default
+    mockQuery.mockResolvedValue({ rows: [{ '?column?': 1 }] });
+  });
+
   it('should return health status with 200', async () => {
     const response = await request(app).get('/health').expect(200);
 
@@ -30,12 +44,13 @@ describe('Health Endpoint', () => {
 
   it('should handle database connection errors', async () => {
     // This tests the branch where pool.query throws an error
-    // We'll need to mock the database to simulate a connection error
+    mockQuery.mockRejectedValue(new Error('Connection failed'));
     const response = await request(app).get('/health').expect(200);
 
-    // The health check should still return 200 but with db status
+    // The health check should still return 200 but with db status error
     expect(response.body).toHaveProperty('status', 'ok');
-    expect(response.body).toHaveProperty('db');
+    expect(response.body).toHaveProperty('db', 'error');
+    expect(response.body).toHaveProperty('dbError');
     expect(response.body).toHaveProperty('message', 'Bloxtr8 API is running');
   });
 });
