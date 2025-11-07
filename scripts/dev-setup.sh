@@ -107,7 +107,7 @@ fi
 
 # Start Docker services
 print_status "Starting Docker services..."
-docker compose up -d test-db minio kafka schema-registry
+docker compose up -d test-db minio kafka-1 kafka-2 kafka-3 schema-registry
 
 # Wait for database
 print_status "Waiting for database..."
