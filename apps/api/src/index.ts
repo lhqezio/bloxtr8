@@ -3,8 +3,7 @@ import { fileURLToPath } from 'url';
 
 import express from 'express';
 
-import app, { dbPool } from './app.js';
-import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import app, { dbPool, registerSpaFallback } from './app.js';
 
 const port = process.env.PORT || 3000;
 
@@ -13,21 +12,19 @@ const __filename1 = fileURLToPath(import.meta.url);
 const __dirnameLocal = path.dirname(__filename1);
 // When running from dist/, go up one level to find public folder
 const staticDir = path.resolve(__dirnameLocal, '..', 'public');
-app.use(express.static(staticDir));
 
-// SPA fallback: let frontend handle routing for non-API paths
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/health')) {
-    return next();
-  }
-  res.sendFile(path.join(staticDir, 'index.html'));
+registerSpaFallback(router => {
+  router.use(express.static(staticDir));
+
+  // SPA fallback: let frontend handle routing for non-API paths
+  router.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/health')) {
+      return next();
+    }
+    res.sendFile(path.join(staticDir, 'index.html'));
+  });
 });
 
-// 404 handler - must be after static files and SPA fallback
-app.use(notFoundHandler);
-
-// Global error handler
-app.use(errorHandler);
 
 // Start server only if not in test environment
 if (process.env.NODE_ENV !== 'test') {

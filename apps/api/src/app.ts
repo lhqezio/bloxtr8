@@ -9,8 +9,10 @@ import pkg from 'pg';
 
 import { auth } from './lib/auth.js';
 import { validateEnvironment } from './lib/env-validation.js';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
 import healthRoutes, { setPool } from './routes/health.js';
+
 
 const { Pool } = pkg;
 
@@ -83,6 +85,21 @@ app.use('/health', healthRoutes);
 
 // API routes
 app.use('/api', apiRoutes);
+
+// Router placeholder for static assets / SPA fallback so it can be configured
+// by the runtime entrypoint (e.g. index.ts) before the error handlers run.
+const spaRouter = express.Router();
+app.use(spaRouter);
+
+// 404 handler - must remain the final non-error middleware
+app.use(notFoundHandler);
+
+// Global error handler
+app.use(errorHandler);
+
+export const registerSpaFallback = (configure: (router: express.Router) => void) => {
+  configure(spaRouter);
+};
 
 export default app;
 export { pool as dbPool };
