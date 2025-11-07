@@ -150,7 +150,7 @@ echo "🤖 Discord Bot:   Running in background"
 echo "🗄️  Database:      Neon (cloud-hosted)"
 echo "📁 MinIO Console:  http://localhost:9001 (admin/minioadmin123)"
 echo ""
-echo "📝 To stop all services, run: pkill -f 'node.*dist/index.js' && docker compose down"
+echo "📝 To stop all services, run: pnpm deploy:stop && docker compose down"
 echo ""
 echo "Happy deploying! 🚀"
 
