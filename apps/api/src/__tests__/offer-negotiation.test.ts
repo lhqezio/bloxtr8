@@ -32,7 +32,7 @@ jest.mock('../lib/asset-verification.js', () => ({
   })),
 }));
 
-import app from '../index.js';
+import app from '../app.js';
 
 describe('Offer Negotiation API Routes', () => {
   beforeEach(() => {

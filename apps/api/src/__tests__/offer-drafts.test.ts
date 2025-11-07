@@ -17,7 +17,7 @@ jest.mock('@bloxtr8/database', () => ({
   },
 }));
 
-import app from '../index.js';
+import app from '../app.js';
 
 describe('Offer Drafts API Routes', () => {
   beforeEach(() => {

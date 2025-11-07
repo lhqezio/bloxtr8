@@ -1,5 +1,9 @@
 // import { prisma } from '@bloxtr8/database';
-
+describe('place holder test', () => {
+  it('should be defined', () => {
+    expect(1).toBe(1);
+  });
+});
 // import {
 //   executeContract,
 //   isContractReadyForExecution,

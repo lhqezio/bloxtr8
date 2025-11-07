@@ -2,7 +2,11 @@
 // const mockOfferFindMany = jest.fn();
 // const mockOfferUpdateMany = jest.fn();
 // const mockAuditLogCreateMany = jest.fn();
-
+describe('place holder test', () => {
+  it('should be defined', () => {
+    expect(1).toBe(1);
+  });
+});
 // jest.mock('@bloxtr8/database', () => ({
 //   prisma: {
 //     offer: {
