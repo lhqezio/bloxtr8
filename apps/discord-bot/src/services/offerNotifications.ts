@@ -120,6 +120,14 @@
 //         }
 //       );
 
+      if (!response.ok) {
+        // Suppress 429 (Too Many Requests) errors - these are expected during rate limiting
+        if (response.status === 429) {
+          return;
+        }
+        console.error(`Failed to fetch offer events: ${response.statusText}`);
+        return;
+      }
 //       if (!response.ok) {
 //         console.error(`Failed to fetch offer events: ${response.statusText}`);
 //         return;
@@ -144,6 +152,24 @@
 //         // Mark as processed
 //         this.processedOffers.add(eventKey);
 
+        // Clean up old processed offers (keep last 1000)
+        if (this.processedOffers.size > 1000) {
+          const toDelete = Array.from(this.processedOffers).slice(0, 500);
+          toDelete.forEach(key => this.processedOffers.delete(key));
+        }
+      }
+    } catch (error: any) {
+      // Suppress connection errors when API server is not available
+      if (
+        error?.cause?.code === 'ECONNREFUSED' ||
+        error?.code === 'ECONNREFUSED'
+      ) {
+        // Silently ignore connection refused errors (API server not ready)
+        return;
+      }
+      console.error('Error polling offer events:', error);
+    }
+  }
 //         // Clean up old processed offers (keep last 1000)
 //         if (this.processedOffers.size > 1000) {
 //           const toDelete = Array.from(this.processedOffers).slice(0, 500);

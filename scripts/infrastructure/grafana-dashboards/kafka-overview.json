@@ -1,0 +1,158 @@
+{
+  "dashboard": {
+    "title": "Kafka Overview",
+    "tags": ["kafka", "infrastructure"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Broker Status",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "up{job=\"kafka-jmx\"}",
+            "legendFormat": "{{instance}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 1, "color": "green" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Message Rate (per second)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 9, "x": 6, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(rate(kafka_server_brokertopicmetrics_messagesinpersec[5m])) by (topic)",
+            "legendFormat": "{{topic}}"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Messages/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Consumer Lag",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 9, "x": 15, "y": 0 },
+        "targets": [
+          {
+            "expr": "sum(kafka_consumer_lag_sum) by (consumer_group)",
+            "legendFormat": "{{consumer_group}}"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Messages" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "DLQ Size",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 6, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(kafka_topic_partition_current_offset{topic=~\".*\\\\.dlq\"})",
+            "legendFormat": "DLQ Messages"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 1, "color": "yellow" },
+                { "value": 100, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Partition Count by Topic",
+        "type": "bargauge",
+        "gridPos": { "h": 8, "w": 9, "x": 6, "y": 8 },
+        "targets": [
+          {
+            "expr": "count(kafka_topic_partition_current_offset) by (topic)",
+            "legendFormat": "{{topic}}"
+          }
+        ],
+        "options": {
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 6,
+        "title": "Under-Replicated Partitions",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 9, "x": 15, "y": 8 },
+        "targets": [
+          {
+            "expr": "sum(kafka_server_replicamanager_underreplicatedpartitions)",
+            "legendFormat": "Under-Replicated"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 1, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Topic Size by Topic",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "sum(kafka_topic_partition_current_offset * kafka_topic_partition_log_size_bytes) by (topic)",
+            "legendFormat": "{{topic}}"
+          }
+        ],
+        "yaxes": [{ "format": "bytes", "label": "Size" }, { "format": "short" }]
+      },
+      {
+        "id": 8,
+        "title": "Producer Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+        "targets": [
+          {
+            "expr": "sum(rate(kafka_producer_record_send_total[5m])) by (topic)",
+            "legendFormat": "{{topic}}"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Records/sec" },
+          { "format": "short" }
+        ]
+      }
+    ]
+  }
+}

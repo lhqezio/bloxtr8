@@ -1,0 +1,356 @@
+# Prometheus Alert Rules for Bloxtr8 Kafka Infrastructure
+# These rules define conditions that trigger alerts when metrics exceed thresholds
+
+groups:
+  # Kafka Infrastructure Alerts
+  - name: kafka_infrastructure
+    interval: 30s
+    rules:
+      # Broker Availability
+      - alert: KafkaBrokerDown
+        expr: up{job="kafka-jmx"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: kafka
+        annotations:
+          summary: 'Kafka broker is down'
+          description: 'Kafka broker {{ $labels.instance }} has been down for more than 1 minute.'
+
+      # Partition Leader Unavailable
+      - alert: KafkaPartitionLeaderUnavailable
+        expr: kafka_controller_offline_partitions_count > 0
+        for: 5m
+        labels:
+          severity: critical
+          component: kafka
+        annotations:
+          summary: 'Kafka partition leader unavailable'
+          description: '{{ $value }} partitions have no leader for more than 5 minutes.'
+
+      # Under-Replicated Partitions
+      - alert: KafkaUnderReplicatedPartitions
+        expr: sum(kafka_server_replicamanager_underreplicatedpartitions) > 0
+        for: 10m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: 'Under-replicated partitions detected'
+          description: '{{ $value }} partitions are under-replicated for more than 10 minutes.'
+
+      # ISR Shrinking
+      - alert: KafkaISRShrinking
+        expr: kafka_server_replicamanager_underreplicatedpartitions > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: 'ISR shrinking detected'
+          description: '{{ $value }} partitions have shrinking ISR for more than 5 minutes.'
+
+      # High Message Rate
+      - alert: KafkaHighMessageRate
+        expr: |
+          sum(rate(kafka_server_brokertopicmetrics_messagesinpersec[5m])) > 10000
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: 'High message rate detected'
+          description: 'Message rate is {{ $value }} messages/second, exceeding threshold of 10000.'
+
+      # Low Disk Space
+      - alert: KafkaLowDiskSpace
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/var/kafka-logs"} / node_filesystem_size_bytes{mountpoint="/var/kafka-logs"}) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: kafka
+        annotations:
+          summary: 'Low disk space on Kafka broker'
+          description: 'Disk space on {{ $labels.instance }} is below 10% ({{ $value | humanizePercentage }}).'
+
+  # Consumer Lag Alerts
+  - name: kafka_consumer_lag
+    interval: 30s
+    rules:
+      # Consumer Lag Warning
+      - alert: ConsumerLagHigh
+        expr: sum(kafka_consumer_lag_sum) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: 'High consumer lag detected'
+          description: 'Consumer lag is {{ $value }} messages for more than 5 minutes.'
+
+      # Consumer Lag Critical
+      - alert: ConsumerLagCritical
+        expr: sum(kafka_consumer_lag_sum) > 5000
+        for: 1m
+        labels:
+          severity: critical
+          component: kafka
+        annotations:
+          summary: 'Critical consumer lag'
+          description: 'Consumer lag is {{ $value }} messages. Consumers are falling behind.'
+
+      # Consumer Lag by Topic
+      - alert: ConsumerLagByTopicHigh
+        expr: max(kafka_consumer_lag_sum) by (topic) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: 'High consumer lag for topic'
+          description: 'Topic {{ $labels.topic }} has consumer lag of {{ $value }} messages.'
+
+  # Dead Letter Queue Alerts
+  - name: kafka_dlq
+    interval: 30s
+    rules:
+      # DLQ Messages Detected
+      - alert: DLQMessagesDetected
+        expr: sum(kafka_topic_partition_current_offset{topic=~".*\\.dlq"}) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: 'DLQ messages detected'
+          description: '{{ $value }} messages in DLQ topics. Investigation required.'
+
+      # DLQ Messages High
+      - alert: DLQMessagesHigh
+        expr: sum(kafka_topic_partition_current_offset{topic=~".*\\.dlq"}) > 100
+        for: 5m
+        labels:
+          severity: critical
+          component: kafka
+        annotations:
+          summary: 'High DLQ message count'
+          description: '{{ $value }} messages in DLQ topics. Immediate attention required.'
+
+      # DLQ Message Rate
+      - alert: DLQMessageRateHigh
+        expr: |
+          sum(rate(kafka_topic_partition_current_offset{topic=~".*\\.dlq"}[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: 'High DLQ message rate'
+          description: 'DLQ message rate is {{ $value }} messages/second.'
+
+      # Oldest DLQ Message Age
+      - alert: DLQMessageAgeHigh
+        expr: |
+          (time() - kafka_topic_partition_oldest_offset_timestamp{topic=~".*\\.dlq"}) > 604800
+        for: 1h
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: 'Old DLQ messages detected'
+          description: 'Oldest DLQ message is {{ $value | humanizeDuration }} old.'
+
+  # Schema Registry Alerts
+  - name: schema_registry
+    interval: 30s
+    rules:
+      # Schema Registry Down
+      - alert: SchemaRegistryDown
+        expr: up{job="schema-registry"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: schema-registry
+        annotations:
+          summary: 'Schema Registry is down'
+          description: 'Schema Registry has been down for more than 1 minute.'
+
+      # Schema Compatibility Failure
+      - alert: SchemaCompatibilityFailure
+        expr: |
+          increase(schema_registry_schema_compatibility_rate{compatibility="FAILURE"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: schema-registry
+        annotations:
+          summary: 'Schema compatibility check failed'
+          description: 'Schema compatibility check failed for subject {{ $labels.subject }}.'
+
+      # Schema Registry High Error Rate
+      - alert: SchemaRegistryHighErrorRate
+        expr: |
+          rate(schema_registry_schema_registry_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: schema-registry
+        annotations:
+          summary: 'High Schema Registry error rate'
+          description: 'Schema Registry error rate is {{ $value }} errors/second.'
+
+  # Application Service Alerts
+  - name: application_services
+    interval: 30s
+    rules:
+      # Service Down
+      - alert: ServiceDown
+        expr: up{job=~".*-service|api-gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: application
+        annotations:
+          summary: 'Application service is down'
+          description: 'Service {{ $labels.job }} has been down for more than 1 minute.'
+
+      # High Error Rate
+      - alert: ServiceHighErrorRate
+        expr: |
+          rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: application
+        annotations:
+          summary: 'High error rate for service'
+          description: 'Error rate for {{ $labels.service }} is {{ $value | humanizePercentage }}.'
+
+      # High Latency
+      - alert: ServiceHighLatency
+        expr: |
+          histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: application
+        annotations:
+          summary: 'High latency for service'
+          description: 'P95 latency for {{ $labels.service }} is {{ $value }}s.'
+
+      # Low Request Rate (Potential Issue)
+      - alert: ServiceLowRequestRate
+        expr: |
+          rate(http_requests_total[5m]) < 0.1
+        for: 15m
+        labels:
+          severity: warning
+          component: application
+        annotations:
+          summary: 'Low request rate for service'
+          description: 'Request rate for {{ $labels.service }} is {{ $value }} requests/second.'
+
+  # Business Metrics Alerts
+  - name: business_metrics
+    interval: 1m
+    rules:
+      # Escrow Creation Rate Drop
+      - alert: EscrowCreationRateDrop
+        expr: |
+          rate(escrow_created_total[5m]) < 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: 'Escrow creation rate dropped'
+          description: 'Escrow creation rate is {{ $value }} escrows/second.'
+
+      # Payment Failure Rate High
+      - alert: PaymentFailureRateHigh
+        expr: |
+          rate(payment_failed_total[5m]) / rate(payment_intent_created_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          component: business
+        annotations:
+          summary: 'High payment failure rate'
+          description: 'Payment failure rate is {{ $value | humanizePercentage }}.'
+
+      # Dispute Rate High
+      - alert: DisputeRateHigh
+        expr: |
+          rate(escrow_disputed_total[1h]) / rate(escrow_created_total[1h]) > 0.05
+        for: 1h
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: 'High dispute rate'
+          description: 'Dispute rate is {{ $value | humanizePercentage }} of escrows.'
+
+      # Stuck Escrows
+      - alert: StuckEscrows
+        expr: |
+          escrow_active{status=~"AWAIT_FUNDS|FUNDS_HELD|DELIVERED"} > 100
+        for: 24h
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: 'Stuck escrows detected'
+          description: '{{ $value }} escrows have been in non-terminal state for more than 24 hours.'
+
+  # System Resource Alerts
+  - name: system_resources
+    interval: 30s
+    rules:
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: 'High CPU usage'
+          description: 'CPU usage on {{ $labels.instance }} is {{ $value }}%.'
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: 'High memory usage'
+          description: 'Memory usage on {{ $labels.instance }} is {{ $value }}%.'
+
+      # Disk Space Low
+      - alert: DiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.15
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: 'Low disk space'
+          description: 'Disk space on {{ $labels.instance }} is {{ $value | humanizePercentage }}.'
+
+      # Disk Space Critical
+      - alert: DiskSpaceCritical
+        expr: |
+          (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: 'Critical disk space'
+          description: 'Disk space on {{ $labels.instance }} is {{ $value | humanizePercentage }}.'
