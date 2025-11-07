@@ -138,8 +138,8 @@ if (process.env.NODE_ENV !== 'test') {
     });
 
     // Stop cron jobs
-        // stopOfferExpiryJob();
-        // stopContractExecutionProcessor();
+    // stopOfferExpiryJob();
+    // stopContractExecutionProcessor();
 
     // Close database pool
     await pool.end();
