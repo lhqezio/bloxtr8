@@ -13,7 +13,6 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
 import healthRoutes, { setPool } from './routes/health.js';
 
-
 const { Pool } = pkg;
 
 // Load environment variables
@@ -97,7 +96,9 @@ app.use(notFoundHandler);
 // Global error handler
 app.use(errorHandler);
 
-export const registerSpaFallback = (configure: (router: express.Router) => void) => {
+export const registerSpaFallback = (
+  configure: (router: express.Router) => void
+) => {
   configure(spaRouter);
 };
 
