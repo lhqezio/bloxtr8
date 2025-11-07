@@ -10,6 +10,15 @@ jest.mock('@bloxtr8/database', () => ({
   })),
 }));
 
+// Mock PostgreSQL Pool to prevent hanging on database connection
+const mockQuery = jest.fn().mockResolvedValue({ rows: [{ '?column?': 1 }] });
+jest.mock('pg', () => ({
+  Pool: jest.fn().mockImplementation(() => ({
+    query: mockQuery,
+    end: jest.fn(),
+  })),
+}));
+
 import app from '../app.js';
 
 describe('API Routes Integration', () => {
