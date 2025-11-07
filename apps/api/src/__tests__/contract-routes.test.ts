@@ -95,7 +95,7 @@ jest.mock('../lib/contract-execution-queue', () => ({
   createExecutionJob: jest.fn().mockResolvedValue('job-123'),
 }));
 
-import app from '../index.js';
+import app from '../app.js';
 
 describe('Contract API Routes', () => {
   beforeEach(() => {

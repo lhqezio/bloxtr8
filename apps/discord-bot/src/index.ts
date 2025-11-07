@@ -57,9 +57,9 @@ import {
 import { execute as handleSyncListings } from './commands/sync-listings.js';
 import { handleVerify } from './commands/verify.js';
 import { handleViewOffersButton } from './commands/view-offers.js';
-// Offer notification service
-import { LinkNotificationService } from './services/linkNotifications.js';
-import { OfferNotificationService } from './services/offerNotifications.js';
+// // Offer notification service
+// import { LinkNotificationService } from './services/linkNotifications.js';
+// import { OfferNotificationService } from './services/offerNotifications.js';
 // Link notification service
 // Marketplace utilities
 import { syncPublicListingsToGuild } from './utils/listingSync.js';
@@ -87,8 +87,8 @@ const client = new Client({
 });
 
 // Initialize notification services
-let offerNotificationService: OfferNotificationService | null = null;
-let linkNotificationService: LinkNotificationService | null = null;
+// let offerNotificationService: OfferNotificationService | null = null;
+// let linkNotificationService: LinkNotificationService | null = null;
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user?.tag}`);
@@ -112,17 +112,17 @@ client.once('ready', async () => {
   }
 
   // Start notification services
-  const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+  // const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
 
   // Start offer notification service
-  offerNotificationService = new OfferNotificationService(client, apiBaseUrl);
-  offerNotificationService.start(30000); // Poll every 30 seconds
-  console.log('✅ Offer notification service started');
+  // offerNotificationService = new OfferNotificationService(client, apiBaseUrl);
+  // offerNotificationService.start(30000); // Poll every 30 seconds
+  // console.log('✅ Offer notification service started');
 
-  // Start link notification service
-  linkNotificationService = new LinkNotificationService(client, apiBaseUrl);
-  linkNotificationService.start(30000); // Poll every 30 seconds
-  console.log('✅ Link notification service started');
+  // // Start link notification service
+  // // linkNotificationService = new LinkNotificationService(client, apiBaseUrl);
+  // linkNotificationService.start(30000); // Poll every 30 seconds
+  // console.log('✅ Link notification service started');
 
   // Register guild slash commands on startup
   const commands = [
@@ -467,12 +467,12 @@ async function gracefulShutdown(signal: string) {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
 
   // Stop notification services
-  if (offerNotificationService) {
-    offerNotificationService.stop();
-  }
-  if (linkNotificationService) {
-    linkNotificationService.stop();
-  }
+  // if (offerNotificationService) {
+  //   offerNotificationService.stop();
+  // }
+  // if (linkNotificationService) {
+  //   linkNotificationService.stop();
+  // }
 
   // Cleanup verification cache
   cleanupVerificationCache();
