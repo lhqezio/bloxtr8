@@ -9,7 +9,6 @@ import pkg from 'pg';
 
 import { auth } from './lib/auth.js';
 import { validateEnvironment } from './lib/env-validation.js';
-import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
 import healthRoutes, { setPool } from './routes/health.js';
 
@@ -84,12 +83,6 @@ app.use('/health', healthRoutes);
 
 // API routes
 app.use('/api', apiRoutes);
-
-// 404 handler - must be after static files and SPA fallback
-app.use(notFoundHandler);
-
-// Global error handler
-app.use(errorHandler);
 
 export default app;
 export { pool as dbPool };

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 
 import app, { dbPool } from './app.js';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const port = process.env.PORT || 3000;
 
@@ -21,6 +22,12 @@ app.get('*', (req, res, next) => {
   }
   res.sendFile(path.join(staticDir, 'index.html'));
 });
+
+// 404 handler - must be after static files and SPA fallback
+app.use(notFoundHandler);
+
+// Global error handler
+app.use(errorHandler);
 
 // Start server only if not in test environment
 if (process.env.NODE_ENV !== 'test') {
