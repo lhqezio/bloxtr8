@@ -1,3 +1,6 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 import { config } from '@dotenvx/dotenvx';
 import { toNodeHandler } from 'better-auth/node';
 import compress from 'compression';
@@ -8,15 +11,15 @@ import helmet from 'helmet';
 import pkg from 'pg';
 
 import { auth } from './lib/auth.js';
-import {
-  initializeContractExecutionProcessor,
-  stopContractExecutionProcessor,
-} from './lib/contract-execution-processor.js';
+// import {
+//   initializeContractExecutionProcessor,
+//   stopContractExecutionProcessor,
+// } from './lib/contract-execution-processor.js';
 import { validateEnvironment } from './lib/env-validation.js';
-import {
-  initializeOfferExpiryJob,
-  stopOfferExpiryJob,
-} from './lib/offer-expiry.js';
+// import {
+//   initializeOfferExpiryJob,
+//   stopOfferExpiryJob,
+// } from './lib/offer-expiry.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import apiRoutes from './routes/api.js';
 import healthRoutes, { setPool } from './routes/health.js';
@@ -93,7 +96,22 @@ app.use('/health', healthRoutes);
 // API routes
 app.use('/api', apiRoutes);
 
-// 404 handler
+// Static file serving - must be before error handlers
+const __filename = fileURLToPath(import.meta.url);
+const __dirnameLocal = path.dirname(__filename);
+// When running from dist/, go up one level to find public folder
+const staticDir = path.resolve(__dirnameLocal, '..', 'public');
+app.use(express.static(staticDir));
+
+// SPA fallback: let frontend handle routing for non-API paths
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/health')) {
+    return next();
+  }
+  res.sendFile(path.join(staticDir, 'index.html'));
+});
+
+// 404 handler - must be after static files and SPA fallback
 app.use(notFoundHandler);
 
 // Global error handler
@@ -102,8 +120,8 @@ app.use(errorHandler);
 // Start server only if not in test environment
 if (process.env.NODE_ENV !== 'test') {
   // Initialize background jobs
-  initializeOfferExpiryJob();
-  initializeContractExecutionProcessor();
+  // initializeOfferExpiryJob();
+  // initializeContractExecutionProcessor();
 
   const server = app.listen(port, () => {
     console.log(`🚀 Bloxtr8 API running on http://localhost:${port}`);
@@ -120,8 +138,8 @@ if (process.env.NODE_ENV !== 'test') {
     });
 
     // Stop cron jobs
-    stopOfferExpiryJob();
-    stopContractExecutionProcessor();
+        // stopOfferExpiryJob();
+        // stopContractExecutionProcessor();
 
     // Close database pool
     await pool.end();
