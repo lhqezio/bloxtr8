@@ -337,6 +337,20 @@ All topics have corresponding DLQ topics for poison messages.
 
 ## Topic Configuration
 
+### Automated Provisioning
+
+Use the helper script at `scripts/kafka/setup-topics.sh` to provision all topics and DLQs with the correct retention and replication settings.
+
+```bash
+# Development (single-replica)
+scripts/kafka/setup-topics.sh --env development --bootstrap-servers localhost:9092
+
+# Production (3 replicas)
+scripts/kafka/setup-topics.sh --env production --bootstrap-servers broker-1:9092,broker-2:9092,broker-3:9092
+```
+
+The legacy wrapper `scripts/infrastructure/create-kafka-topics.sh` forwards to the same script for compatibility with existing automation.
+
 ### Example Topic Creation
 
 ```bash
