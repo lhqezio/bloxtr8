@@ -86,5 +86,3 @@ app.use('/api', apiRoutes);
 
 export default app;
 export { pool as dbPool };
-
-
