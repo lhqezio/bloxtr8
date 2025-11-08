@@ -107,7 +107,16 @@ fi
 
 # Start Docker services
 print_status "Starting Docker services..."
-docker compose up -d test-db minio kafka-1 kafka-2 kafka-3 schema-registry
+# Try to start Kafka services (kafka-1, kafka-2, kafka-3, or fallback to kafka)
+KAFKA_SERVICES=""
+for kafka_svc in kafka-1 kafka-2 kafka-3 kafka; do
+    if docker compose config --services 2>/dev/null | grep -q "^${kafka_svc}$"; then
+        KAFKA_SERVICES="${KAFKA_SERVICES} ${kafka_svc}"
+    fi
+done
+# Remove leading space and use kafka as fallback if none found
+KAFKA_SERVICES=${KAFKA_SERVICES:-kafka}
+docker compose up -d test-db minio ${KAFKA_SERVICES} schema-registry
 
 # Wait for database
 print_status "Waiting for database..."
@@ -130,14 +139,28 @@ print_success "Database setup complete!"
 # Wait for Kafka
 print_status "Waiting for Kafka..."
 KAFKA_READY=false
+KAFKA_SERVICE=""
+# Find which Kafka service exists in the compose config (kafka-1, kafka-2, kafka-3, or fallback to kafka)
+for kafka_svc in kafka-1 kafka-2 kafka-3 kafka; do
+    if docker compose config --services 2>/dev/null | grep -q "^${kafka_svc}$"; then
+        KAFKA_SERVICE="$kafka_svc"
+        break
+    fi
+done
+
+if [ -z "$KAFKA_SERVICE" ]; then
+    print_error "No Kafka service found in docker-compose.yml. Expected one of: kafka-1, kafka-2, kafka-3, or kafka"
+    exit 1
+fi
+
 for i in {1..60}; do
-    if docker compose ps kafka 2>/dev/null | grep -q "healthy\|Up" && \
-       docker compose exec -T kafka kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1; then
+    if docker compose ps "$KAFKA_SERVICE" 2>/dev/null | grep -q "healthy\|Up" && \
+       docker compose exec -T "$KAFKA_SERVICE" kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1; then
         print_success "Kafka is ready!"
         KAFKA_READY=true
         break
     fi
-    [ $i -eq 60 ] && print_error "Kafka failed to start. Check logs: docker compose logs kafka"
+    [ $i -eq 60 ] && print_error "Kafka failed to start. Check logs: docker compose logs $KAFKA_SERVICE"
     sleep 2
 done
 
