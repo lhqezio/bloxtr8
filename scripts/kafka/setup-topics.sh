@@ -134,12 +134,18 @@ detect_docker_kafka_services() {
 }
 
 # Adjust bootstrap servers for Docker if needed
-if [[ "$USE_DOCKER" == true && "$BOOTSTRAP_SERVERS_EXPLICIT" == false ]]; then
-  # Check if bootstrap servers contain localhost (default values)
+# Convert localhost addresses to Docker internal addresses when using Docker,
+# even if bootstrap servers were explicitly set (e.g., via --broker flag)
+if [[ "$USE_DOCKER" == true ]]; then
+  # Check if bootstrap servers contain localhost (needs conversion for Docker)
   if [[ "$BOOTSTRAP_SERVERS" == *"localhost"* ]] || [[ "$BOOTSTRAP_SERVERS" == *"127.0.0.1"* ]]; then
     docker_servers=$(detect_docker_kafka_services)
     if [[ -n "$docker_servers" ]]; then
-      info "Detected Docker usage: converting bootstrap servers to Docker internal addresses"
+      if [[ "$BOOTSTRAP_SERVERS_EXPLICIT" == true ]]; then
+        info "Converting explicit localhost bootstrap servers to Docker internal addresses"
+      else
+        info "Detected Docker usage: converting bootstrap servers to Docker internal addresses"
+      fi
       BOOTSTRAP_SERVERS="$docker_servers"
     else
       warn "Using Docker but could not detect Kafka services. Bootstrap servers may not work correctly."
