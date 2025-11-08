@@ -137,37 +137,72 @@ pnpm db:push
 print_success "Database setup complete!"
 
 # Wait for Kafka
-print_status "Waiting for Kafka..."
+print_status "Waiting for Kafka cluster to form quorum..."
 KAFKA_READY=false
-KAFKA_SERVICE=""
-# Find which Kafka service exists in the compose config (kafka-1, kafka-2, kafka-3, or fallback to kafka)
+KAFKA_SERVICES_LIST=()
+# Find all Kafka services in the compose config (kafka-1, kafka-2, kafka-3, or fallback to kafka)
 for kafka_svc in kafka-1 kafka-2 kafka-3 kafka; do
     if docker compose config --services 2>/dev/null | grep -q "^${kafka_svc}$"; then
-        KAFKA_SERVICE="$kafka_svc"
-        break
+        KAFKA_SERVICES_LIST+=("$kafka_svc")
     fi
 done
 
-if [ -z "$KAFKA_SERVICE" ]; then
+if [ ${#KAFKA_SERVICES_LIST[@]} -eq 0 ]; then
     print_error "No Kafka service found in docker-compose.yml. Expected one of: kafka-1, kafka-2, kafka-3, or kafka"
     exit 1
 fi
 
+# For multi-broker KRaft clusters, we need a quorum (majority) before topic creation
+# Quorum = ceil((n + 1) / 2) where n is the number of brokers
+# For 1 broker: need 1, for 2 brokers: need 2, for 3 brokers: need 2
+NUM_BROKERS=${#KAFKA_SERVICES_LIST[@]}
+if [ $NUM_BROKERS -eq 1 ]; then
+    REQUIRED_HEALTHY=1
+else
+    # Calculate majority: (n + 1) / 2 rounded up
+    REQUIRED_HEALTHY=$(( (NUM_BROKERS + 1) / 2 ))
+    # For even numbers, we need n/2 + 1 (e.g., 2 brokers need 2, not 1)
+    if [ $((NUM_BROKERS % 2)) -eq 0 ]; then
+        REQUIRED_HEALTHY=$((NUM_BROKERS / 2 + 1))
+    fi
+fi
+
+print_status "Detected ${#KAFKA_SERVICES_LIST[@]} Kafka broker(s). Waiting for $REQUIRED_HEALTHY to be healthy (quorum required for KRaft cluster)..."
+
 for i in {1..60}; do
-    if docker compose ps "$KAFKA_SERVICE" 2>/dev/null | grep -q "healthy\|Up" && \
-       docker compose exec -T "$KAFKA_SERVICE" kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1; then
-        print_success "Kafka is ready!"
+    HEALTHY_COUNT=0
+    
+    for kafka_svc in "${KAFKA_SERVICES_LIST[@]}"; do
+        if docker compose ps "$kafka_svc" 2>/dev/null | grep -q "healthy\|Up"; then
+            # Test connectivity to this broker (using internal port 9092)
+            if docker compose exec -T "$kafka_svc" kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1; then
+                HEALTHY_COUNT=$((HEALTHY_COUNT + 1))
+            fi
+        fi
+    done
+    
+    if [ $HEALTHY_COUNT -ge $REQUIRED_HEALTHY ]; then
+        print_success "Kafka cluster quorum formed! $HEALTHY_COUNT of ${#KAFKA_SERVICES_LIST[@]} broker(s) healthy."
         KAFKA_READY=true
         break
     fi
-    [ $i -eq 60 ] && print_error "Kafka failed to start. Check logs: docker compose logs $KAFKA_SERVICE"
+    
+    if [ $i -eq 60 ]; then
+        print_error "Kafka cluster failed to form quorum. Only $HEALTHY_COUNT of ${#KAFKA_SERVICES_LIST[@]} broker(s) healthy (need $REQUIRED_HEALTHY)."
+        print_error "Check logs: docker compose logs ${KAFKA_SERVICES_LIST[*]}"
+        exit 1
+    fi
+    
+    if [ $((i % 5)) -eq 0 ]; then
+        print_status "Waiting for Kafka quorum... ($HEALTHY_COUNT/${#KAFKA_SERVICES_LIST[@]} brokers healthy, need $REQUIRED_HEALTHY)"
+    fi
     sleep 2
 done
 
 # Create Kafka topics
 if [ "$KAFKA_READY" = true ] && [ -f "./scripts/infrastructure/create-kafka-topics.sh" ]; then
     print_status "Creating Kafka topics..."
-    ./scripts/infrastructure/create-kafka-topics.sh --env development --broker localhost:9092 2>&1 && \
+    ./scripts/infrastructure/create-kafka-topics.sh --env development --broker localhost:9092,localhost:9093,localhost:9094 2>&1 && \
         print_success "Kafka topics created!" || \
         print_warning "Topic creation had issues (topics may already exist). Continuing..."
 fi
