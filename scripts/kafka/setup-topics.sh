@@ -6,10 +6,13 @@
 set -euo pipefail
 
 ENVIRONMENT="${ENV:-development}"
+# Default bootstrap servers (will be adjusted for Docker if needed)
 BOOTSTRAP_SERVERS="${BOOTSTRAP_SERVERS:-localhost:9092,localhost:9093,localhost:9094}"
 TARGET_TOPIC=""
 DRY_RUN=false
 DOCKER_SERVICE="${DOCKER_SERVICE:-kafka-1}"
+# Track if bootstrap servers were explicitly set (not default)
+BOOTSTRAP_SERVERS_EXPLICIT=false
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -57,6 +60,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --bootstrap-servers)
       BOOTSTRAP_SERVERS="$2"
+      BOOTSTRAP_SERVERS_EXPLICIT=true
       shift 2
       ;;
     --topic)
@@ -104,6 +108,42 @@ if ! command -v kafka-topics >/dev/null 2>&1; then
     USE_DOCKER=true
   else
     warn "kafka-topics binary not found and Docker service '$DOCKER_SERVICE' unavailable. Commands may fail."
+  fi
+fi
+
+# Detect Kafka services from docker-compose and build Docker internal bootstrap servers
+detect_docker_kafka_services() {
+  local services=()
+  # Check for kafka-1, kafka-2, kafka-3 (multi-broker setup)
+  for svc in kafka-1 kafka-2 kafka-3; do
+    if docker compose config --services 2>/dev/null | grep -q "^${svc}$"; then
+      services+=("${svc}:9092")
+    fi
+  done
+  # Fallback to single kafka service if no multi-broker setup found
+  if [[ ${#services[@]} -eq 0 ]]; then
+    if docker compose config --services 2>/dev/null | grep -q "^kafka$"; then
+      services+=("kafka:9092")
+    fi
+  fi
+  # Join with commas
+  if [[ ${#services[@]} -gt 0 ]]; then
+    local IFS=','
+    echo "${services[*]}"
+  fi
+}
+
+# Adjust bootstrap servers for Docker if needed
+if [[ "$USE_DOCKER" == true && "$BOOTSTRAP_SERVERS_EXPLICIT" == false ]]; then
+  # Check if bootstrap servers contain localhost (default values)
+  if [[ "$BOOTSTRAP_SERVERS" == *"localhost"* ]] || [[ "$BOOTSTRAP_SERVERS" == *"127.0.0.1"* ]]; then
+    docker_servers=$(detect_docker_kafka_services)
+    if [[ -n "$docker_servers" ]]; then
+      info "Detected Docker usage: converting bootstrap servers to Docker internal addresses"
+      BOOTSTRAP_SERVERS="$docker_servers"
+    else
+      warn "Using Docker but could not detect Kafka services. Bootstrap servers may not work correctly."
+    fi
   fi
 fi
 
