@@ -385,8 +385,12 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
         });
 
         bothSigned =
-          allSignatures.some((sig: { userId: string }) => sig.userId === contract.offer.buyerId) &&
-          allSignatures.some((sig: { userId: string }) => sig.userId === contract.offer.sellerId);
+          allSignatures.some(
+            (sig: { userId: string }) => sig.userId === contract.offer.buyerId
+          ) &&
+          allSignatures.some(
+            (sig: { userId: string }) => sig.userId === contract.offer.sellerId
+          );
       }
 
       // Create execution job and update contract status atomically if both parties have signed

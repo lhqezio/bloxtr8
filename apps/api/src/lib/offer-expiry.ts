@@ -62,20 +62,30 @@ export function initializeOfferExpiryJob(): ScheduledTask {
 
       // Create audit logs for each expired offer
       await prisma.auditLog.createMany({
-        data: expiredOffers.map((offer: { id: string; listingId: string; buyerId: string; sellerId: string; amount: bigint; status: string; expiry: Date }) => ({
-          action: 'OFFER_EXPIRED',
-          userId: null, // System action
-          details: {
-            offerId: offer.id,
-            listingId: offer.listingId,
-            buyerId: offer.buyerId,
-            sellerId: offer.sellerId,
-            amount: offer.amount.toString(),
-            previousStatus: offer.status,
-            expiry: offer.expiry.toISOString(),
-            autoExpired: true,
-          },
-        })),
+        data: expiredOffers.map(
+          (offer: {
+            id: string;
+            listingId: string;
+            buyerId: string;
+            sellerId: string;
+            amount: bigint;
+            status: string;
+            expiry: Date;
+          }) => ({
+            action: 'OFFER_EXPIRED',
+            userId: null, // System action
+            details: {
+              offerId: offer.id,
+              listingId: offer.listingId,
+              buyerId: offer.buyerId,
+              sellerId: offer.sellerId,
+              amount: offer.amount.toString(),
+              previousStatus: offer.status,
+              expiry: offer.expiry.toISOString(),
+              autoExpired: true,
+            },
+          })
+        ),
       });
 
       // Emit expiry events for Discord notifications
@@ -159,20 +169,30 @@ export async function manuallyExpireOffers(): Promise<{
 
   // Create audit logs
   await prisma.auditLog.createMany({
-    data: expiredOffers.map((offer: { id: string; listingId: string; buyerId: string; sellerId: string; amount: bigint; status: string; expiry: Date }) => ({
-      action: 'OFFER_EXPIRED',
-      userId: null,
-      details: {
-        offerId: offer.id,
-        listingId: offer.listingId,
-        buyerId: offer.buyerId,
-        sellerId: offer.sellerId,
-        amount: offer.amount.toString(),
-        previousStatus: offer.status,
-        expiry: offer.expiry.toISOString(),
-        manualExpiry: true,
-      },
-    })),
+    data: expiredOffers.map(
+      (offer: {
+        id: string;
+        listingId: string;
+        buyerId: string;
+        sellerId: string;
+        amount: bigint;
+        status: string;
+        expiry: Date;
+      }) => ({
+        action: 'OFFER_EXPIRED',
+        userId: null,
+        details: {
+          offerId: offer.id,
+          listingId: offer.listingId,
+          buyerId: offer.buyerId,
+          sellerId: offer.sellerId,
+          amount: offer.amount.toString(),
+          previousStatus: offer.status,
+          expiry: offer.expiry.toISOString(),
+          manualExpiry: true,
+        },
+      })
+    ),
   });
 
   // Emit events

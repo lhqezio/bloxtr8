@@ -141,7 +141,9 @@ router.get('/users/accounts/:id', async (req, res, next) => {
 
     // Try to get Roblox user info if Roblox account is linked
     let robloxUserInfo = null;
-    const robloxAccount = accounts.find((acc: { providerId: string }) => acc.providerId === 'roblox');
+    const robloxAccount = accounts.find(
+      (acc: { providerId: string }) => acc.providerId === 'roblox'
+    );
     if (robloxAccount) {
       try {
         const robloxResponse = await fetch(
