@@ -48,7 +48,7 @@ export function initializeOfferExpiryJob(): ScheduledTask {
       );
 
       // Update all expired offers to EXPIRED status
-      const offerIds = expiredOffers.map(offer => offer.id);
+      const offerIds = expiredOffers.map((offer: { id: string }) => offer.id);
       await prisma.offer.updateMany({
         where: {
           id: {
@@ -62,7 +62,7 @@ export function initializeOfferExpiryJob(): ScheduledTask {
 
       // Create audit logs for each expired offer
       await prisma.auditLog.createMany({
-        data: expiredOffers.map(offer => ({
+        data: expiredOffers.map((offer: { id: string; listingId: string; buyerId: string; sellerId: string; amount: bigint; status: string; expiry: Date }) => ({
           action: 'OFFER_EXPIRED',
           userId: null, // System action
           details: {
@@ -144,7 +144,7 @@ export async function manuallyExpireOffers(): Promise<{
     return { expired: 0, offerIds: [] };
   }
 
-  const offerIds = expiredOffers.map(offer => offer.id);
+  const offerIds = expiredOffers.map((offer: { id: string }) => offer.id);
 
   await prisma.offer.updateMany({
     where: {
@@ -159,7 +159,7 @@ export async function manuallyExpireOffers(): Promise<{
 
   // Create audit logs
   await prisma.auditLog.createMany({
-    data: expiredOffers.map(offer => ({
+    data: expiredOffers.map((offer: { id: string; listingId: string; buyerId: string; sellerId: string; amount: bigint; status: string; expiry: Date }) => ({
       action: 'OFFER_EXPIRED',
       userId: null,
       details: {

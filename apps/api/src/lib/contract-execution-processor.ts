@@ -310,5 +310,5 @@ export async function manuallyProcessJobs(): Promise<{
     await processExecutionJob(job.id);
   }
 
-  return { processed: pendingJobs.length, jobIds: pendingJobs.map(j => j.id) };
+  return { processed: pendingJobs.length, jobIds: pendingJobs.map((j: { id: string }) => j.id) };
 }

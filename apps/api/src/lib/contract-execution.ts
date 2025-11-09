@@ -44,10 +44,10 @@ export async function executeContract(
 
     // Verify both parties have signed
     const buyerSignature = contract.signatures.find(
-      sig => sig.userId === contract.offer.buyerId
+      (sig: { userId: string }) => sig.userId === contract.offer.buyerId
     );
     const sellerSignature = contract.signatures.find(
-      sig => sig.userId === contract.offer.sellerId
+      (sig: { userId: string }) => sig.userId === contract.offer.sellerId
     );
 
     if (!buyerSignature || !sellerSignature) {
@@ -286,10 +286,10 @@ export async function isContractReadyForExecution(
 
     // Check if both parties have signed
     const buyerSigned = contract.signatures.some(
-      sig => sig.userId === contract.offer.buyerId
+      (sig: { userId: string }) => sig.userId === contract.offer.buyerId
     );
     const sellerSigned = contract.signatures.some(
-      sig => sig.userId === contract.offer.sellerId
+      (sig: { userId: string }) => sig.userId === contract.offer.sellerId
     );
 
     return buyerSigned && sellerSigned;
@@ -331,10 +331,10 @@ export async function getContractExecutionStatus(contractId: string): Promise<{
     }
 
     const buyerSigned = contract.signatures.some(
-      sig => sig.userId === contract.offer.buyerId
+      (sig: { userId: string }) => sig.userId === contract.offer.buyerId
     );
     const sellerSigned = contract.signatures.some(
-      sig => sig.userId === contract.offer.sellerId
+      (sig: { userId: string }) => sig.userId === contract.offer.sellerId
     );
     const escrowCreated = contract.escrows.length > 0;
 
@@ -384,10 +384,11 @@ export async function getEscrowPaymentInit(
         return null;
       }
 
+      const stripeEscrow = escrow.stripeEscrow;
       paymentInit = {
         rail: 'STRIPE',
-        paymentIntentId: escrow.stripeEscrow.paymentIntentId,
-        clientSecret: `test_client_secret_${escrow.stripeEscrow.paymentIntentId}`,
+        paymentIntentId: stripeEscrow.paymentIntentId,
+        clientSecret: `test_client_secret_${stripeEscrow.paymentIntentId}`,
       };
     } else {
       // USDC_BASE
@@ -395,10 +396,11 @@ export async function getEscrowPaymentInit(
         return null;
       }
 
+      const stablecoinEscrow = escrow.stablecoinEscrow;
       paymentInit = {
         rail: 'USDC_BASE',
-        depositAddr: escrow.stablecoinEscrow.depositAddr,
-        qr: `usdc:${escrow.stablecoinEscrow.depositAddr}`,
+        depositAddr: stablecoinEscrow.depositAddr,
+        qr: `usdc:${stablecoinEscrow.depositAddr}`,
       };
     }
 

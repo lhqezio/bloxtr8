@@ -40,7 +40,12 @@ router.post('/escrow/:id/mark-delivered', async (req, res, next) => {
       throw new AppError('Escrow not found', 404);
     }
 
-    if (userId !== escrow.offer.sellerId) {
+    const offer = escrow.offer;
+    if (!offer) {
+      throw new AppError('Offer not found', 404);
+    }
+
+    if (userId !== offer.sellerId) {
       throw new AppError('Only the seller can mark delivery as complete', 403);
     }
 
@@ -64,7 +69,7 @@ router.post('/escrow/:id/mark-delivered', async (req, res, next) => {
           description: description || null,
           status: 'DELIVERED',
           deliveredAt: new Date(),
-          listingId: escrow.offer.listingId,
+          listingId: offer.listingId,
           offerId: escrow.offerId,
           contractId: escrow.contractId,
           escrowId: id,
@@ -131,7 +136,12 @@ router.post('/escrow/:id/confirm-delivery', async (req, res, next) => {
       throw new AppError('Escrow not found', 404);
     }
 
-    if (userId !== escrow.offer.buyerId) {
+    const offer = escrow.offer;
+    if (!offer) {
+      throw new AppError('Offer not found', 404);
+    }
+
+    if (userId !== offer.buyerId) {
       throw new AppError('Only buyer can confirm', 403);
     }
 
@@ -144,7 +154,7 @@ router.post('/escrow/:id/confirm-delivery', async (req, res, next) => {
     }
 
     const debugMode = isDebugMode();
-    const _sameUser = escrow.offer.buyerId === escrow.offer.sellerId;
+    const _sameUser = offer.buyerId === offer.sellerId;
 
     let transferId = null;
 
@@ -170,13 +180,15 @@ router.post('/escrow/:id/confirm-delivery', async (req, res, next) => {
 
       if (transferId) {
         if (escrow.rail === 'STRIPE' && escrow.stripeEscrow) {
+          const stripeEscrow = escrow.stripeEscrow;
           await tx.stripeEscrow.update({
-            where: { id: escrow.stripeEscrow.id },
+            where: { id: stripeEscrow.id },
             data: { transferId },
           });
         } else if (escrow.rail === 'USDC_BASE' && escrow.stablecoinEscrow) {
+          const stablecoinEscrow = escrow.stablecoinEscrow;
           await tx.stablecoinEscrow.update({
-            where: { id: escrow.stablecoinEscrow.id },
+            where: { id: stablecoinEscrow.id },
             data: { releaseTx: transferId },
           });
         }
@@ -233,11 +245,16 @@ router.post('/escrow/:id/simulate-payment', async (req, res, next) => {
       throw new AppError('Escrow not found', 404);
     }
 
+    const offer = escrow.offer;
+    if (!offer) {
+      throw new AppError('Offer not found', 404);
+    }
+
     if (escrow.status !== 'AWAIT_FUNDS') {
       throw new AppError('Must be AWAIT_FUNDS', 400);
     }
 
-    if (userId !== escrow.offer.buyerId && userId !== escrow.offer.sellerId) {
+    if (userId !== offer.buyerId && userId !== offer.sellerId) {
       throw new AppError('Not authorized', 403);
     }
 
@@ -253,8 +270,9 @@ router.post('/escrow/:id/simulate-payment', async (req, res, next) => {
       });
 
       if (depositTx && escrow.rail === 'USDC_BASE' && escrow.stablecoinEscrow) {
+        const stablecoinEscrow = escrow.stablecoinEscrow;
         await tx.stablecoinEscrow.update({
-          where: { id: escrow.stablecoinEscrow.id },
+          where: { id: stablecoinEscrow.id },
           data: { depositTx },
         });
       }
@@ -312,18 +330,23 @@ router.get('/escrow/:id/delivery-status', async (req, res, next) => {
       throw new AppError('Escrow not found', 404);
     }
 
-    if (userId !== escrow.offer.buyerId && userId !== escrow.offer.sellerId) {
+    const offer = escrow.offer;
+    if (!offer) {
+      throw new AppError('Offer not found', 404);
+    }
+
+    if (userId !== offer.buyerId && userId !== offer.sellerId) {
       throw new AppError('Not authorized', 403);
     }
 
     res.json({
       escrow: serializeBigInt(escrow),
-      isBuyer: userId === escrow.offer.buyerId,
-      isSeller: userId === escrow.offer.sellerId,
+      isBuyer: userId === offer.buyerId,
+      isSeller: userId === offer.sellerId,
       canMarkDelivered:
-        userId === escrow.offer.sellerId && escrow.status === 'FUNDS_HELD',
+        userId === offer.sellerId && escrow.status === 'FUNDS_HELD',
       canConfirmDelivery:
-        userId === escrow.offer.buyerId && escrow.status === 'DELIVERED',
+        userId === offer.buyerId && escrow.status === 'DELIVERED',
       canSimulatePayment: isDebugMode() && escrow.status === 'AWAIT_FUNDS',
     });
   } catch (error) {

@@ -128,6 +128,12 @@ jobs:
       - name: Lint packages
         run: pnpm lint
 
+      - name: Clean Prisma generated directory before build
+        run: |
+          # Remove generated directory if it exists to avoid conflicts
+          rm -rf packages/database/src/generated
+          rm -rf packages/database/dist/generated
+
       - name: Build packages
         run: pnpm build
         env:

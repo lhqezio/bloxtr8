@@ -428,7 +428,7 @@ export class GameVerificationService {
       }
 
       const robloxAccount = listing.user.accounts.find(
-        acc => acc.providerId === 'roblox'
+        (acc: { providerId: string }) => acc.providerId === 'roblox'
       );
 
       if (!robloxAccount) {

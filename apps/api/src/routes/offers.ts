@@ -436,7 +436,7 @@ router.get('/offers/listing/:listingId', async (req, res, next) => {
     });
 
     // Serialize BigInt to string for JSON response
-    const serializedOffers = offers.map(offer => ({
+    const serializedOffers = offers.map((offer: typeof offers[0]) => ({
       ...offer,
       amount: offer.amount.toString(),
       parent: offer.parent
@@ -707,7 +707,7 @@ router.get('/offers/events/recent', async (req, res, next) => {
     });
 
     // Serialize and format for Discord bot
-    const events = recentOffers.map(offer => ({
+    const events = recentOffers.map((offer: typeof recentOffers[0]) => ({
       offerId: offer.id,
       status: offer.status,
       amount: offer.amount.toString(),
