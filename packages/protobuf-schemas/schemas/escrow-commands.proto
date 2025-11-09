@@ -14,10 +14,11 @@ message CreateEscrow {
   string currency = 5;               // "USD" | "USDC"
   int64 amount_cents = 6;            // Amount in cents (for USD) or smallest unit
   string network = 7;                // "BASE" (for USDC, empty for USD)
-  string trace_id = 8;               // Distributed tracing ID
-  string causation_id = 9;           // ContractExecuted event ID
-  string correlation_id = 10;        // Request correlation ID
-  string version = 11;               // "v1"
+  string event_id = 8;               // Unique event ID for idempotency
+  string trace_id = 9;               // Distributed tracing ID
+  string causation_id = 10;          // ContractExecuted event ID
+  string correlation_id = 11;        // Request correlation ID
+  string version = 12;               // "v1"
 }
 
 // Command to mark escrow as delivered by seller
