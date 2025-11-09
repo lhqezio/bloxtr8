@@ -72,25 +72,27 @@ print_status "Setting up environment variables..."
 # Override DATABASE_URL to use local Docker database
 LOCAL_DB_URL="postgresql://postgres:postgres@localhost:5432/bloxtr8-db"
 
-# Detect OS for sed -i portability (macOS requires backup extension, Linux doesn't)
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    SED_IN_PLACE="sed -i ''"
-else
-    SED_IN_PLACE="sed -i"
-fi
+# Detect OS for sed -i portability (macOS requires an explicit empty backup suffix)
+sed_in_place() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "$@"
+    else
+        sed -i "$@"
+    fi
+}
 
 update_env_file() {
     local file=$1
     [ -f "$file" ] || return 0
     
     if grep -q "^DATABASE_URL=" "$file"; then
-        $SED_IN_PLACE "s|^DATABASE_URL=.*|DATABASE_URL=\"$LOCAL_DB_URL\"|" "$file"
+        sed_in_place "s|^DATABASE_URL=.*|DATABASE_URL=\"$LOCAL_DB_URL\"|" "$file"
     else
         echo "DATABASE_URL=\"$LOCAL_DB_URL\"" >> "$file"
     fi
     
     if grep -q "^DATABASE_URL_PRISMA=" "$file"; then
-        $SED_IN_PLACE "s|^DATABASE_URL_PRISMA=.*|DATABASE_URL_PRISMA=\"$LOCAL_DB_URL\"|" "$file"
+        sed_in_place "s|^DATABASE_URL_PRISMA=.*|DATABASE_URL_PRISMA=\"$LOCAL_DB_URL\"|" "$file"
     else
         echo "DATABASE_URL_PRISMA=\"$LOCAL_DB_URL\"" >> "$file"
     fi
@@ -105,7 +107,16 @@ fi
 
 # Start Docker services
 print_status "Starting Docker services..."
-docker compose up -d test-db minio kafka schema-registry
+# Try to start Kafka services (kafka-1, kafka-2, kafka-3, or fallback to kafka)
+KAFKA_SERVICES=""
+for kafka_svc in kafka-1 kafka-2 kafka-3 kafka; do
+    if docker compose config --services 2>/dev/null | grep -q "^${kafka_svc}$"; then
+        KAFKA_SERVICES="${KAFKA_SERVICES} ${kafka_svc}"
+    fi
+done
+# Remove leading space and use kafka as fallback if none found
+KAFKA_SERVICES=${KAFKA_SERVICES:-kafka}
+docker compose up -d test-db minio ${KAFKA_SERVICES} schema-registry
 
 # Wait for database
 print_status "Waiting for database..."
@@ -126,23 +137,72 @@ pnpm db:push
 print_success "Database setup complete!"
 
 # Wait for Kafka
-print_status "Waiting for Kafka..."
+print_status "Waiting for Kafka cluster to form quorum..."
 KAFKA_READY=false
+KAFKA_SERVICES_LIST=()
+# Find all Kafka services in the compose config (kafka-1, kafka-2, kafka-3, or fallback to kafka)
+for kafka_svc in kafka-1 kafka-2 kafka-3 kafka; do
+    if docker compose config --services 2>/dev/null | grep -q "^${kafka_svc}$"; then
+        KAFKA_SERVICES_LIST+=("$kafka_svc")
+    fi
+done
+
+if [ ${#KAFKA_SERVICES_LIST[@]} -eq 0 ]; then
+    print_error "No Kafka service found in docker-compose.yml. Expected one of: kafka-1, kafka-2, kafka-3, or kafka"
+    exit 1
+fi
+
+# For multi-broker KRaft clusters, we need a quorum (majority) before topic creation
+# Quorum = ceil((n + 1) / 2) where n is the number of brokers
+# For 1 broker: need 1, for 2 brokers: need 2, for 3 brokers: need 2
+NUM_BROKERS=${#KAFKA_SERVICES_LIST[@]}
+if [ $NUM_BROKERS -eq 1 ]; then
+    REQUIRED_HEALTHY=1
+else
+    # Calculate majority: (n + 1) / 2 rounded up
+    REQUIRED_HEALTHY=$(( (NUM_BROKERS + 1) / 2 ))
+    # For even numbers, we need n/2 + 1 (e.g., 2 brokers need 2, not 1)
+    if [ $((NUM_BROKERS % 2)) -eq 0 ]; then
+        REQUIRED_HEALTHY=$((NUM_BROKERS / 2 + 1))
+    fi
+fi
+
+print_status "Detected ${#KAFKA_SERVICES_LIST[@]} Kafka broker(s). Waiting for $REQUIRED_HEALTHY to be healthy (quorum required for KRaft cluster)..."
+
 for i in {1..60}; do
-    if docker compose ps kafka 2>/dev/null | grep -q "healthy\|Up" && \
-       docker compose exec -T kafka kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1; then
-        print_success "Kafka is ready!"
+    HEALTHY_COUNT=0
+    
+    for kafka_svc in "${KAFKA_SERVICES_LIST[@]}"; do
+        if docker compose ps "$kafka_svc" 2>/dev/null | grep -q "healthy\|Up"; then
+            # Test connectivity to this broker (using internal port 9092)
+            if docker compose exec -T "$kafka_svc" kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1; then
+                HEALTHY_COUNT=$((HEALTHY_COUNT + 1))
+            fi
+        fi
+    done
+    
+    if [ $HEALTHY_COUNT -ge $REQUIRED_HEALTHY ]; then
+        print_success "Kafka cluster quorum formed! $HEALTHY_COUNT of ${#KAFKA_SERVICES_LIST[@]} broker(s) healthy."
         KAFKA_READY=true
         break
     fi
-    [ $i -eq 60 ] && print_error "Kafka failed to start. Check logs: docker compose logs kafka"
+    
+    if [ $i -eq 60 ]; then
+        print_error "Kafka cluster failed to form quorum. Only $HEALTHY_COUNT of ${#KAFKA_SERVICES_LIST[@]} broker(s) healthy (need $REQUIRED_HEALTHY)."
+        print_error "Check logs: docker compose logs ${KAFKA_SERVICES_LIST[*]}"
+        exit 1
+    fi
+    
+    if [ $((i % 5)) -eq 0 ]; then
+        print_status "Waiting for Kafka quorum... ($HEALTHY_COUNT/${#KAFKA_SERVICES_LIST[@]} brokers healthy, need $REQUIRED_HEALTHY)"
+    fi
     sleep 2
 done
 
 # Create Kafka topics
 if [ "$KAFKA_READY" = true ] && [ -f "./scripts/infrastructure/create-kafka-topics.sh" ]; then
     print_status "Creating Kafka topics..."
-    ./scripts/infrastructure/create-kafka-topics.sh --env development --broker localhost:9092 2>&1 && \
+    ./scripts/infrastructure/create-kafka-topics.sh --env development --broker localhost:9092,localhost:9093,localhost:9094 2>&1 && \
         print_success "Kafka topics created!" || \
         print_warning "Topic creation had issues (topics may already exist). Continuing..."
 fi

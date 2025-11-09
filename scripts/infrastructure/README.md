@@ -6,7 +6,7 @@ This directory contains scripts for setting up and managing Kafka infrastructure
 
 ### `create-kafka-topics.sh`
 
-Creates all Kafka topics and Dead Letter Queue (DLQ) topics required for the escrow system.
+Compatibility wrapper that forwards to `scripts/kafka/setup-topics.sh` for existing automation. Prefer calling the new script directly for richer options.
 
 **Usage**:
 
@@ -15,7 +15,7 @@ Creates all Kafka topics and Dead Letter Queue (DLQ) topics required for the esc
 ./scripts/infrastructure/create-kafka-topics.sh --env development
 
 # Create all topics for production
-./scripts/infrastructure/create-kafka-topics.sh --env production --broker kafka-broker-1:9093
+./scripts/infrastructure/create-kafka-topics.sh --env production --bootstrap-servers kafka-broker-1:9092,kafka-broker-2:9092,kafka-broker-3:9092
 
 # Create specific topic
 ./scripts/infrastructure/create-kafka-topics.sh --topic escrow.commands.v1
@@ -27,10 +27,27 @@ Creates all Kafka topics and Dead Letter Queue (DLQ) topics required for the esc
 **Options**:
 
 - `--env`: Environment (development|production) [default: development]
-- `--broker`: Kafka broker address [default: localhost:9092]
+- `--bootstrap-servers`: Comma-separated bootstrap servers [default: localhost:9092]
 - `--topic`: Create specific topic only
 - `--dry-run`: Show what would be created without creating
 - `--help`: Show help message
+
+### `scripts/kafka/setup-topics.sh`
+
+Primary script that provisions all Kafka topics and DLQs with environment-aware replication and retention defaults.
+
+```bash
+# Development (single replica)
+scripts/kafka/setup-topics.sh --env development --bootstrap-servers localhost:9092
+
+# Production (3 replicas)
+scripts/kafka/setup-topics.sh \
+  --env production \
+  --bootstrap-servers kafka-broker-1:9092,kafka-broker-2:9092,kafka-broker-3:9092
+
+# Dry run
+scripts/kafka/setup-topics.sh --dry-run
+```
 
 **Topics Created**:
 
