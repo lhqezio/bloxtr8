@@ -221,9 +221,9 @@ for i in {1..40}; do
 done
 
 # Setup Schema Registry schemas
-if [ "$SCHEMA_REGISTRY_READY" = true ] && [ -f "./scripts/infrastructure/setup-schema-registry.sh" ]; then
+if [ "$SCHEMA_REGISTRY_READY" = true ] && [ -f "./scripts/kafka/setup-schema-registry.sh" ]; then
     print_status "Setting up Schema Registry schemas..."
-    ./scripts/infrastructure/setup-schema-registry.sh --env development --schema-registry-url http://localhost:8081 2>&1 && \
+    ./scripts/kafka/setup-schema-registry.sh --env development --schema-registry-url http://localhost:8081 2>&1 && \
         print_success "Schema Registry setup complete!" || \
         print_warning "Schema setup had issues (schemas may already exist). Continuing..."
 fi
