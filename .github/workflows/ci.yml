@@ -66,16 +66,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Cache Prisma generated files
+      - name: Clean Prisma generated directory
+        run: |
+          # Remove generated directory if it exists to avoid conflicts
+          rm -rf packages/database/src/generated
+          rm -rf packages/database/dist/generated
+
+      - name: Cache Prisma binaries
         uses: actions/cache@v4
         with:
           path: |
-            packages/database/src/generated
-            packages/database/dist/generated
             node_modules/.prisma
-          key: ${{ runner.os }}-prisma-${{ hashFiles('packages/database/prisma/schema.prisma') }}
+          key: ${{ runner.os }}-prisma-binaries-${{ hashFiles('packages/database/prisma/schema.prisma') }}
           restore-keys: |
-            ${{ runner.os }}-prisma-
+            ${{ runner.os }}-prisma-binaries-
 
       - name: Setup development environment
         run: |
@@ -123,6 +127,12 @@ jobs:
 
       - name: Lint packages
         run: pnpm lint
+
+      - name: Clean Prisma generated directory before build
+        run: |
+          # Remove generated directory if it exists to avoid conflicts
+          rm -rf packages/database/src/generated
+          rm -rf packages/database/dist/generated
 
       - name: Build packages
         run: pnpm build
@@ -217,6 +227,12 @@ jobs:
           cp .env.development .env
 
           echo "✓ Development environment setup complete"
+
+      - name: Clean Prisma generated directory
+        run: |
+          # Remove generated directory if it exists to avoid conflicts
+          rm -rf packages/database/src/generated
+          rm -rf packages/database/dist/generated
 
       - name: Generate Prisma client
         run: pnpm db:generate

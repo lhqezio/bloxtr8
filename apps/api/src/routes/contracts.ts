@@ -312,7 +312,7 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
 
     // Check if user already signed
     const existingSignature = contract.signatures.find(
-      sig => sig.userId === userId
+      (sig: { userId: string }) => sig.userId === userId
     );
 
     if (existingSignature) {
@@ -385,8 +385,12 @@ router.post('/contracts/:id/sign', async (req, res, next) => {
         });
 
         bothSigned =
-          allSignatures.some(sig => sig.userId === contract.offer.buyerId) &&
-          allSignatures.some(sig => sig.userId === contract.offer.sellerId);
+          allSignatures.some(
+            (sig: { userId: string }) => sig.userId === contract.offer.buyerId
+          ) &&
+          allSignatures.some(
+            (sig: { userId: string }) => sig.userId === contract.offer.sellerId
+          );
       }
 
       // Create execution job and update contract status atomically if both parties have signed
@@ -685,10 +689,10 @@ router.post('/contracts/:id/retry-execution', async (req, res, next) => {
 
     // Verify both parties have signed
     const buyerSignature = contract.signatures.find(
-      sig => sig.userId === contract.offer.buyerId
+      (sig: { userId: string }) => sig.userId === contract.offer.buyerId
     );
     const sellerSignature = contract.signatures.find(
-      sig => sig.userId === contract.offer.sellerId
+      (sig: { userId: string }) => sig.userId === contract.offer.sellerId
     );
 
     if (!buyerSignature || !sellerSignature) {
@@ -838,10 +842,10 @@ router.get('/contracts/:id/escrow', async (req, res, next) => {
 
     // Check if contract is ready for execution (both parties signed)
     const buyerSigned = contract.signatures.some(
-      sig => sig.userId === contract.offer.buyerId
+      (sig: { userId: string }) => sig.userId === contract.offer.buyerId
     );
     const sellerSigned = contract.signatures.some(
-      sig => sig.userId === contract.offer.sellerId
+      (sig: { userId: string }) => sig.userId === contract.offer.sellerId
     );
 
     if (!buyerSigned || !sellerSigned) {

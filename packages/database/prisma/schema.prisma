@@ -47,6 +47,9 @@ model User {
   guildMemberships   GuildMember[]
   assetVerifications AssetVerification[]
   linkEvents         LinkEvent[]
+  userEscrowHistory  UserEscrowHistory[]
+  paymentHistory     PaymentHistory[]
+  escrowStats        EscrowStats[]
 
   @@unique([email])
   @@index([email])
@@ -332,6 +335,10 @@ model Escrow {
   auditLogs  AuditLog[]
   deliveries Delivery[]
   disputes   Dispute[]
+  events     EscrowEvent[]
+  paymentArtifacts PaymentArtifact[]
+  userEscrowHistory UserEscrowHistory[]
+  paymentHistory PaymentHistory[]
 
   @@index([offerId])
   @@index([contractId])
@@ -538,6 +545,220 @@ model WebhookEvent {
   @@map("webhook_events")
 }
 
+model EscrowEvent {
+  id        String   @id @default(cuid())
+  escrowId  String
+  escrow    Escrow   @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+
+  eventType String   // e.g., 'ESCROW_CREATED', 'FUNDS_HELD', 'DELIVERED', etc.
+  payload   Json     // Event payload (flexible JSON structure)
+
+  createdAt DateTime @default(now())
+  version   Int      // Event version (matches Escrow.version at time of event)
+
+  @@index([escrowId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([escrowId, createdAt]) // Composite for event replay
+  @@map("escrow_events")
+}
+
+model Outbox {
+  id          String    @id @default(cuid())
+  aggregateId String    // escrowId for escrow events
+  eventType   String    // Kafka event type
+  payload     Bytes     // Protobuf-serialized event payload
+  createdAt   DateTime  @default(now())
+  publishedAt DateTime? // NULL until published to Kafka
+  version     Int       @default(1) // Schema version for event
+
+  @@index([publishedAt]) // Partial index for unpublished events
+  @@index([aggregateId, createdAt]) // For debugging
+  @@map("outbox")
+}
+
+model PaymentArtifact {
+  id               String   @id @default(cuid())
+  escrowId         String
+  escrow           Escrow   @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+
+  provider         String   // 'stripe', 'custodian'
+  providerPaymentId String // PaymentIntent ID, Transfer ID, Transaction Hash, etc.
+  kind             PaymentArtifactKind
+
+  amount           BigInt   // Amount in cents (or smallest unit)
+  currency         Currency
+
+  metadata         Json?    // Provider-specific data (clientSecret, transactionHash, etc.)
+
+  createdAt        DateTime @default(now())
+
+  @@index([escrowId])
+  @@index([provider])
+  @@index([providerPaymentId])
+  @@index([kind])
+  @@index([escrowId, kind])
+  @@map("payment_artifacts")
+}
+
+model EscrowSummary {
+  id        String       @id // escrowId
+  rail      EscrowRail
+  amount    BigInt
+  currency  Currency
+  status    EscrowStatus
+
+  // Denormalized from Offer
+  buyerId   String
+  buyerName String?
+  sellerId  String
+  sellerName String?
+  listingId String?
+  listingTitle String?
+
+  // Denormalized from Contract
+  contractId String
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  fundsHeldAt DateTime?
+  deliveredAt DateTime?
+  releasedAt DateTime?
+  refundedAt DateTime?
+  cancelledAt DateTime?
+  disputedAt DateTime?
+
+  // Aggregated data
+  deliveryCount Int @default(0)
+  disputeCount Int @default(0)
+
+  // Last event version processed
+  lastEventVersion Int @default(0)
+  lastProcessedAt DateTime @default(now())
+
+  @@index([buyerId, status])
+  @@index([sellerId, status])
+  @@index([status, createdAt])
+  @@index([listingId])
+  @@index([contractId])
+  @@index([lastEventVersion])
+  @@map("escrow_summaries")
+}
+
+model UserEscrowHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  escrowId  String
+  escrow    Escrow   @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  role      UserEscrowRole // 'BUYER' | 'SELLER'
+
+  // Denormalized escrow data
+  amount    BigInt
+  currency  Currency
+  status    EscrowStatus
+  rail      EscrowRail
+
+  // Denormalized counterparty info
+  counterpartyId String
+  counterpartyName String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, escrowId])
+  @@index([userId, status])
+  @@index([userId, createdAt])
+  @@index([userId, role])
+  @@index([escrowId])
+  @@map("user_escrow_history")
+}
+
+model PaymentHistory {
+  id        String   @id @default(cuid())
+  escrowId  String
+  escrow    Escrow   @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  userId    String   // Buyer or seller depending on transaction type
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Payment details
+  provider  PaymentProvider // 'STRIPE' | 'CUSTODIAN'
+  transactionType PaymentTransactionType // 'PAYMENT' | 'TRANSFER' | 'REFUND'
+  amount    BigInt
+  currency  Currency
+
+  // Provider-specific IDs
+  providerTransactionId String
+
+  // Status
+  status    PaymentStatus // 'PENDING' | 'COMPLETED' | 'FAILED'
+
+  // Additional metadata
+  transactionHash String? // For USDC transactions
+  feeAmount BigInt? // Platform fee if applicable
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+  failedAt DateTime?
+
+  @@index([escrowId])
+  @@index([userId, transactionType])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([provider, status])
+  @@index([escrowId, transactionType])
+  @@map("payment_history")
+}
+
+model EscrowStats {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  period    StatsPeriod // 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'ALL_TIME'
+  periodStart DateTime
+
+  // Statistics
+  totalEscrows Int @default(0)
+  totalVolume  BigInt @default(0)
+  activeEscrows Int @default(0)
+  completedEscrows Int @default(0)
+  disputedEscrows Int @default(0)
+  refundedEscrows Int @default(0)
+
+  // Buyer stats
+  buyerEscrows Int @default(0)
+  buyerVolume  BigInt @default(0)
+
+  // Seller stats
+  sellerEscrows Int @default(0)
+  sellerVolume  BigInt @default(0)
+
+  // Average values
+  avgEscrowAmount BigInt @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, period, periodStart])
+  @@index([userId, period])
+  @@index([periodStart])
+  @@map("escrow_stats")
+}
+
+model EventProcessingState {
+  id        String   @id @default(cuid())
+  aggregateId String // escrowId
+  lastEventId String // Last processed event ID from Kafka
+  lastEventVersion Int // Last processed event version
+  lastProcessedAt DateTime @default(now())
+
+  @@unique([aggregateId])
+  @@index([lastProcessedAt])
+  @@map("event_processing_state")
+}
+
 model MarketplaceChannel {
   id             String   @id @default(cuid())
   guildId        String
@@ -670,6 +891,44 @@ enum JobStatus {
   PROCESSING
   COMPLETED
   FAILED
+}
+
+enum PaymentArtifactKind {
+  INTENT            // PaymentIntent (Stripe only)
+  CHARGE            // Successful charge/payment
+  TRANSFER          // Transfer to seller
+  REFUND            // Refund to buyer
+  DEPOSIT_ADDRESS   // Deposit address (Custodian only)
+  SCREENING_RESULT  // Wallet screening result
+}
+
+enum UserEscrowRole {
+  BUYER
+  SELLER
+}
+
+enum PaymentProvider {
+  STRIPE
+  CUSTODIAN
+}
+
+enum PaymentTransactionType {
+  PAYMENT
+  TRANSFER
+  REFUND
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum StatsPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  ALL_TIME
 }
 
 // Link events for tracking when users link accounts (for DM notifications)
