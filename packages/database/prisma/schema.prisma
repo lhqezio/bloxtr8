@@ -744,7 +744,6 @@ model EscrowStats {
   @@unique([userId, period, periodStart])
   @@index([userId, period])
   @@index([periodStart])
-  @@index([userId, period, periodStart])
   @@map("escrow_stats")
 }
 
