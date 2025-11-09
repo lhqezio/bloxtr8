@@ -22,8 +22,7 @@ packages/protobuf-schemas/
 │   ├── webhook-events.proto
 │   └── contracts-events.proto
 ├── generated/            # Generated TypeScript (committed to git)
-├── src/
-│   └── index.ts          # Re-exports generated types
+├── index.ts              # Re-exports generated types
 └── package.json
 ```
 
@@ -131,7 +130,7 @@ This runs `buf format --write` to format all `.proto` files.
    pnpm --filter @bloxtr8/protobuf-schemas generate
    ```
 
-4. **Update exports** in `src/index.ts` if needed (usually auto-exported)
+4. **Update exports** in `index.ts` if needed (usually auto-exported)
 
 5. **Register in Schema Registry** (see below)
 

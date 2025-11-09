@@ -344,7 +344,7 @@ importers:
   packages/protobuf-schemas:
     dependencies:
       '@bufbuild/protobuf':
-        specifier: ^2.3.0
+        specifier: 2.10.0
         version: 2.10.0
     devDependencies:
       '@bloxtr8/eslint-config':

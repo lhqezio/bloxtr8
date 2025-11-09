@@ -123,12 +123,24 @@ get_latest_version() {
     curl -s "$SCHEMA_REGISTRY_URL/subjects/$subject/versions/latest" 2>/dev/null | jq -r '.version' 2>/dev/null || echo "0"
 }
 
+# Function to read Protobuf schema content (raw, no escaping)
+read_protobuf_schema() {
+    local schema_file=$1
+    if [[ -f "$schema_file" ]]; then
+        cat "$schema_file"
+    else
+        error "Schema file not found: $schema_file"
+        return 1
+    fi
+}
+
 # Function to encode Protobuf schema for JSON (escape special characters)
+# Only used when jq is not available (fallback path)
 encode_protobuf_schema() {
     local schema_file=$1
     if [[ -f "$schema_file" ]]; then
         # For Protobuf, Schema Registry expects the schema as plain text (not base64)
-        # We need to escape it for JSON
+        # We need to escape it for JSON (only for manual JSON construction)
         cat "$schema_file" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g'
     else
         error "Schema file not found: $schema_file"
@@ -148,10 +160,6 @@ register_schema() {
         return 1
     fi
     
-    # Encode schema (escape for JSON)
-    local encoded_schema
-    encoded_schema=$(encode_protobuf_schema "$schema_file")
-    
     if [[ "$DRY_RUN" == true ]]; then
         info "[DRY RUN] Would register schema:"
         info "  Subject: $subject"
@@ -165,16 +173,22 @@ register_schema() {
     # Register schema using jq to properly construct JSON
     local response
     if command -v jq >/dev/null 2>&1; then
+        # Read raw schema content - jq will handle JSON escaping via --arg
+        local raw_schema
+        raw_schema=$(read_protobuf_schema "$schema_file")
         local json_payload
         json_payload=$(jq -n \
             --arg schemaType "PROTOBUF" \
-            --arg schema "$encoded_schema" \
+            --arg schema "$raw_schema" \
             '{schemaType: $schemaType, schema: $schema}')
         response=$(curl -s -X POST "$SCHEMA_REGISTRY_URL/subjects/$subject/versions" \
             -H "Content-Type: application/vnd.schemaregistry.v1+json" \
             -d "$json_payload" 2>&1)
     else
         # Fallback to manual JSON construction if jq not available
+        # Need to escape manually in this case
+        local encoded_schema
+        encoded_schema=$(encode_protobuf_schema "$schema_file")
         response=$(curl -s -X POST "$SCHEMA_REGISTRY_URL/subjects/$subject/versions" \
             -H "Content-Type: application/vnd.schemaregistry.v1+json" \
             -d "{
