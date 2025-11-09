@@ -118,16 +118,16 @@ jobs:
 
           echo "✓ Production environment setup complete"
 
-      - name: Build packages
-        run: pnpm build
-        env:
-          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}
+      - name: Check formatting
+        run: pnpm format:check
 
       - name: Lint packages
         run: pnpm lint
 
-      - name: Check formatting
-        run: pnpm format:check
+      - name: Build packages
+        run: pnpm build
+        env:
+          DOTENV_PRIVATE_KEY: ${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}
 
       - name: Setup test environment
         run: |

@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+package bloxtr8.payments.events.v1;
+
+// Payment Events
+// Payment domain events
+
+// Emitted when payment intent is created
+message PaymentIntentCreated {
+  string escrow_id = 1;
+  string provider = 2;               // "stripe" | "custodian"
+  string provider_payment_id = 3;    // Stripe payment_intent ID or custodian address
+  string client_secret = 4;          // Stripe client secret (empty for custodian)
+  string deposit_address = 5;        // Custodian deposit address (empty for Stripe)
+  string event_id = 6;
+  string occurred_at = 7;
+  string causation_id = 8;           // CreatePaymentIntent command ID
+  string version = 9;
+}
+
+// Emitted when payment is successfully received
+message PaymentSucceeded {
+  string escrow_id = 1;
+  string provider = 2;               // "stripe" | "custodian"
+  string provider_payment_id = 3;     // Stripe payment_intent ID or custodian tx hash
+  int64 amount_cents = 4;
+  string currency = 5;
+  string event_id = 6;
+  string occurred_at = 7;
+  string causation_id = 8;           // Webhook event ID
+  string version = 9;
+}
+
+// Emitted when payment fails
+message PaymentFailed {
+  string escrow_id = 1;
+  string provider = 2;
+  string provider_payment_id = 3;
+  string error_code = 4;             // Provider error code
+  string error_message = 5;          // Human-readable error
+  string event_id = 6;
+  string occurred_at = 7;
+  string causation_id = 8;
+  string version = 9;
+}
+
+// Emitted when funds are successfully transferred to seller
+message TransferSucceeded {
+  string escrow_id = 1;
+  string provider = 2;               // "stripe" | "custodian"
+  string transfer_id = 3;            // Stripe transfer ID or custodian tx hash
+  string event_id = 4;
+  string occurred_at = 5;
+  string causation_id = 6;           // TransferToSeller command ID
+  string version = 7;
+}
+
+// Emitted when transfer fails
+message TransferFailed {
+  string escrow_id = 1;
+  string provider = 2;
+  string error_code = 3;
+  string error_message = 4;
+  string event_id = 5;
+  string occurred_at = 6;
+  string causation_id = 7;
+  string version = 8;
+}
+
+// Emitted when refund is successfully processed
+message RefundSucceeded {
+  string escrow_id = 1;
+  string provider = 2;
+  string refund_id = 3;              // Provider refund ID
+  int64 amount_cents = 4;
+  string event_id = 5;
+  string occurred_at = 6;
+  string causation_id = 7;           // InitiateRefund command ID
+  string version = 8;
+}
+
+// Emitted when refund fails
+message RefundFailed {
+  string escrow_id = 1;
+  string provider = 2;
+  string error_code = 3;
+  string error_message = 4;
+  string event_id = 5;
+  string occurred_at = 6;
+  string causation_id = 7;
+  string version = 8;
+}
+

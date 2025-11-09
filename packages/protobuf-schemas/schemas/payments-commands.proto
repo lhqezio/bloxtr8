@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package bloxtr8.payments.commands.v1;
+
+// Payment Commands
+// Commands for payment operations
+
+// Command to create payment intent (Stripe or custodian deposit address)
+message CreatePaymentIntent {
+  string escrow_id = 1;
+  string provider = 2;               // "stripe" | "custodian"
+  string currency = 3;               // "USD" | "USDC"
+  int64 amount_cents = 4;
+  string network = 5;                // "BASE" (for custodian, empty for Stripe)
+  string trace_id = 6;
+  string causation_id = 7;           // EscrowCreated event ID
+  string correlation_id = 8;
+  string version = 9;
+}
+
+// Command to transfer funds to seller
+message TransferToSeller {
+  string escrow_id = 1;
+  string seller_account_id = 2;      // Stripe account ID or custodian wallet address
+  string provider = 3;               // "stripe" | "custodian"
+  string trace_id = 4;
+  string causation_id = 5;           // EscrowDelivered event ID
+  string correlation_id = 6;
+  string version = 7;
+}
+
+// Command to initiate refund to buyer
+message InitiateRefund {
+  string escrow_id = 1;
+  string reason = 2;                 // Refund reason
+  string trace_id = 3;
+  string causation_id = 4;           // Cancellation or dispute event ID
+  string correlation_id = 5;
+  string version = 6;
+}
+
+// Command to cancel payment
+message CancelPayment {
+  string escrow_id = 1;
+  string reason = 2;                 // Cancellation reason
+  string trace_id = 3;
+  string causation_id = 4;           // Triggering event ID
+  string correlation_id = 5;
+  string version = 6;
+}
+

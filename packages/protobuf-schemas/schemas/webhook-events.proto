@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package bloxtr8.webhook.events.v1;
+
+// Webhook Events
+// Validated webhook events from external providers
+
+// Emitted after Stripe webhook signature verification
+message StripeWebhookValidated {
+  string webhook_event_id = 1;       // Stripe event ID
+  string event_type = 2;            // "payment_intent.succeeded", etc.
+  string payment_intent_id = 3;     // Stripe payment_intent ID
+  string escrow_id = 4;              // Extracted from metadata
+  map<string, string> raw_data = 5; // Key fields from webhook (no PII)
+  string event_id = 6;
+  string occurred_at = 7;
+  string version = 8;
+}
+
+// Emitted after custodian webhook signature verification
+message CustodianWebhookValidated {
+  string webhook_event_id = 1;       // Custodian event ID
+  string event_type = 2;            // "deposit.confirmed", "transfer.completed"
+  string transaction_hash = 3;      // Blockchain transaction hash
+  string escrow_id = 4;              // Extracted from metadata
+  string sender_address = 5;         // Wallet address (for screening)
+  string amount = 6;                 // Amount as string (for precision)
+  string currency = 7;              // "USDC"
+  string network = 8;               // "BASE"
+  string event_id = 9;
+  string occurred_at = 10;
+  string version = 11;
+}
+

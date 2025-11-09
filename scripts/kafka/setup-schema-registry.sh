@@ -7,7 +7,7 @@ set -euo pipefail
 
 ENVIRONMENT="${ENV:-development}"
 SCHEMA_REGISTRY_URL="${SCHEMA_REGISTRY_URL:-http://localhost:8081}"
-SCHEMA_DIR="${SCHEMA_DIR:-$(dirname "$0")/../schemas/protobuf}"
+SCHEMA_DIR="${SCHEMA_DIR:-$(dirname "$0")/../../packages/protobuf-schemas/schemas}"
 DRY_RUN=false
 DOCKER_SERVICE="${DOCKER_SERVICE:-schema-registry}"
 USE_DOCKER=false
@@ -38,7 +38,7 @@ Install and configure Confluent Schema Registry for managing Protobuf schemas wi
 Options:
   --env ENV                 Environment (development|production). Defaults to env var ENV or "development".
   --schema-registry-url URL Schema Registry URL [default: http://localhost:8081]
-  --schema-dir DIR          Directory containing Protobuf schema files [default: scripts/schemas/protobuf]
+  --schema-dir DIR          Directory containing Protobuf schema files [default: packages/protobuf-schemas/schemas]
   --dry-run                 Print actions without executing.
   --docker-service NAME     Docker Compose service to exec commands in (default: schema-registry).
   --help                    Show this help text.
@@ -133,15 +133,25 @@ get_latest_version() {
     grep -o '"version":[0-9]*' | cut -d':' -f2 || echo "0"
 }
 
+# Function to read Protobuf schema content (raw, no escaping)
+read_protobuf_schema() {
+  local schema_file="$1"
+  if [[ -f "$schema_file" ]]; then
+    cat "$schema_file"
+  else
+    error "Schema file not found: $schema_file"
+    return 1
+  fi
+}
+
+# Function to encode Protobuf schema for JSON (escape special characters)
+# Only used when jq is not available (fallback path)
 encode_protobuf_schema() {
   local schema_file="$1"
   if [[ -f "$schema_file" ]]; then
-    if command -v base64 >/dev/null 2>&1; then
-      base64 -w 0 "$schema_file" 2>/dev/null || base64 "$schema_file" | tr -d '\n'
-    else
-      error "base64 command not found. Cannot encode schema."
-      return 1
-    fi
+    # For Protobuf, Schema Registry expects the schema as plain text (not base64)
+    # We need to escape it for JSON (only for manual JSON construction)
+    cat "$schema_file" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g'
   else
     error "Schema file not found: $schema_file"
     return 1
@@ -203,18 +213,32 @@ check_compatibility() {
     return 0
   fi
 
-  # Encode the new schema
-  local encoded_schema
-  encoded_schema=$(encode_protobuf_schema "$schema_file")
-  
-  # Test compatibility with latest version
+  # Test compatibility with latest version using jq
   local response
-  response=$(run_curl -s -X POST "$SCHEMA_REGISTRY_URL/compatibility/subjects/$subject/versions/latest" \
-    -H "Content-Type: application/vnd.schemaregistry.v1+json" \
-    -d "{
+  if command -v jq >/dev/null 2>&1; then
+    # Read raw schema content - jq will handle JSON escaping via --arg
+    local raw_schema
+    raw_schema=$(read_protobuf_schema "$schema_file")
+    local json_payload
+    json_payload=$(jq -n \
+      --arg schemaType "PROTOBUF" \
+      --arg schema "$raw_schema" \
+      '{schemaType: $schemaType, schema: $schema}')
+    response=$(run_curl -s -X POST "$SCHEMA_REGISTRY_URL/compatibility/subjects/$subject/versions/latest" \
+      -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+      -d "$json_payload" 2>&1)
+  else
+    # Fallback to manual JSON construction
+    # Need to escape manually in this case
+    local encoded_schema
+    encoded_schema=$(encode_protobuf_schema "$schema_file")
+    response=$(run_curl -s -X POST "$SCHEMA_REGISTRY_URL/compatibility/subjects/$subject/versions/latest" \
+      -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+      -d "{
       \"schemaType\": \"PROTOBUF\",
       \"schema\": \"$encoded_schema\"
     }" 2>&1)
+  fi
 
   if echo "$response" | grep -q '"is_compatible":true'; then
     return 0
@@ -294,10 +318,6 @@ register_schema() {
     return 1
   fi
   
-  # Encode schema to base64
-  local encoded_schema
-  encoded_schema=$(encode_protobuf_schema "$schema_file")
-  
   if [[ "$DRY_RUN" == true ]]; then
     info "[DRY RUN] Would register schema:"
     info "  Subject: $subject"
@@ -308,14 +328,32 @@ register_schema() {
   
   info "Registering schema for subject: $subject"
   
-  # Register schema
+  # Register schema using jq to properly construct JSON
   local response
-  response=$(run_curl -s -X POST "$SCHEMA_REGISTRY_URL/subjects/$subject/versions" \
-    -H "Content-Type: application/vnd.schemaregistry.v1+json" \
-    -d "{
+  if command -v jq >/dev/null 2>&1; then
+    # Read raw schema content - jq will handle JSON escaping via --arg
+    local raw_schema
+    raw_schema=$(read_protobuf_schema "$schema_file")
+    local json_payload
+    json_payload=$(jq -n \
+      --arg schemaType "PROTOBUF" \
+      --arg schema "$raw_schema" \
+      '{schemaType: $schemaType, schema: $schema}')
+    response=$(run_curl -s -X POST "$SCHEMA_REGISTRY_URL/subjects/$subject/versions" \
+      -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+      -d "$json_payload" 2>&1)
+  else
+    # Fallback to manual JSON construction if jq not available
+    # Need to escape manually in this case
+    local encoded_schema
+    encoded_schema=$(encode_protobuf_schema "$schema_file")
+    response=$(run_curl -s -X POST "$SCHEMA_REGISTRY_URL/subjects/$subject/versions" \
+      -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+      -d "{
       \"schemaType\": \"PROTOBUF\",
       \"schema\": \"$encoded_schema\"
     }" 2>&1)
+  fi
   
   if echo "$response" | grep -q '"id"'; then
     local schema_id

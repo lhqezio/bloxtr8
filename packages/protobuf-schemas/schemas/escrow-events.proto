@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package bloxtr8.escrow.events.v1;
+
+// Escrow Events
+// Domain events emitted by Escrow Service
+
+// Emitted when escrow is created
+message EscrowCreated {
+  string escrow_id = 1;
+  string contract_id = 2;
+  string buyer_id = 3;
+  string seller_id = 4;
+  string currency = 5;
+  int64 amount_cents = 6;
+  string network = 7;
+  string event_id = 8;
+  string occurred_at = 9;           // ISO 8601 timestamp
+  string version = 10;               // "v1"
+}
+
+// Emitted when escrow is waiting for payment
+message EscrowAwaitFunds {
+  string escrow_id = 1;
+  string event_id = 2;
+  string occurred_at = 3;
+  string version = 4;
+}
+
+// Emitted when payment is received and funds are held
+message EscrowFundsHeld {
+  string escrow_id = 1;
+  string provider = 2;               // "stripe" | "custodian"
+  string provider_payment_id = 3;    // Stripe payment_intent ID or custodian tx hash
+  int64 amount_cents = 4;
+  string currency = 5;
+  string event_id = 6;
+  string occurred_at = 7;
+  string causation_id = 8;           // PaymentSucceeded event ID
+  string version = 9;
+}
+
+// Emitted when seller marks escrow as delivered
+message EscrowDelivered {
+  string escrow_id = 1;
+  string actor_id = 2;               // Seller user ID
+  string event_id = 3;
+  string occurred_at = 4;
+  string causation_id = 5;           // MarkDelivered command ID
+  string version = 6;
+}
+
+// Emitted when funds are released to seller
+message EscrowReleased {
+  string escrow_id = 1;
+  string provider = 2;               // "stripe" | "custodian"
+  string transfer_id = 3;            // Stripe transfer ID or custodian tx hash
+  string event_id = 4;
+  string occurred_at = 5;
+  string causation_id = 6;           // TransferSucceeded event ID
+  string version = 7;
+}
+
+// Emitted when escrow is cancelled
+message EscrowCancelled {
+  string escrow_id = 1;
+  string reason = 2;                 // Cancellation reason
+  string actor_id = 3;               // User ID (empty for timeout)
+  string event_id = 4;
+  string occurred_at = 5;
+  string causation_id = 6;
+  string version = 7;
+}
+
+// Emitted when funds are refunded to buyer
+message EscrowRefunded {
+  string escrow_id = 1;
+  string provider = 2;               // "stripe" | "custodian"
+  string refund_id = 3;              // Provider refund ID
+  string reason = 4;                 // Refund reason
+  string event_id = 5;
+  string occurred_at = 6;
+  string causation_id = 7;           // RefundSucceeded event ID
+  string version = 8;
+}
+
+// Emitted when a dispute is raised
+message EscrowDisputed {
+  string escrow_id = 1;
+  string actor_id = 2;               // User who raised dispute
+  string reason = 3;                 // Dispute reason
+  string event_id = 4;
+  string occurred_at = 5;
+  string causation_id = 6;           // RaiseDispute command ID
+  string version = 7;
+}
+
