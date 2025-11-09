@@ -11,8 +11,8 @@
     "validate": "buf lint && buf format --diff --exit-code",
     "format": "buf format --write",
     "test": "jest --passWithNoTests",
-    "lint": "eslint src --ext .ts,.tsx",
-    "lint:fix": "eslint src --ext .ts,.tsx --fix"
+    "lint": "eslint index.ts --ext .ts,.tsx",
+    "lint:fix": "eslint index.ts --ext .ts,.tsx --fix"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.10.0"
