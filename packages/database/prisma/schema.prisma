@@ -615,8 +615,8 @@ model EscrowSummary {
   contractId String
 
   // Timestamps
-  createdAt DateTime
-  updatedAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   fundsHeldAt DateTime?
   deliveredAt DateTime?
   releasedAt DateTime?

@@ -92,6 +92,12 @@ jobs:
 
           echo "✓ Development environment setup complete"
 
+      - name: Clean Prisma generated directory
+        run: |
+          # Remove generated directory if it exists to avoid conflicts
+          rm -rf packages/database/src/generated
+          rm -rf packages/database/dist/generated
+
       - name: Generate Prisma client
         run: pnpm db:generate
         env:
@@ -217,6 +223,12 @@ jobs:
           cp .env.development .env
 
           echo "✓ Development environment setup complete"
+
+      - name: Clean Prisma generated directory
+        run: |
+          # Remove generated directory if it exists to avoid conflicts
+          rm -rf packages/database/src/generated
+          rm -rf packages/database/dist/generated
 
       - name: Generate Prisma client
         run: pnpm db:generate
