@@ -2120,11 +2120,11 @@ model PaymentArtifact {
 }
 
 enum PaymentArtifactKind {
-  INTENT            // PaymentIntent (Stripe) or Deposit Address (Custodian)
+  INTENT            // PaymentIntent (Stripe only)
   CHARGE            // Successful charge/payment
   TRANSFER          // Transfer to seller
   REFUND            // Refund to buyer
-  DEPOSIT_ADDRESS   // Deposit address (Custodian)
+  DEPOSIT_ADDRESS   // Deposit address (Custodian only)
   SCREENING_RESULT  // Wallet screening result
 }
 ```
