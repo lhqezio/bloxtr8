@@ -1,6 +1,6 @@
 version: v2
 plugins:
-  - remote: buf.build/protocolbuffers/es:v2.3.0
+  - local: protoc-gen-es
     out: generated
     opt:
       - target=ts
