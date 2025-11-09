@@ -39,7 +39,8 @@
       "@bloxtr8/*": ["packages/*/src"],
       "@bloxtr8/database": ["packages/database/src"],
       "@bloxtr8/shared": ["packages/shared/src"],
-      "@bloxtr8/types": ["packages/types/src"]
+      "@bloxtr8/types": ["packages/types/src"],
+      "@bloxtr8/protobuf-schemas": ["packages/protobuf-schemas/src"]
     }
   },
   "include": ["apps/**/*", "packages/**/*"],

@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 # Default values
 ENV="${ENV:-development}"
 SCHEMA_REGISTRY_URL="${SCHEMA_REGISTRY_URL:-http://localhost:8081}"
-SCHEMA_DIR="${SCHEMA_DIR:-$(dirname "$0")/../schemas/protobuf}"
+SCHEMA_DIR="${SCHEMA_DIR:-$(dirname "$0")/../../packages/protobuf-schemas/schemas}"
 DRY_RUN=false
 
 # Function to print colored messages
@@ -40,7 +40,7 @@ Sets up Schema Registry and registers Protobuf schemas for the Bloxtr8 escrow sy
 OPTIONS:
     --env ENV                   Environment (development|production) [default: development]
     --schema-registry-url URL   Schema Registry URL [default: http://localhost:8081]
-    --schema-dir DIR            Directory containing Protobuf schema files [default: scripts/schemas/protobuf]
+    --schema-dir DIR            Directory containing Protobuf schema files [default: packages/protobuf-schemas/schemas]
     --dry-run                   Show what would be registered without registering
     --help                      Show this help message
 
@@ -123,11 +123,13 @@ get_latest_version() {
     curl -s "$SCHEMA_REGISTRY_URL/subjects/$subject/versions/latest" 2>/dev/null | jq -r '.version' 2>/dev/null || echo "0"
 }
 
-# Function to encode Protobuf schema to base64
+# Function to encode Protobuf schema for JSON (escape special characters)
 encode_protobuf_schema() {
     local schema_file=$1
     if [[ -f "$schema_file" ]]; then
-        base64 -w 0 "$schema_file" 2>/dev/null || base64 "$schema_file" | tr -d '\n'
+        # For Protobuf, Schema Registry expects the schema as plain text (not base64)
+        # We need to escape it for JSON
+        cat "$schema_file" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g'
     else
         error "Schema file not found: $schema_file"
         return 1
@@ -146,7 +148,7 @@ register_schema() {
         return 1
     fi
     
-    # Encode schema to base64
+    # Encode schema (escape for JSON)
     local encoded_schema
     encoded_schema=$(encode_protobuf_schema "$schema_file")
     
@@ -160,14 +162,26 @@ register_schema() {
     
     info "Registering schema for subject: $subject"
     
-    # Register schema
+    # Register schema using jq to properly construct JSON
     local response
-    response=$(curl -s -X POST "$SCHEMA_REGISTRY_URL/subjects/$subject/versions" \
-        -H "Content-Type: application/vnd.schemaregistry.v1+json" \
-        -d "{
+    if command -v jq >/dev/null 2>&1; then
+        local json_payload
+        json_payload=$(jq -n \
+            --arg schemaType "PROTOBUF" \
+            --arg schema "$encoded_schema" \
+            '{schemaType: $schemaType, schema: $schema}')
+        response=$(curl -s -X POST "$SCHEMA_REGISTRY_URL/subjects/$subject/versions" \
+            -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+            -d "$json_payload" 2>&1)
+    else
+        # Fallback to manual JSON construction if jq not available
+        response=$(curl -s -X POST "$SCHEMA_REGISTRY_URL/subjects/$subject/versions" \
+            -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+            -d "{
             \"schemaType\": \"PROTOBUF\",
             \"schema\": \"$encoded_schema\"
         }" 2>&1)
+    fi
     
     if [[ $? -eq 0 ]]; then
         local schema_id

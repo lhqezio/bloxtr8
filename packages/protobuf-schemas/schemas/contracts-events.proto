@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package bloxtr8.contracts.events.v1;
+
+// Contract Events
+// Contract lifecycle events
+
+// Emitted when contract is fully executed (both parties signed)
+message ContractExecuted {
+  string contract_id = 1;
+  string buyer_id = 2;
+  string seller_id = 3;
+  string listing_id = 4;
+  string offer_id = 5;
+  string event_id = 6;
+  string occurred_at = 7;
+  string version = 8;
+}
+
+// Emitted when contract is voided (expired or cancelled)
+message ContractVoided {
+  string contract_id = 1;
+  string reason = 2;                 // "EXPIRED" | "CANCELLED"
+  string event_id = 3;
+  string occurred_at = 4;
+  string version = 5;
+}
+

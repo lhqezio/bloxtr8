@@ -82,7 +82,7 @@ Initializes Schema Registry and registers Protobuf schemas for the escrow system
 
 - `--env`: Environment (development|production) [default: development]
 - `--schema-registry-url`: Schema Registry URL [default: http://localhost:8081]
-- `--schema-dir`: Directory containing Protobuf schema files [default: scripts/schemas/protobuf]
+- `--schema-dir`: Directory containing Protobuf schema files [default: packages/protobuf-schemas/schemas]
 - `--dry-run`: Show what would be registered without registering
 - `--help`: Show help message
 

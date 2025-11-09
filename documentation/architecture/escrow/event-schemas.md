@@ -2,6 +2,31 @@
 
 Protobuf schema definitions for all Kafka events and commands in the escrow system.
 
+## Implementation
+
+The actual Protobuf schema files (`.proto`) are located in the `@bloxtr8/protobuf-schemas` package:
+
+- **Package Location**: `packages/protobuf-schemas/`
+- **Schema Files**: `packages/protobuf-schemas/schemas/`
+  - `escrow-commands.proto` - Escrow command definitions
+  - `escrow-events.proto` - Escrow event definitions
+  - `payments-commands.proto` - Payment command definitions
+  - `payments-events.proto` - Payment event definitions
+  - `webhook-events.proto` - Webhook event definitions
+  - `contracts-events.proto` - Contract event definitions
+
+**TypeScript Types**: Generated TypeScript types are available from the package:
+
+```typescript
+import {
+  CreateEscrow,
+  EscrowCreated,
+  PaymentSucceeded,
+} from '@bloxtr8/protobuf-schemas';
+```
+
+See the [package README](../../../../packages/protobuf-schemas/README.md) for usage instructions and development guidelines.
+
 ## Schema Conventions
 
 ### Field Naming
@@ -127,7 +152,53 @@ message CancelEscrow {
 - `reason`: Required, must be valid enum value
 - Escrow status must not be `RELEASED` or `REFUNDED`
 
-## Escrow Events
+### RaiseDispute
+
+Command to raise a dispute on an escrow.
+
+```protobuf
+message RaiseDispute {
+  string escrow_id = 1;              // Escrow to dispute
+  string actor_id = 2;               // Buyer or seller user ID
+  string reason = 3;                 // Dispute reason/description
+  string event_id = 4;               // Unique event ID for idempotency
+  string trace_id = 5;               // Distributed tracing ID
+  string causation_id = 6;           // API request ID
+  string correlation_id = 7;         // Request correlation ID
+  string version = 8;                // "v1"
+}
+```
+
+**Validation**:
+
+- `escrow_id`: Required, must exist
+- `actor_id`: Must be buyer or seller
+- Escrow status must be `FUNDS_HELD` or `DELIVERED`
+
+### ResolveDispute
+
+Command to resolve a dispute (admin only).
+
+```protobuf
+message ResolveDispute {
+  string escrow_id = 1;              // Escrow to resolve
+  string actor_id = 2;               // Admin user ID
+  string resolution = 3;             // "RELEASE" | "REFUND"
+  string reason = 4;                 // Resolution reason
+  string event_id = 5;               // Unique event ID for idempotency
+  string trace_id = 6;               // Distributed tracing ID
+  string causation_id = 7;           // Triggering event ID
+  string correlation_id = 8;         // Request correlation ID
+  string version = 9;                // "v1"
+}
+```
+
+**Validation**:
+
+- `escrow_id`: Required, must exist
+- `actor_id`: Must be admin user
+- `resolution`: Required, must be "RELEASE" or "REFUND"
+- Escrow status must be `DISPUTED`
 
 ### EscrowCreated
 
@@ -243,6 +314,22 @@ message EscrowRefunded {
 }
 ```
 
+### EscrowDisputed
+
+Emitted when a dispute is raised on an escrow.
+
+```protobuf
+message EscrowDisputed {
+  string escrow_id = 1;
+  string actor_id = 2;               // User who raised dispute
+  string reason = 3;                 // Dispute reason
+  string event_id = 4;
+  string occurred_at = 5;
+  string causation_id = 6;           // RaiseDispute command ID
+  string version = 7;
+}
+```
+
 ## Payment Commands
 
 ### CreatePaymentIntent
@@ -300,6 +387,21 @@ message InitiateRefund {
   string reason = 2;                 // Refund reason
   string trace_id = 3;
   string causation_id = 4;           // Cancellation or dispute event ID
+  string correlation_id = 5;
+  string version = 6;
+}
+```
+
+### CancelPayment
+
+Command to cancel a payment intent.
+
+```protobuf
+message CancelPayment {
+  string escrow_id = 1;
+  string reason = 2;                 // Cancellation reason
+  string trace_id = 3;
+  string causation_id = 4;           // Triggering event ID
   string correlation_id = 5;
   string version = 6;
 }
@@ -534,6 +636,7 @@ Deprecation: Remove v1 after all consumers upgraded
 
 ## Related Documentation
 
+- [Protobuf Schemas Package](../../../../packages/protobuf-schemas/README.md) - Package documentation and usage
 - [Topic Catalog](./topic-catalog.md) - Topic inventory and partitioning
 - [Escrow System Architecture](./escrow-system-architecture.md) - Architecture overview
 - [State Machine](./state-machine.md) - State transitions and validation

@@ -1,0 +1,29 @@
+{
+  "name": "@bloxtr8/protobuf-schemas",
+  "version": "1.0.0",
+  "description": "Protobuf schema definitions for Bloxtr8 escrow system commands and events",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "generate": "buf generate",
+    "build": "pnpm generate && tsc",
+    "validate": "buf lint && buf format --diff --exit-code",
+    "format": "buf format --write",
+    "test": "jest --passWithNoTests",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.3.0"
+  },
+  "devDependencies": {
+    "@bloxtr8/eslint-config": "workspace:*",
+    "@bufbuild/protoc-gen-es": "^2.3.0",
+    "@bufbuild/protoc-gen-es-cli": "^2.3.0",
+    "@types/jest": "^29.5.8",
+    "@types/node": "^20.10.5",
+    "jest": "^29.7.0",
+    "typescript": "^5.3.3"
+  }
+}
