@@ -8,19 +8,19 @@
  */
 
 // Re-export all generated types from escrow commands
-export * from '../generated/bloxtr8/escrow/commands/v1/escrow_commands.js';
+export * from '../generated/schemas/escrow-commands_pb.js';
 
 // Re-export all generated types from escrow events
-export * from '../generated/bloxtr8/escrow/events/v1/escrow_events.js';
+export * from '../generated/schemas/escrow-events_pb.js';
 
 // Re-export all generated types from payment commands
-export * from '../generated/bloxtr8/payments/commands/v1/payments_commands.js';
+export * from '../generated/schemas/payments-commands_pb.js';
 
 // Re-export all generated types from payment events
-export * from '../generated/bloxtr8/payments/events/v1/payments_events.js';
+export * from '../generated/schemas/payments-events_pb.js';
 
 // Re-export all generated types from webhook events
-export * from '../generated/bloxtr8/webhook/events/v1/webhook_events.js';
+export * from '../generated/schemas/webhook-events_pb.js';
 
 // Re-export all generated types from contract events
-export * from '../generated/bloxtr8/contracts/events/v1/contracts_events.js';
+export * from '../generated/schemas/contracts-events_pb.js';
