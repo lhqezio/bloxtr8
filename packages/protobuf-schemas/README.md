@@ -21,7 +21,7 @@ packages/protobuf-schemas/
 │   ├── payments-events.proto
 │   ├── webhook-events.proto
 │   └── contracts-events.proto
-├── generated/            # Generated TypeScript (committed to git)
+├── generated/            # Generated TypeScript (not committed, must be generated)
 ├── index.ts              # Re-exports generated types
 └── package.json
 ```
@@ -39,6 +39,20 @@ This package is part of the Bloxtr8 monorepo and available as a workspace depend
   }
 }
 ```
+
+### Prerequisites
+
+**Important**: Generated TypeScript files are not committed to git. You must generate them before using this package:
+
+```bash
+# Generate TypeScript types from Protobuf schemas
+pnpm --filter @bloxtr8/protobuf-schemas generate
+
+# Or build the package (which includes generation)
+pnpm --filter @bloxtr8/protobuf-schemas build
+```
+
+The `generated/` directory is excluded from version control (see `.gitignore`). Each developer and CI/CD pipeline must generate these files locally.
 
 ### Importing Types
 
@@ -82,13 +96,17 @@ const deserialized = fromBinary(CreateEscrow, binary);
 
 ### Generating TypeScript Types
 
-After modifying `.proto` files, regenerate TypeScript types:
+**Required before first use**: Generated files are not committed to git and must be generated manually.
+
+After cloning the repository or modifying `.proto` files, regenerate TypeScript types:
 
 ```bash
 pnpm --filter @bloxtr8/protobuf-schemas generate
 ```
 
 This runs `buf generate` which reads `buf.gen.yaml` and outputs TypeScript to `generated/`.
+
+**Note**: The `build` script automatically runs generation, so `pnpm build` will ensure generated files are up-to-date.
 
 ### Validating Schemas
 
@@ -225,7 +243,9 @@ All schemas use **BACKWARD** compatibility mode, meaning:
 
 - `@bufbuild/protobuf` - Protobuf runtime for TypeScript
 - `@bufbuild/protoc-gen-es` - TypeScript code generator
-- `buf` CLI - Protobuf tooling (install separately: `brew install bufbuild/buf/buf`)
+- `@bufbuild/buf` - Protobuf tooling (included as devDependency, available via pnpm)
+
+**Note**: The `buf` CLI is included as a devDependency and will be installed automatically when you run `pnpm install`. No separate installation is required.
 
 ## License
 
