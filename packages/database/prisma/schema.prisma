@@ -658,8 +658,8 @@ model UserEscrowHistory {
   counterpartyName String?
 
   // Timestamps
-  createdAt DateTime
-  updatedAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, escrowId])
   @@index([userId, status])
@@ -691,7 +691,7 @@ model PaymentHistory {
   feeAmount BigInt? // Platform fee if applicable
 
   // Timestamps
-  createdAt DateTime
+  createdAt DateTime @default(now())
   completedAt DateTime?
   failedAt DateTime?
 
