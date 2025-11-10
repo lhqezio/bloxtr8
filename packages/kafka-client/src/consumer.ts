@@ -202,6 +202,12 @@ export class KafkaConsumer {
     const producer = client.producer({
       idempotent: true,
       maxInFlightRequests: 1,
+      retry: {
+        retries: this.config.retry.maxRetries,
+        initialRetryTime: this.config.retry.initialRetryTimeMs,
+        maxRetryTime: this.config.retry.maxRetryTimeMs,
+        multiplier: this.config.retry.multiplier,
+      },
     });
 
     try {
