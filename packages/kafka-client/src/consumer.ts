@@ -160,7 +160,7 @@ export class KafkaConsumer {
     );
 
     // If DLQ is enabled, send to DLQ
-    if (this.options.dlqEnabled !== false) {
+    if (this.options.dlqEnabled === true) {
       await this.sendToDLQ(payload, error);
     }
 
