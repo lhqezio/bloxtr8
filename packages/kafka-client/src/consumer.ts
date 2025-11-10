@@ -161,11 +161,22 @@ export class KafkaConsumer {
 
     // If DLQ is enabled, send to DLQ
     if (this.options.dlqEnabled === true) {
-      await this.sendToDLQ(payload, error);
+      const dlqSuccess = await this.sendToDLQ(payload, error);
+
+      // If DLQ send succeeded, don't re-throw to allow offset commit
+      // This prevents infinite reprocessing loops
+      if (dlqSuccess) {
+        return;
+      }
+
+      // If DLQ send failed, log and continue to re-throw
+      console.error(
+        `DLQ send failed for message from topic ${topic}, partition ${partition}, offset ${message.offset}. Message will be reprocessed.`
+      );
     }
 
     // Re-throw to let KafkaJS handle offset management
-    // The consumer will continue processing other messages
+    // This only happens if DLQ is disabled or DLQ send failed
     throw new KafkaConsumerError(
       `Message processing failed: ${error.message}`,
       {
@@ -178,11 +189,12 @@ export class KafkaConsumer {
 
   /**
    * Send failed message to Dead Letter Queue
+   * @returns true if message was successfully sent to DLQ, false otherwise
    */
   private async sendToDLQ(
     payload: EachMessagePayload,
     originalError: Error
-  ): Promise<void> {
+  ): Promise<boolean> {
     const { topic, message } = payload;
     const dlqTopic = `${topic}${this.options.dlqTopicSuffix ?? '.dlq'}`;
 
@@ -218,9 +230,12 @@ export class KafkaConsumer {
           },
         ],
       });
+
+      return true;
     } catch (dlqError) {
       // Log DLQ send failure but don't throw - we don't want DLQ failures to stop processing
       console.error(`Failed to send message to DLQ ${dlqTopic}:`, dlqError);
+      return false;
     } finally {
       // Always disconnect the producer to prevent resource leaks
       try {
