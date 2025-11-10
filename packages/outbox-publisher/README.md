@@ -127,42 +127,90 @@ The outbox publisher implements the transactional outbox pattern:
 
 ### Idempotency
 
-The publisher ensures idempotent publishing:
+The publisher ensures idempotent publishing using a two-phase transaction approach:
 
-- Checks if an event is already published before processing
-- Uses atomic database updates (`UPDATE ... WHERE published_at IS NULL`)
-- Uses `FOR UPDATE SKIP LOCKED` to prevent concurrent processing of the same events
+1. **Claim Phase** (within transaction):
+   - Uses `FOR UPDATE SKIP LOCKED` to atomically claim events
+   - Prevents multiple publisher instances from processing the same events concurrently
+   - Uses `ReadCommitted` isolation level to allow concurrent transactions
+   - Events are claimed but NOT marked as published yet
+
+2. **Publish Phase** (outside transaction):
+   - Publishes to Kafka with retry logic
+   - Events are marked as published ONLY after successful Kafka acknowledgment
+   - If Kafka succeeds but marking fails, returns success anyway (prevents duplicates)
+   - If marking fails after DLQ send, logs warning but continues (DLQ already has the message)
+
+This approach ensures:
+
+- No duplicate publishing if Kafka succeeds but marking fails
+- No duplicate processing across multiple publisher instances
+- Atomic database updates (`UPDATE ... WHERE published_at IS NULL`)
 
 ### Error Handling
 
 **Transient Errors** (network, Kafka unavailable):
 
-- Retry with exponential backoff
+- Retry with exponential backoff (capped at 30 seconds)
 - Don't mark as published until successful
 - Continue processing other events
+- Uses `isRetryableError()` from `@bloxtr8/kafka-client` to determine retryability
 
-**Permanent Errors** (malformed payload, invalid topic):
+**Permanent Errors** (malformed payload, invalid topic, unmapped event type):
 
-- Send to DLQ immediately
+- Detected via `isPermanentError()` which checks for patterns like:
+  - Invalid topic, malformed payload, serialization errors
+  - Unauthorized, forbidden, not found errors
+- Send to DLQ immediately (no retries)
 - Mark as published to prevent reprocessing
 - Log error for investigation
 
+**Unmapped Event Types**:
+
+- Events with no topic mapping are sent to fallback DLQ topic: `outbox.unmapped.dlq`
+- Treated as permanent errors
+- Includes metadata indicating the unmapped event type
+
 **Max Retries Exceeded**:
 
-- Send to DLQ
+- After `maxRetries` attempts, send to DLQ with error type `TRANSIENT`
 - Mark as published to prevent infinite retries
+- Treated as permanent error state (all retries exhausted)
+
+**Error Recovery**:
+
+- If Kafka send succeeds but marking fails: Returns success (prevents duplicate publishing)
+- If DLQ send succeeds but marking fails: Logs warning but continues (DLQ has the message)
+- If DLQ send fails: Marks as published anyway to prevent infinite retry loops
 
 ### DLQ Support
 
 Failed events are sent to a DLQ topic with the format: `{originalTopic}.dlq`
 
-DLQ messages include:
+DLQ messages are JSON-serialized and include:
 
-- Original event payload
-- Error information
-- Retry count
-- Timestamp
-- Metadata
+```typescript
+{
+  originalTopic: string;           // Original Kafka topic
+  originalEventId: string;          // Outbox event ID
+  originalAggregateId: string;      // Aggregate ID (e.g., escrowId)
+  originalEventType: string;        // Event type name
+  originalPayload: Buffer;           // Original Protobuf payload
+  errorType: 'TRANSIENT' | 'PERMANENT' | 'POISON';
+  errorMessage: string;              // Error message
+  retryCount: number;                // Number of retry attempts
+  failedAt: string;                  // ISO 8601 timestamp
+  traceId?: string;                  // Optional trace ID
+  metadata?: Record<string, string>; // Additional metadata
+}
+```
+
+DLQ Kafka messages include headers:
+
+- `content-type: application/json`
+- `x-dlq-original-topic`: Original topic name
+- `x-dlq-event-id`: Event ID
+- `x-dlq-error-type`: Error type (TRANSIENT/PERMANENT/POISON)
 
 ## Database Schema
 
@@ -191,7 +239,11 @@ The publisher uses `@bloxtr8/kafka-client` for Kafka operations:
 - **Topic**: Determined by `topicMapping[eventType]`
 - **Key**: `aggregateId` (for partitioning)
 - **Value**: `payload` (Protobuf-serialized bytes)
-- **Headers**: Event metadata (type, ID, version)
+- **Headers**:
+  - `content-type: application/protobuf`
+  - `x-event-type`: Event type name
+  - `x-event-id`: Outbox event ID
+  - `x-event-version`: Schema version number
 
 ## Error Classes
 
@@ -216,10 +268,34 @@ class OutboxDLQError extends OutboxPublisherError {}
 
 The publisher provides health checks that monitor:
 
-- Database connectivity
-- Kafka connectivity
-- Unpublished event count
-- Overall health status (healthy/degraded/unhealthy)
+- **Database connectivity**: Tests with `SELECT 1` query
+- **Kafka connectivity**: Attempts to connect if not already connected
+- **Unpublished event count**: Counts events where `publishedAt IS NULL`
+- **Overall health status**:
+  - `healthy`: Database and Kafka connected, <1000 unpublished events
+  - `degraded`: Kafka unavailable (but DB connected) OR >1000 unpublished events
+  - `unhealthy`: Database unavailable
+
+The `checkHealth()` function is also exported for standalone health checks:
+
+```typescript
+import { checkHealth } from '@bloxtr8/outbox-publisher';
+import { KafkaProducer, createConfig } from '@bloxtr8/kafka-client';
+
+const producer = new KafkaProducer(createConfig());
+const health = await checkHealth(producer);
+```
+
+## Exports
+
+The package exports:
+
+- **Classes**: `OutboxPublisher`
+- **Factory Functions**: `createOutboxPublisher`, `createOutboxPublisherFromEnv`
+- **Configuration**: `createConfig`, `getDefaultConfig`
+- **Types**: `OutboxPublisherConfig`, `TopicMapping`, `OutboxEvent`, `PublishResult`, `DLQMessage`, `HealthStatus`, `HealthCheckResult`
+- **Error Classes**: `OutboxPublisherError`, `OutboxPublishError`, `OutboxDLQError`
+- **Utilities**: `checkHealth`
 
 ## Related Documentation
 
