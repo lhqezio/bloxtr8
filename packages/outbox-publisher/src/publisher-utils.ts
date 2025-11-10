@@ -228,10 +228,7 @@ export async function processEvent(
             };
           } catch (dlqError) {
             // DLQ failed - event is already marked as published, so it won't be retried
-            console.error(
-              `Failed to send event ${event.id} to DLQ:`,
-              dlqError
-            );
+            console.error(`Failed to send event ${event.id} to DLQ:`, dlqError);
             return {
               success: false,
               eventId: event.id,
@@ -279,10 +276,7 @@ export async function processEvent(
             };
           } catch (dlqError) {
             // DLQ failed - event is already marked as published, so it won't be retried
-            console.error(
-              `Failed to send event ${event.id} to DLQ:`,
-              dlqError
-            );
+            console.error(`Failed to send event ${event.id} to DLQ:`, dlqError);
             return {
               success: false,
               eventId: event.id,
