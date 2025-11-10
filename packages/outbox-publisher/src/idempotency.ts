@@ -20,7 +20,10 @@ export async function checkAlreadyPublished(eventId: string): Promise<boolean> {
     select: { publishedAt: true },
   });
 
-  return event?.publishedAt !== null;
+  // If event doesn't exist, return false (not published)
+  // If event exists but publishedAt is null, return false (not published)
+  // If event exists and publishedAt is not null, return true (published)
+  return event !== null && event.publishedAt !== null;
 }
 
 /**

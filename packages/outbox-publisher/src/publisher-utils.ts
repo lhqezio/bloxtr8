@@ -6,7 +6,6 @@ import {
   markAsPublished,
   checkAlreadyPublished,
   getUnpublishedEventInTransaction,
-  markAsPublishedInTransaction,
 } from './idempotency.js';
 import type {
   OutboxEvent,
@@ -22,9 +21,14 @@ function calculateBackoff(attempt: number, baseDelayMs: number): number {
 }
 
 /**
- * Process events within transactions to ensure row locks are held during processing.
- * This prevents multiple publisher instances from processing the same events concurrently.
- * Events are processed sequentially, one per transaction.
+ * Process events using short transactions to acquire locks, then process outside transactions.
+ * This prevents multiple publisher instances from processing the same events concurrently
+ * while avoiding long-held locks during retry delays.
+ *
+ * Flow:
+ * 1. Short transaction: Fetch event with lock, commit immediately (releases lock)
+ * 2. Process event outside transaction: Retries with exponential backoff happen without holding lock
+ * 3. Mark as published: Use atomic update to mark event as published (idempotent)
  */
 export async function processEventsInTransaction(
   producer: KafkaProducer,
@@ -33,37 +37,17 @@ export async function processEventsInTransaction(
 ): Promise<PublishResult[]> {
   const results: PublishResult[] = [];
 
-  // Process events one-by-one in transactions to hold locks during processing
+  // Process events one-by-one
   for (let i = 0; i < batchSize; i++) {
+    let event: OutboxEvent | null = null;
+
     try {
-      const result = await prisma.$transaction(
+      // Short transaction: fetch event with lock, then commit immediately
+      // This releases the lock before we start retries
+      event = await prisma.$transaction(
         async tx => {
-          // Fetch event with lock (lock held until transaction commits)
-          const event = await getUnpublishedEventInTransaction(tx);
-
-          if (!event) {
-            // No more events available
-            return null;
-          }
-
-          // Process the event (publish to Kafka, handle errors, etc.)
-          // The lock is held during this processing
-          const processResult = await processEventInTransaction(
-            producer,
-            event,
-            config,
-            tx
-          );
-
-          // Mark as published within the same transaction
-          // This ensures atomicity: if Kafka publish succeeds, we mark as published
-          // If Kafka publish fails and we send to DLQ, we still mark as published
-          // For permanent errors, we MUST mark as published even if DLQ fails to prevent infinite retries
-          // Note: processEventInTransaction handles all retries internally, so by the time it returns,
-          // all retry attempts have been exhausted. We always mark as published to prevent infinite retries.
-          await markAsPublishedInTransaction(tx, event.id);
-
-          return processResult;
+          const fetchedEvent = await getUnpublishedEventInTransaction(tx);
+          return fetchedEvent;
         },
         {
           // Use read committed isolation level to allow concurrent transactions
@@ -72,262 +56,29 @@ export async function processEventsInTransaction(
         }
       );
 
-      if (result === null) {
+      if (!event) {
         // No more events available
         break;
       }
 
-      results.push(result);
+      // Process the event outside the transaction
+      // Retries with exponential backoff happen here without holding database locks
+      // processEvent handles marking as published internally for all cases (success, errors, DLQ)
+      const processResult = await processEvent(producer, event, config);
+
+      results.push(processResult);
     } catch (error) {
-      // Transaction failed - log and continue with next event
-      console.error('Error processing event in transaction:', error);
+      // Error fetching event or processing - log and continue
+      console.error('Error processing event:', error);
       results.push({
         success: false,
-        eventId: 'unknown',
+        eventId: event?.id || 'unknown',
         error: error instanceof Error ? error : new Error(String(error)),
       });
     }
   }
 
   return results;
-}
-
-/**
- * Process a single event within a transaction context.
- * This is similar to processEvent but designed to work within a transaction.
- */
-async function processEventInTransaction(
-  producer: KafkaProducer,
-  event: OutboxEvent,
-  config: Required<OutboxPublisherConfig>,
-  // eslint-disable-next-line no-unused-vars
-  _tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
-): Promise<PublishResult> {
-  const topic = config.topicMapping[event.eventType];
-
-  if (!topic) {
-    // Unmapped event type - treat as permanent error
-    const error = new Error(
-      `No topic mapping found for event type: ${event.eventType}`
-    );
-
-    const fallbackTopic = 'outbox.unmapped';
-
-    if (config.dlqEnabled) {
-      try {
-        await sendToDLQ(
-          producer,
-          event,
-          fallbackTopic,
-          error,
-          'PERMANENT',
-          0,
-          config.dlqTopicSuffix,
-          {
-            reason: 'unmapped_event_type',
-            eventType: event.eventType,
-          }
-        );
-        return {
-          success: false,
-          eventId: event.id,
-          topic: fallbackTopic,
-          error,
-          sentToDLQ: true,
-          isPermanentError: true,
-        };
-      } catch (dlqError) {
-        // DLQ failed, but this is a permanent error - mark as published to prevent infinite retries
-        return {
-          success: false,
-          eventId: event.id,
-          topic: fallbackTopic,
-          error: dlqError instanceof Error ? dlqError : error,
-          sentToDLQ: false,
-          isPermanentError: true,
-        };
-      }
-    } else {
-      // DLQ disabled, but this is a permanent error - mark as published to prevent infinite retries
-      return {
-        success: false,
-        eventId: event.id,
-        topic: fallbackTopic,
-        error,
-        sentToDLQ: false,
-        isPermanentError: true,
-      };
-    }
-  }
-
-  let lastError: Error | undefined;
-  let attempt = 0;
-
-  // Retry loop for transient errors
-  while (attempt < config.maxRetries) {
-    try {
-      // Publish to Kafka
-      await producer.send(topic, {
-        key: event.aggregateId,
-        value: Buffer.from(event.payload),
-        headers: {
-          'content-type': 'application/protobuf',
-          'x-event-type': event.eventType,
-          'x-event-id': event.id,
-          'x-event-version': event.version.toString(),
-        },
-      });
-
-      // Success
-      return {
-        success: true,
-        eventId: event.id,
-        topic,
-      };
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-
-      // Check if it's a permanent error
-      if (isPermanentError(lastError)) {
-        if (config.dlqEnabled) {
-          try {
-            await sendToDLQ(
-              producer,
-              event,
-              topic,
-              lastError,
-              'PERMANENT',
-              attempt,
-              config.dlqTopicSuffix
-            );
-            return {
-              success: false,
-              eventId: event.id,
-              topic,
-              error: lastError,
-              sentToDLQ: true,
-              isPermanentError: true,
-            };
-          } catch (dlqError) {
-            // DLQ failed, but this is a permanent error - mark as published to prevent infinite retries
-            return {
-              success: false,
-              eventId: event.id,
-              topic,
-              error: dlqError instanceof Error ? dlqError : lastError,
-              sentToDLQ: false,
-              isPermanentError: true,
-            };
-          }
-        } else {
-          // DLQ disabled, but this is a permanent error - mark as published to prevent infinite retries
-          return {
-            success: false,
-            eventId: event.id,
-            topic,
-            error: lastError,
-            sentToDLQ: false,
-            isPermanentError: true,
-          };
-        }
-      }
-
-      // Check if error is retryable
-      if (!isRetryableError(lastError)) {
-        // Non-retryable errors are treated as permanent
-        if (config.dlqEnabled) {
-          try {
-            await sendToDLQ(
-              producer,
-              event,
-              topic,
-              lastError,
-              'PERMANENT',
-              attempt,
-              config.dlqTopicSuffix
-            );
-            return {
-              success: false,
-              eventId: event.id,
-              topic,
-              error: lastError,
-              sentToDLQ: true,
-              isPermanentError: true,
-            };
-          } catch (dlqError) {
-            // DLQ failed, but this is a permanent error - mark as published to prevent infinite retries
-            return {
-              success: false,
-              eventId: event.id,
-              topic,
-              error: dlqError instanceof Error ? dlqError : lastError,
-              sentToDLQ: false,
-              isPermanentError: true,
-            };
-          }
-        } else {
-          // DLQ disabled, but this is a permanent error - mark as published to prevent infinite retries
-          return {
-            success: false,
-            eventId: event.id,
-            topic,
-            error: lastError,
-            sentToDLQ: false,
-            isPermanentError: true,
-          };
-        }
-      }
-
-      // Retryable error - wait and retry
-      attempt++;
-      if (attempt < config.maxRetries) {
-        const backoff = calculateBackoff(attempt - 1, config.retryBackoffMs);
-        await new Promise(resolve => setTimeout(resolve, backoff));
-      }
-    }
-  }
-
-  // Max retries exceeded - send to DLQ
-  // This is treated as a permanent error state since all retries have been exhausted
-  if (config.dlqEnabled && lastError) {
-    try {
-      await sendToDLQ(
-        producer,
-        event,
-        topic,
-        lastError,
-        'TRANSIENT',
-        attempt,
-        config.dlqTopicSuffix
-      );
-      return {
-        success: false,
-        eventId: event.id,
-        topic,
-        error: lastError,
-        sentToDLQ: true,
-        isPermanentError: true,
-      };
-    } catch (dlqError) {
-      return {
-        success: false,
-        eventId: event.id,
-        topic,
-        error: dlqError instanceof Error ? dlqError : lastError,
-        sentToDLQ: false,
-        isPermanentError: true,
-      };
-    }
-  }
-
-  return {
-    success: false,
-    eventId: event.id,
-    topic,
-    error: lastError,
-    sentToDLQ: false,
-    isPermanentError: true,
-  };
 }
 
 /**
