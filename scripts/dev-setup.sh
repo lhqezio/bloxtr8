@@ -320,7 +320,6 @@ start_service() {
     print_status "Starting $service_name..."
     pnpm --filter=$filter dev &
     local pid=$!
-    echo $pid
     sleep 3
     
     if kill -0 $pid 2>/dev/null; then
