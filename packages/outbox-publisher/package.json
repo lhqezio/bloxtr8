@@ -1,0 +1,27 @@
+{
+  "name": "@bloxtr8/outbox-publisher",
+  "version": "1.0.0",
+  "description": "Outbox publisher service for reliable event publishing to Kafka",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest --passWithNoTests",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix"
+  },
+  "dependencies": {
+    "@bloxtr8/kafka-client": "workspace:*",
+    "@bloxtr8/database": "workspace:*",
+    "@bloxtr8/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@bloxtr8/eslint-config": "workspace:*",
+    "@types/node": "^20.10.5",
+    "typescript": "^5.3.3",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.8"
+  }
+}

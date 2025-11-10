@@ -372,6 +372,34 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  packages/outbox-publisher:
+    dependencies:
+      '@bloxtr8/database':
+        specifier: workspace:*
+        version: link:../database
+      '@bloxtr8/kafka-client':
+        specifier: workspace:*
+        version: link:../kafka-client
+      '@bloxtr8/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@bloxtr8/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@types/jest':
+        specifier: ^29.5.8
+        version: 29.5.14
+      '@types/node':
+        specifier: ^20.10.5
+        version: 20.19.19
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@20.19.19)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   packages/protobuf-schemas:
     dependencies:
       '@bufbuild/protobuf':
