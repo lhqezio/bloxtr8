@@ -59,20 +59,9 @@ export async function processEventsInTransaction(
           // This ensures atomicity: if Kafka publish succeeds, we mark as published
           // If Kafka publish fails and we send to DLQ, we still mark as published
           // For permanent errors, we MUST mark as published even if DLQ fails to prevent infinite retries
-          if (
-            processResult.success ||
-            processResult.sentToDLQ ||
-            processResult.isPermanentError
-          ) {
-            await markAsPublishedInTransaction(tx, event.id);
-          } else {
-            // For transient errors that will be retried, don't mark as published
-            // The lock will be released when transaction commits, allowing retry
-            // The retry logic in processEvent handles transient errors
-            // Note: We mark as published on all outcomes to prevent infinite retries
-            // This is safe because transient errors are handled by the retry loop
-            await markAsPublishedInTransaction(tx, event.id);
-          }
+          // Note: processEventInTransaction handles all retries internally, so by the time it returns,
+          // all retry attempts have been exhausted. We always mark as published to prevent infinite retries.
+          await markAsPublishedInTransaction(tx, event.id);
 
           return processResult;
         },
@@ -299,6 +288,7 @@ async function processEventInTransaction(
   }
 
   // Max retries exceeded - send to DLQ
+  // This is treated as a permanent error state since all retries have been exhausted
   if (config.dlqEnabled && lastError) {
     try {
       await sendToDLQ(
@@ -316,6 +306,7 @@ async function processEventInTransaction(
         topic,
         error: lastError,
         sentToDLQ: true,
+        isPermanentError: true,
       };
     } catch (dlqError) {
       return {
@@ -324,6 +315,7 @@ async function processEventInTransaction(
         topic,
         error: dlqError instanceof Error ? dlqError : lastError,
         sentToDLQ: false,
+        isPermanentError: true,
       };
     }
   }
@@ -334,6 +326,7 @@ async function processEventInTransaction(
     topic,
     error: lastError,
     sentToDLQ: false,
+    isPermanentError: true,
   };
 }
 
@@ -501,6 +494,7 @@ export async function processEvent(
             topic,
             error: lastError,
             sentToDLQ: false,
+            isPermanentError: true,
           };
         }
       }
@@ -563,6 +557,7 @@ export async function processEvent(
   }
 
   // Max retries exceeded - send to DLQ
+  // This is treated as a permanent error state since all retries have been exhausted
   if (config.dlqEnabled && lastError) {
     try {
       await sendToDLQ(
@@ -581,14 +576,18 @@ export async function processEvent(
         topic,
         error: lastError,
         sentToDLQ: true,
+        isPermanentError: true,
       };
     } catch (dlqError) {
+      // DLQ failed, but max retries exceeded - mark as published to prevent infinite retries
+      await markAsPublished(event.id);
       return {
         success: false,
         eventId: event.id,
         topic,
         error: dlqError instanceof Error ? dlqError : lastError,
         sentToDLQ: false,
+        isPermanentError: true,
       };
     }
   }
@@ -601,5 +600,6 @@ export async function processEvent(
     topic,
     error: lastError,
     sentToDLQ: false,
+    isPermanentError: true,
   };
 }
