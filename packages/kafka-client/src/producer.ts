@@ -93,8 +93,8 @@ export class KafkaProducer {
         topicName: record.topicName,
         partition: record.partition,
         errorCode: record.errorCode,
-        offset: record.offset ?? '',
-        timestamp: record.timestamp ?? '',
+        offset: record.offset,
+        timestamp: record.timestamp,
       };
     }, this.config.retry).catch(error => {
       // Use instanceof check instead of isRetryableError() because
@@ -149,8 +149,8 @@ export class KafkaProducer {
         topicName: record.topicName,
         partition: record.partition,
         errorCode: record.errorCode,
-        offset: record.offset ?? '',
-        timestamp: record.timestamp ?? '',
+        offset: record.offset,
+        timestamp: record.timestamp,
       }));
     }, this.config.retry).catch(error => {
       // Use instanceof check instead of isRetryableError() because
