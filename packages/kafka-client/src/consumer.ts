@@ -186,13 +186,13 @@ export class KafkaConsumer {
     const { topic, message } = payload;
     const dlqTopic = `${topic}${this.options.dlqTopicSuffix ?? '.dlq'}`;
 
-    try {
-      const client = connectionPool.getClient(this.config);
-      const producer = client.producer({
-        idempotent: true,
-        maxInFlightRequests: 1,
-      });
+    const client = connectionPool.getClient(this.config);
+    const producer = client.producer({
+      idempotent: true,
+      maxInFlightRequests: 1,
+    });
 
+    try {
       await producer.connect();
 
       await producer.send({
@@ -218,11 +218,17 @@ export class KafkaConsumer {
           },
         ],
       });
-
-      await producer.disconnect();
     } catch (dlqError) {
       // Log DLQ send failure but don't throw - we don't want DLQ failures to stop processing
       console.error(`Failed to send message to DLQ ${dlqTopic}:`, dlqError);
+    } finally {
+      // Always disconnect the producer to prevent resource leaks
+      try {
+        await producer.disconnect();
+      } catch (disconnectError) {
+        // Log disconnect errors but don't throw - producer cleanup shouldn't fail the operation
+        console.error(`Failed to disconnect DLQ producer:`, disconnectError);
+      }
     }
   }
 
