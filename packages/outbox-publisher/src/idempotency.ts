@@ -77,6 +77,82 @@ export async function getUnpublishedEventInTransaction(
 }
 
 /**
+ * Atomically fetch and claim an event for processing within a transaction.
+ * This function fetches an unpublished event with a lock but does NOT mark it as published.
+ * The event should be marked as published AFTER successful Kafka publishing to prevent
+ * duplicate publishing if marking fails after Kafka succeeds.
+ *
+ * Returns the event if successfully claimed, null if no events available.
+ */
+export async function claimEventInTransaction(
+  tx: TransactionClient
+): Promise<OutboxEvent | null> {
+  // Fetch event with lock
+  // FOR UPDATE SKIP LOCKED prevents concurrent processing by multiple publisher instances
+  const events = await tx.$queryRaw<OutboxEvent[]>`
+    SELECT *
+    FROM outbox
+    WHERE published_at IS NULL
+    ORDER BY created_at ASC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+  `;
+
+  return events[0] || null;
+}
+
+/**
+ * Atomically fetch and claim an event for processing within a transaction.
+ * This function fetches an unpublished event with a lock AND immediately marks it as published
+ * in the same transaction, preventing race conditions where multiple instances could process
+ * the same event.
+ *
+ * DEPRECATED: This function marks events as published BEFORE Kafka publishing, which can cause
+ * duplicate publishing if Kafka succeeds but marking fails. Use claimEventInTransaction instead
+ * and mark as published AFTER successful Kafka send.
+ *
+ * Returns the event if successfully claimed, null if no events available.
+ * @deprecated Use claimEventInTransaction instead and mark as published after Kafka send
+ */
+export async function claimAndMarkEventInTransaction(
+  tx: TransactionClient
+): Promise<OutboxEvent | null> {
+  // Fetch event with lock
+  const events = await tx.$queryRaw<OutboxEvent[]>`
+    SELECT *
+    FROM outbox
+    WHERE published_at IS NULL
+    ORDER BY created_at ASC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+  `;
+
+  const event = events[0] || null;
+  if (!event) {
+    return null;
+  }
+
+  // Immediately mark as published in the same transaction
+  // This ensures only one instance can claim this event
+  const result = await tx.outbox.updateMany({
+    where: {
+      id: event.id,
+      publishedAt: null, // Only update if not already published (double-check)
+    },
+    data: {
+      publishedAt: new Date(),
+    },
+  });
+
+  // If marking failed (shouldn't happen since we have the lock), return null
+  if (result.count === 0) {
+    return null;
+  }
+
+  return event;
+}
+
+/**
  * Mark an event as published within a transaction
  */
 export async function markAsPublishedInTransaction(

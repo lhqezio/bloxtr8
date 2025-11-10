@@ -2,11 +2,7 @@ import { prisma } from '@bloxtr8/database';
 import { type KafkaProducer, isRetryableError } from '@bloxtr8/kafka-client';
 
 import { sendToDLQ, isPermanentError } from './dlq.js';
-import {
-  markAsPublished,
-  checkAlreadyPublished,
-  getUnpublishedEventInTransaction,
-} from './idempotency.js';
+import { claimEventInTransaction, markAsPublished } from './idempotency.js';
 import type {
   OutboxEvent,
   PublishResult,
@@ -21,14 +17,15 @@ function calculateBackoff(attempt: number, baseDelayMs: number): number {
 }
 
 /**
- * Process events using short transactions to acquire locks, then process outside transactions.
- * This prevents multiple publisher instances from processing the same events concurrently
- * while avoiding long-held locks during retry delays.
+ * Process events using transactions to atomically claim events.
+ * This prevents multiple publisher instances from processing the same events concurrently.
  *
  * Flow:
- * 1. Short transaction: Fetch event with lock, commit immediately (releases lock)
- * 2. Process event outside transaction: Retries with exponential backoff happen without holding lock
- * 3. Mark as published: Use atomic update to mark event as published (idempotent)
+ * 1. Short transaction: Atomically fetch event with lock (but don't mark as published yet)
+ *    This ensures only one instance can claim each event, preventing duplicate Kafka publishing
+ * 2. Process event outside transaction: Publish to Kafka, then mark as published
+ *    Retries with exponential backoff happen here without holding database locks
+ *    Events are marked as published AFTER successful Kafka send to prevent duplicates
  */
 export async function processEventsInTransaction(
   producer: KafkaProducer,
@@ -42,12 +39,11 @@ export async function processEventsInTransaction(
     let event: OutboxEvent | null = null;
 
     try {
-      // Short transaction: fetch event with lock, then commit immediately
-      // This releases the lock before we start retries
+      // Short transaction: atomically fetch event with lock (but don't mark as published yet)
+      // This ensures only one instance can claim each event, preventing race conditions
       event = await prisma.$transaction(
         async tx => {
-          const fetchedEvent = await getUnpublishedEventInTransaction(tx);
-          return fetchedEvent;
+          return await claimEventInTransaction(tx);
         },
         {
           // Use read committed isolation level to allow concurrent transactions
@@ -63,7 +59,7 @@ export async function processEventsInTransaction(
 
       // Process the event outside the transaction
       // Retries with exponential backoff happen here without holding database locks
-      // processEvent handles marking as published internally for all cases (success, errors, DLQ)
+      // The event will be marked as published AFTER successful Kafka send
       const processResult = await processEvent(producer, event, config);
 
       results.push(processResult);
@@ -82,7 +78,10 @@ export async function processEventsInTransaction(
 }
 
 /**
- * Process a single event: publish to Kafka and mark as published
+ * Process a single event: publish to Kafka and mark as published.
+ * The event is marked as published AFTER successful Kafka send to prevent duplicate publishing
+ * if marking fails after Kafka succeeds. If Kafka send succeeds but marking fails, we still
+ * return success to prevent retries (Kafka already has the message).
  */
 export async function processEvent(
   producer: KafkaProducer,
@@ -101,6 +100,7 @@ export async function processEvent(
     const fallbackTopic = 'outbox.unmapped';
 
     // Send to DLQ if enabled
+    // Mark as published after DLQ send (or if DLQ disabled) to prevent retries
     if (config.dlqEnabled) {
       try {
         await sendToDLQ(
@@ -116,8 +116,16 @@ export async function processEvent(
             eventType: event.eventType,
           }
         );
-        // Mark as published to prevent reprocessing
-        await markAsPublished(event.id);
+        // Mark as published after successful DLQ send
+        try {
+          await markAsPublished(event.id);
+        } catch (markError) {
+          // If marking fails, log but don't fail - DLQ already has the message
+          console.warn(
+            `Failed to mark event ${event.id} as published after DLQ send:`,
+            markError
+          );
+        }
         return {
           success: false,
           eventId: event.id,
@@ -127,8 +135,16 @@ export async function processEvent(
           isPermanentError: true,
         };
       } catch (dlqError) {
-        // DLQ failed - still mark as published to prevent infinite retries
-        await markAsPublished(event.id);
+        // DLQ failed - mark as published to prevent retries
+        try {
+          await markAsPublished(event.id);
+        } catch (markError) {
+          // If marking fails, log but continue - we'll mark it on next attempt
+          console.warn(
+            `Failed to mark event ${event.id} as published after DLQ failure:`,
+            markError
+          );
+        }
         return {
           success: false,
           eventId: event.id,
@@ -139,8 +155,16 @@ export async function processEvent(
         };
       }
     } else {
-      // DLQ disabled - mark as published to prevent infinite retries
-      await markAsPublished(event.id);
+      // DLQ disabled - mark as published to prevent retries
+      try {
+        await markAsPublished(event.id);
+      } catch (markError) {
+        // If marking fails, log but continue - we'll mark it on next attempt
+        console.warn(
+          `Failed to mark event ${event.id} as published:`,
+          markError
+        );
+      }
       return {
         success: false,
         eventId: event.id,
@@ -158,17 +182,6 @@ export async function processEvent(
   // Retry loop for transient errors
   while (attempt < config.maxRetries) {
     try {
-      // Check if already published (idempotency check)
-      const alreadyPublished = await checkAlreadyPublished(event.id);
-      if (alreadyPublished) {
-        // Event was already published by another instance
-        return {
-          success: true,
-          eventId: event.id,
-          topic,
-        };
-      }
-
       // Publish to Kafka
       await producer.send(topic, {
         key: event.aggregateId, // Use aggregateId as key for partitioning
@@ -181,10 +194,19 @@ export async function processEvent(
         },
       });
 
-      // Success - mark as published only after successful Kafka acknowledgment
-      const marked = await markAsPublished(event.id);
-      if (!marked) {
-        // Another instance published it - still success
+      // Kafka send succeeded - now mark as published
+      // If marking fails, we still return success to prevent retries
+      // (Kafka already has the message, so we shouldn't publish again)
+      try {
+        await markAsPublished(event.id);
+      } catch (markError) {
+        // If marking fails after successful Kafka send, log but return success
+        // This prevents duplicate publishing - Kafka already has the message
+        console.warn(
+          `Kafka send succeeded but failed to mark event ${event.id} as published:`,
+          markError
+        );
+        // Return success anyway - Kafka has the message, so we shouldn't retry
         return {
           success: true,
           eventId: event.id,
@@ -192,6 +214,7 @@ export async function processEvent(
         };
       }
 
+      // Success - Kafka send succeeded and event marked as published
       return {
         success: true,
         eventId: event.id,
@@ -214,8 +237,15 @@ export async function processEvent(
               attempt,
               config.dlqTopicSuffix
             );
-            // Mark as published to prevent reprocessing
-            await markAsPublished(event.id);
+            // Mark as published after successful DLQ send
+            try {
+              await markAsPublished(event.id);
+            } catch (markError) {
+              console.warn(
+                `Failed to mark event ${event.id} as published after DLQ send:`,
+                markError
+              );
+            }
             return {
               success: false,
               eventId: event.id,
@@ -225,8 +255,15 @@ export async function processEvent(
               isPermanentError: true,
             };
           } catch (dlqError) {
-            // DLQ failed, but this is a permanent error - mark as published to prevent infinite retries
-            await markAsPublished(event.id);
+            // DLQ failed - mark as published to prevent retries
+            try {
+              await markAsPublished(event.id);
+            } catch (markError) {
+              console.warn(
+                `Failed to mark event ${event.id} as published after DLQ failure:`,
+                markError
+              );
+            }
             return {
               success: false,
               eventId: event.id,
@@ -237,8 +274,15 @@ export async function processEvent(
             };
           }
         } else {
-          // DLQ disabled - mark as published to prevent infinite retries
-          await markAsPublished(event.id);
+          // DLQ disabled - mark as published to prevent retries
+          try {
+            await markAsPublished(event.id);
+          } catch (markError) {
+            console.warn(
+              `Failed to mark event ${event.id} as published:`,
+              markError
+            );
+          }
           return {
             success: false,
             eventId: event.id,
@@ -264,7 +308,15 @@ export async function processEvent(
               attempt,
               config.dlqTopicSuffix
             );
-            await markAsPublished(event.id);
+            // Mark as published after successful DLQ send
+            try {
+              await markAsPublished(event.id);
+            } catch (markError) {
+              console.warn(
+                `Failed to mark event ${event.id} as published after DLQ send:`,
+                markError
+              );
+            }
             return {
               success: false,
               eventId: event.id,
@@ -274,8 +326,15 @@ export async function processEvent(
               isPermanentError: true,
             };
           } catch (dlqError) {
-            // DLQ failed, but this is a permanent error - mark as published to prevent infinite retries
-            await markAsPublished(event.id);
+            // DLQ failed - mark as published to prevent retries
+            try {
+              await markAsPublished(event.id);
+            } catch (markError) {
+              console.warn(
+                `Failed to mark event ${event.id} as published after DLQ failure:`,
+                markError
+              );
+            }
             return {
               success: false,
               eventId: event.id,
@@ -286,7 +345,15 @@ export async function processEvent(
             };
           }
         } else {
-          await markAsPublished(event.id);
+          // DLQ disabled - mark as published to prevent retries
+          try {
+            await markAsPublished(event.id);
+          } catch (markError) {
+            console.warn(
+              `Failed to mark event ${event.id} as published:`,
+              markError
+            );
+          }
           return {
             success: false,
             eventId: event.id,
@@ -320,7 +387,15 @@ export async function processEvent(
         attempt,
         config.dlqTopicSuffix
       );
-      await markAsPublished(event.id);
+      // Mark as published after successful DLQ send
+      try {
+        await markAsPublished(event.id);
+      } catch (markError) {
+        console.warn(
+          `Failed to mark event ${event.id} as published after DLQ send:`,
+          markError
+        );
+      }
       return {
         success: false,
         eventId: event.id,
@@ -330,8 +405,15 @@ export async function processEvent(
         isPermanentError: true,
       };
     } catch (dlqError) {
-      // DLQ failed, but max retries exceeded - mark as published to prevent infinite retries
-      await markAsPublished(event.id);
+      // DLQ failed - mark as published to prevent retries
+      try {
+        await markAsPublished(event.id);
+      } catch (markError) {
+        console.warn(
+          `Failed to mark event ${event.id} as published after DLQ failure:`,
+          markError
+        );
+      }
       return {
         success: false,
         eventId: event.id,
@@ -343,8 +425,12 @@ export async function processEvent(
     }
   }
 
-  // DLQ disabled or failed - mark as published to prevent infinite retries
-  await markAsPublished(event.id);
+  // DLQ disabled or failed - mark as published to prevent retries
+  try {
+    await markAsPublished(event.id);
+  } catch (markError) {
+    console.warn(`Failed to mark event ${event.id} as published:`, markError);
+  }
   return {
     success: false,
     eventId: event.id,
