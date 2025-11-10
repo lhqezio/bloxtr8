@@ -28,116 +28,68 @@ print_warning() {
 # Function to stop service by PID file
 stop_service() {
     local service_name=$1
-    local pid_file=".${service_name}.pid"
     local killed=false
     
-    if [ -f "$pid_file" ]; then
-        local pid=$(cat "$pid_file")
-        if kill -0 $pid 2>/dev/null; then
-            print_status "Stopping $service_name (PID: $pid)..."
-            kill $pid 2>/dev/null || true
-            # Wait for graceful shutdown
-            sleep 2
-            if kill -0 $pid 2>/dev/null; then
-                print_warning "Force killing $service_name..."
-                kill -9 $pid 2>/dev/null || true
-            fi
-            print_success "$service_name stopped"
-            killed=true
+    if [ "$service_name" = "discord-bot" ]; then
+        bot_pids=$(pgrep -f "discord.*bot.*dist/index.js" 2>/dev/null || true)
+        if [ -n "$bot_pids" ]; then
+            print_status "Found Discord bot processes (PIDs: $bot_pids)"
+            for pid in $bot_pids; do
+                print_status "Killing Discord bot process (PID: $pid)..."
+                kill $pid 2>/dev/null || true
+                sleep 1
+                if kill -0 $pid 2>/dev/null; then
+                    print_warning "Force killing Discord bot process (PID: $pid)..."
+                    kill -9 $pid 2>/dev/null || true
+                fi
+            done
+            print_success "Discord bot stopped"
         else
-            print_warning "$service_name was not running (stale PID file)"
-        fi
-        rm -f "$pid_file"
-    else
-        print_warning "No PID file found for $service_name"
-    fi
-    
-    # If PID file method didn't work, try killing by port
-    if [ "$killed" = false ]; then
-        local port=""
-        case $service_name in
-            "api") port=3000 ;;
-            "web-app") port=5173 ;;
-        esac
-        
-        if [ -n "$port" ]; then
-            local pids=$(lsof -t -i :$port 2>/dev/null || true)
-            if [ -n "$pids" ]; then
-                print_status "Found $service_name running on port $port (PIDs: $pids)"
-                for pid in $pids; do
+            # Also try broader pattern in case the above doesn't match
+            bot_pids=$(pgrep -f "discord.*bot" 2>/dev/null || true)
+            if [ -n "$bot_pids" ]; then
+                print_status "Found Discord bot processes with broader pattern (PIDs: $bot_pids)"
+                for pid in $bot_pids; do
+                    print_status "Killing Discord bot process (PID: $pid)..."
                     kill $pid 2>/dev/null || true
                     sleep 1
                     if kill -0 $pid 2>/dev/null; then
+                        print_warning "Force killing Discord bot process (PID: $pid)..."
                         kill -9 $pid 2>/dev/null || true
                     fi
                 done
-                print_success "$service_name stopped (by port)"
+                print_success "Discord bot stopped"
+            else
+                print_warning "No Discord bot process found"
             fi
         fi
     fi
+    local port=""
+    case "$service_name" in
+        "api") port=3000 ;;
+        "web-app") port=5173 ;;
+    esac
+    
+    if [ -n "$port" ]; then
+        local pids=$(lsof -t -i :$port 2>/dev/null || true)
+        if [ -n "$pids" ]; then
+            print_status "Found $service_name running on port $port (PIDs: $pids)"
+            for pid in $pids; do
+                kill $pid 2>/dev/null || true
+                sleep 1
+                if kill -0 $pid 2>/dev/null; then
+                    kill -9 $pid 2>/dev/null || true
+                fi
+            done
+            print_success "$service_name stopped (by port)"
+        fi
+    fi
 }
-
 # Stop all services
 stop_service "api"
 stop_service "discord-bot"
 stop_service "web-app"
-
 # Stop Docker services
 print_status "Stopping Docker services..."
 docker compose down
-
-# Clean up any remaining processes
-print_status "Cleaning up any remaining processes..."
-
-# Kill any remaining node processes that might be from our dev servers
-pkill -f "tsx watch.*@bloxtr8/api" 2>/dev/null || true
-pkill -f "tsx watch.*apps/api" 2>/dev/null || true
-pkill -f "tsx watch.*discord-bot" 2>/dev/null || true
-pkill -f "tsx watch.*apps/discord-bot" 2>/dev/null || true
-pkill -f "tsx watch.*src/index.ts" 2>/dev/null || true
-pkill -f "vite.*5173" 2>/dev/null || true
-
-# More aggressive cleanup for Discord bot - catch all variations
-print_status "Performing aggressive Discord bot cleanup..."
-
-# First, try graceful shutdown (SIGTERM) for Discord bot processes
-pkill -f "discord-bot" 2>/dev/null || true
-pkill -f "discord.*bot" 2>/dev/null || true
-pkill -f "@bloxtr8/discord-bot" 2>/dev/null || true
-pkill -f "apps/discord-bot" 2>/dev/null || true
-pkill -f "tsx.*discord" 2>/dev/null || true
-pkill -f "node.*discord" 2>/dev/null || true
-
-# Wait a moment for graceful shutdown
-sleep 2
-
-# Then force kill any remaining processes
-pkill -9 -f "discord-bot" 2>/dev/null || true
-pkill -9 -f "discord.*bot" 2>/dev/null || true
-pkill -9 -f "@bloxtr8/discord-bot" 2>/dev/null || true
-pkill -9 -f "apps/discord-bot" 2>/dev/null || true
-pkill -9 -f "tsx.*discord" 2>/dev/null || true
-pkill -9 -f "node.*discord" 2>/dev/null || true
-
-# Kill any pnpm processes that might be running our services
-if pgrep -f "pnpm.*dev" > /dev/null 2>&1; then
-    print_status "Found pnpm dev processes, stopping..."
-    pkill -9 -f "pnpm.*dev" 2>/dev/null || true
-fi
-
-# Kill any tsx processes that might be running our services
-if pgrep -f "tsx watch" > /dev/null 2>&1; then
-    print_status "Found tsx watch processes, stopping..."
-    pkill -9 -f "tsx watch" 2>/dev/null || true
-fi
-
-# Final check - if any Discord bot processes still exist, show them
-if pgrep -f "discord" > /dev/null 2>&1; then
-    print_warning "Some Discord-related processes may still be running:"
-    pgrep -f "discord" | xargs ps -p 2>/dev/null || true
-    print_warning "You may need to manually kill these processes"
-fi
-
 print_success "All development services stopped!"
-echo ""
-echo "🔧 To restart, run: pnpm dev:hoang"
