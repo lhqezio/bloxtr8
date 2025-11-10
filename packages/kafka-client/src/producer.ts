@@ -7,7 +7,7 @@ import {
   KafkaProducerError,
   KafkaConnectionError,
   KafkaSerializationError,
-  isRetryableError,
+  KafkaRetryableError,
 } from './errors.js';
 import { executeWithRetry } from './retry.js';
 import { serializeMessage } from './serialization.js';
@@ -97,13 +97,18 @@ export class KafkaProducer {
         timestamp: record.timestamp ?? '',
       };
     }, this.config.retry).catch(error => {
-      if (isRetryableError(error)) {
+      // Use instanceof check instead of isRetryableError() because
+      // executeWithRetry throws KafkaRetryableError when retries are exhausted,
+      // and isRetryableError() only matches error message patterns, not the error type.
+      if (error instanceof KafkaRetryableError) {
         throw new KafkaProducerError(
           `Failed to send message after retries: ${error.message}`,
           { topic }
         );
       }
-      throw new KafkaProducerError(`Failed to send message: ${error.message}`, {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new KafkaProducerError(`Failed to send message: ${errorMessage}`, {
         topic,
       });
     });
@@ -148,13 +153,18 @@ export class KafkaProducer {
         timestamp: record.timestamp ?? '',
       }));
     }, this.config.retry).catch(error => {
-      if (isRetryableError(error)) {
+      // Use instanceof check instead of isRetryableError() because
+      // executeWithRetry throws KafkaRetryableError when retries are exhausted,
+      // and isRetryableError() only matches error message patterns, not the error type.
+      if (error instanceof KafkaRetryableError) {
         throw new KafkaProducerError(
           `Failed to send batch after retries: ${error.message}`,
           { topic }
         );
       }
-      throw new KafkaProducerError(`Failed to send batch: ${error.message}`, {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new KafkaProducerError(`Failed to send batch: ${errorMessage}`, {
         topic,
       });
     });
