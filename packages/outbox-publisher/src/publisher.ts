@@ -6,8 +6,7 @@ import {
 
 import { createConfig } from './config.js';
 import { checkHealth } from './health.js';
-import { getUnpublishedEvents } from './idempotency.js';
-import { processEvent } from './publisher-utils.js';
+import { processEventsInTransaction } from './publisher-utils.js';
 import type {
   OutboxPublisherConfig,
   PublishResult,
@@ -94,6 +93,8 @@ export class OutboxPublisher {
 
   /**
    * Poll for unpublished events and process them
+   * Uses transactions to ensure row locks are held during processing,
+   * preventing multiple publisher instances from processing the same events concurrently.
    */
   private async poll(): Promise<void> {
     if (this.shutdownRequested) {
@@ -101,26 +102,25 @@ export class OutboxPublisher {
     }
 
     try {
-      const events = await getUnpublishedEvents(this.config.batchSize);
+      // Process events within transactions to hold locks during processing
+      // This prevents concurrent processing by multiple publisher instances
+      const results = await processEventsInTransaction(
+        this.producer,
+        this.config,
+        this.config.batchSize
+      );
 
-      if (events.length === 0) {
+      if (results.length === 0) {
         return; // No events to process
       }
 
-      // Process events in parallel (with concurrency limit)
-      const results = await Promise.allSettled(
-        events.map(event => processEvent(this.producer, event, this.config))
-      );
-
       // Log results
-      const successful = results.filter(
-        r => r.status === 'fulfilled' && r.value.success
-      ).length;
+      const successful = results.filter(r => r.success).length;
       const failed = results.length - successful;
 
       if (failed > 0) {
         console.warn(
-          `Processed ${events.length} events: ${successful} successful, ${failed} failed`
+          `Processed ${results.length} events: ${successful} successful, ${failed} failed`
         );
       }
     } catch (error) {
@@ -130,27 +130,14 @@ export class OutboxPublisher {
 
   /**
    * Manually trigger a poll (useful for testing)
+   * Uses transactions to ensure proper concurrency protection
    */
   async pollOnce(): Promise<PublishResult[]> {
-    const events = await getUnpublishedEvents(this.config.batchSize);
-    const results = await Promise.allSettled(
-      events.map(event => processEvent(this.producer, event, this.config))
+    return processEventsInTransaction(
+      this.producer,
+      this.config,
+      this.config.batchSize
     );
-
-    return results.map(result => {
-      if (result.status === 'fulfilled') {
-        return result.value;
-      } else {
-        return {
-          success: false,
-          eventId: 'unknown',
-          error:
-            result.reason instanceof Error
-              ? result.reason
-              : new Error(String(result.reason)),
-        };
-      }
-    });
   }
 }
 

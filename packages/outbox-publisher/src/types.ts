@@ -66,6 +66,11 @@ export interface PublishResult {
   topic?: string;
   error?: Error;
   sentToDLQ?: boolean;
+  /**
+   * Indicates if this is a permanent error that should be marked as published
+   * even if DLQ publishing failed, to prevent infinite retry loops
+   */
+  isPermanentError?: boolean;
 }
 
 /**
