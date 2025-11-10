@@ -30,7 +30,7 @@ stop_service() {
     local service_name=$1
     local killed=false
     
-    if [ $service_name = "discord-bot" ]; then
+    if [ "$service_name" = "discord-bot" ]; then
         bot_pids=$(pgrep -f "discord.*bot.*dist/index.js" 2>/dev/null || true)
         if [ -n "$bot_pids" ]; then
             print_status "Found Discord bot processes (PIDs: $bot_pids)"
@@ -65,7 +65,7 @@ stop_service() {
         fi
     fi
     local port=""
-    case $service_name in
+    case "$service_name" in
         "api") port=3000 ;;
         "web-app") port=5173 ;;
     esac
