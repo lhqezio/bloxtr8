@@ -15,7 +15,8 @@ function normalizeTimestamp(timestamp: Date | string): string {
 /**
  * Generates a deterministic event ID for commands using SHA-256 hashing.
  *
- * Formula: sha256(escrow_id + command_type + actor_id + timestamp)
+ * Formula: sha256(escrow_id \0 command_type \0 actor_id \0 timestamp)
+ * Uses null byte (\0) as delimiter to prevent collisions when input values contain other characters.
  *
  * @param escrowId - The escrow ID
  * @param commandType - The command type (e.g., 'MarkDelivered', 'ReleaseFunds')
@@ -40,14 +41,16 @@ export function generateCommandEventId(
   timestamp: Date | string
 ): string {
   const normalizedTimestamp = normalizeTimestamp(timestamp);
-  const input = `${escrowId}${commandType}${actorId}${normalizedTimestamp}`;
+  // Use null byte delimiter to prevent collisions when input values contain '|'
+  const input = `${escrowId}\0${commandType}\0${actorId}\0${normalizedTimestamp}`;
   return createHash('sha256').update(input).digest('hex');
 }
 
 /**
  * Generates a deterministic event ID for events using SHA-256 hashing.
  *
- * Formula: sha256(escrow_id + event_type + business_state_hash + occurred_at)
+ * Formula: sha256(escrow_id \0 event_type \0 business_state_hash \0 occurred_at)
+ * Uses null byte (\0) as delimiter to prevent collisions when input values contain other characters.
  *
  * @param escrowId - The escrow ID
  * @param eventType - The event type (e.g., 'ESCROW_CREATED', 'FUNDS_HELD')
@@ -77,7 +80,8 @@ export function generateEventId(
   occurredAt: Date | string
 ): string {
   const normalizedOccurredAt = normalizeTimestamp(occurredAt);
-  const input = `${escrowId}${eventType}${businessStateHash}${normalizedOccurredAt}`;
+  // Use null byte delimiter to prevent collisions when input values contain '|'
+  const input = `${escrowId}\0${eventType}\0${businessStateHash}\0${normalizedOccurredAt}`;
   return createHash('sha256').update(input).digest('hex');
 }
 
