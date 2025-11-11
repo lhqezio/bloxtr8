@@ -1,6 +1,12 @@
 import { createHash } from 'crypto';
 
+import { type prisma } from '@bloxtr8/database';
 import type { PrismaClient } from '@bloxtr8/database';
+
+// Type for Prisma transaction client (the parameter type of $transaction callback)
+type TransactionClient = Parameters<
+  Parameters<typeof prisma.$transaction>[0]
+>[0];
 
 /**
  * Normalizes a date to an ISO 8601 string for consistent hashing.
@@ -163,9 +169,13 @@ export function generateEventId(
  * different naming conventions. **IMPORTANT**: For escrow events, the event ID
  * must be stored in the payload when creating the event for idempotency to work.
  *
+ * For 'escrowEvent', the escrowId parameter is required since event IDs are scoped
+ * per escrow (they include escrowId in their generation).
+ *
  * @param prisma - Prisma client instance
  * @param tableName - The table name to check ('webhookEvent' or 'escrowEvent')
  * @param eventId - The event ID to check
+ * @param escrowId - Required when tableName is 'escrowEvent', the escrow ID to scope the check to
  * @returns `true` if the event already exists (already processed), `false` otherwise
  *
  * @example
@@ -179,7 +189,8 @@ export function generateEventId(
 export async function checkEventIdempotency(
   prisma: PrismaClient,
   tableName: 'webhookEvent' | 'escrowEvent',
-  eventId: string
+  eventId: string,
+  escrowId?: string
 ): Promise<boolean> {
   if (tableName === 'webhookEvent') {
     const existing = await prisma.webhookEvent.findUnique({
@@ -189,6 +200,13 @@ export async function checkEventIdempotency(
     return existing !== null;
   }
 
+  // For escrowEvent, escrowId is required since event IDs are scoped per escrow
+  if (!escrowId) {
+    throw new Error(
+      'escrowId is required when checking escrowEvent idempotency'
+    );
+  }
+
   // For escrowEvent, check if eventId exists in the payload JSON field
   // Note: EscrowEvent schema doesn't currently have a dedicated eventId field,
   // so we check the payload JSON. For better performance, consider adding
@@ -196,10 +214,11 @@ export async function checkEventIdempotency(
   // Using raw query for reliable JSON path filtering across databases
   // Check both 'event_id' (snake_case) and 'eventId' (camelCase) to handle
   // different naming conventions that callers might use
+  // Filter by escrowId to scope the check to the specific escrow
   const result = await prisma.$queryRaw<Array<{ id: string }>>`
     SELECT id FROM escrow_events
-    WHERE payload->>'event_id' = ${eventId}
-       OR payload->>'eventId' = ${eventId}
+    WHERE "escrowId" = ${escrowId}
+      AND (payload->>'event_id' = ${eventId} OR payload->>'eventId' = ${eventId})
     LIMIT 1
   `;
   return result.length > 0;
@@ -240,11 +259,15 @@ export async function checkWebhookEventIdempotency(
  * in the EscrowEvent payload when creating the event. The event ID should be stored
  * as either 'event_id' or 'eventId' in the payload JSON.
  *
+ * The check is scoped to the specific escrowId since event IDs are generated with
+ * escrowId as an input parameter, making them scoped per escrow.
+ *
  * For better performance, consider adding a dedicated eventId field to the EscrowEvent
  * schema with a unique constraint.
  *
  * @param prisma - Prisma client instance
  * @param eventId - The escrow event ID to check
+ * @param escrowId - The escrow ID to scope the check to
  * @returns `true` if the event already exists (already processed), `false` otherwise
  *
  * @example
@@ -253,7 +276,7 @@ export async function checkWebhookEventIdempotency(
  * const eventId = generateEventId(escrowId, eventType, businessStateHash, occurredAt);
  *
  * // Check idempotency BEFORE creating the event
- * const isDuplicate = await checkEscrowEventIdempotency(prisma, eventId);
+ * const isDuplicate = await checkEscrowEventIdempotency(prisma, eventId, escrowId);
  * if (isDuplicate) {
  *   return; // Event already processed
  * }
@@ -273,9 +296,10 @@ export async function checkWebhookEventIdempotency(
  */
 export async function checkEscrowEventIdempotency(
   prisma: PrismaClient,
-  eventId: string
+  eventId: string,
+  escrowId: string
 ): Promise<boolean> {
-  return checkEventIdempotency(prisma, 'escrowEvent', eventId);
+  return checkEventIdempotency(prisma, 'escrowEvent', eventId, escrowId);
 }
 
 /**
@@ -318,7 +342,7 @@ export async function checkEscrowEventIdempotency(
  * ```
  */
 export async function createEscrowEventIdempotent(
-  prisma: PrismaClient,
+  prisma: PrismaClient | TransactionClient,
   data: {
     escrowId: string;
     eventType: string;
@@ -341,8 +365,11 @@ export async function createEscrowEventIdempotent(
     );
   }
 
-  // Use a transaction to atomically check and create
-  return prisma.$transaction(async tx => {
+  // Helper function to perform the check and create logic
+  // This type works for both regular PrismaClient and transaction clients
+  const performCheckAndCreate = async (
+    tx: TransactionClient | PrismaClient
+  ) => {
     // Lock the escrow row to prevent concurrent modifications
     // This ensures that only one transaction can check/create events for this escrow at a time
     const escrow = await tx.$queryRaw<Array<{ id: string }>>`
@@ -401,5 +428,15 @@ export async function createEscrowEventIdempotent(
       createdAt: created.createdAt,
       version: created.version,
     };
-  });
+  };
+
+  // Check if we're already in a transaction (transaction clients don't have $transaction)
+  // Use type guard to check if prisma has $transaction method
+  if ('$transaction' in prisma && typeof prisma.$transaction === 'function') {
+    // Not in a transaction, wrap in $transaction
+    return prisma.$transaction(performCheckAndCreate);
+  } else {
+    // Already in a transaction, use the client directly
+    return performCheckAndCreate(prisma);
+  }
 }
