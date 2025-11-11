@@ -37,8 +37,22 @@ export function tracingMiddleware() {
     }
 
     // Run the request handler with trace context
+    // Wrap next() in a Promise to keep AsyncLocalStorage context active
+    // until the response finishes or errors
     await runWithTraceContextAsync(context, async () => {
-      next();
+      return new Promise<void>((resolve, reject) => {
+        // Resolve when response finishes successfully
+        res.once('finish', resolve);
+        // Reject if response errors
+        res.once('error', reject);
+        // Call next() synchronously - Express will handle async route handlers
+        // Wrap in try-catch to handle synchronous errors from next()
+        try {
+          next();
+        } catch (error) {
+          reject(error);
+        }
+      });
     });
   };
 }
