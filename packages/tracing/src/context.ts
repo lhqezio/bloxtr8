@@ -114,12 +114,14 @@ export function serializeContext(
 
 /**
  * Deserialize trace context from HTTP headers
+ * Note: Express/Node.js normalizes header names to lowercase,
+ * so we use lowercase keys to match req.headers
  */
 export function deserializeContext(
   headers: Record<string, string | string[] | undefined>
 ): TraceContext | null {
-  const traceId = getHeaderValue(headers, 'X-Trace-Id');
-  const spanId = getHeaderValue(headers, 'X-Span-Id');
+  const traceId = getHeaderValue(headers, 'x-trace-id');
+  const spanId = getHeaderValue(headers, 'x-span-id');
 
   if (!traceId || !spanId) {
     return null;
@@ -130,12 +132,12 @@ export function deserializeContext(
     spanId,
   };
 
-  const parentSpanId = getHeaderValue(headers, 'X-Parent-Span-Id');
+  const parentSpanId = getHeaderValue(headers, 'x-parent-span-id');
   if (parentSpanId) {
     context.parentSpanId = parentSpanId;
   }
 
-  const correlationId = getHeaderValue(headers, 'X-Correlation-Id');
+  const correlationId = getHeaderValue(headers, 'x-correlation-id');
   if (correlationId) {
     context.correlationId = correlationId;
   }

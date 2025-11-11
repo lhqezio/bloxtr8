@@ -39,21 +39,27 @@ export function tracingMiddleware() {
     // Run the request handler with trace context
     // Wrap next() in a Promise to keep AsyncLocalStorage context active
     // until the response finishes or errors
-    await runWithTraceContextAsync(context, async () => {
-      return new Promise<void>((resolve, reject) => {
-        // Resolve when response finishes successfully
-        res.once('finish', resolve);
-        // Reject if response errors
-        res.once('error', reject);
-        // Call next() synchronously - Express will handle async route handlers
-        // Wrap in try-catch to handle synchronous errors from next()
-        try {
-          next();
-        } catch (error) {
-          reject(error);
-        }
+    try {
+      await runWithTraceContextAsync(context, async () => {
+        return new Promise<void>((resolve, reject) => {
+          // Resolve when response finishes successfully
+          res.once('finish', resolve);
+          // Reject if response errors
+          res.once('error', reject);
+          // Call next() synchronously - Express will handle async route handlers
+          // Wrap in try-catch to handle synchronous errors from next()
+          try {
+            next();
+          } catch (error) {
+            reject(error);
+          }
+        });
       });
-    });
+    } catch (error) {
+      // Express v4 requires async middleware to catch errors and pass them to next()
+      // This prevents unhandled promise rejections
+      next(error);
+    }
   };
 }
 
