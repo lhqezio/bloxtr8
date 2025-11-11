@@ -19,3 +19,6 @@ export { EscrowState, ProviderId, Role } from './domain.js';
 
 // Environment validation utilities
 export * from './env-validation.js';
+
+// Event utilities
+export * from './event-utils.js';
