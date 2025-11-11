@@ -3,13 +3,21 @@ import { createHash } from 'crypto';
 import type { PrismaClient } from '@bloxtr8/database';
 
 /**
- * Normalizes a date to an ISO 8601 string for consistent hashing
+ * Normalizes a date to an ISO 8601 string for consistent hashing.
+ * Parses string inputs to Date and converts back to ISO format to ensure
+ * consistent normalization regardless of input format (e.g., with/without
+ * milliseconds, different timezone notations, or non-ISO formats).
  */
 function normalizeTimestamp(timestamp: Date | string): string {
   if (timestamp instanceof Date) {
     return timestamp.toISOString();
   }
-  return timestamp;
+  // Parse string to Date and convert back to ISO format for consistent normalization
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) {
+    throw new Error(`Invalid timestamp format: ${timestamp}`);
+  }
+  return date.toISOString();
 }
 
 /**
@@ -88,6 +96,11 @@ export function generateEventId(
 /**
  * Checks if an event ID already exists in the specified table (idempotency check).
  *
+ * For 'escrowEvent', this function checks the payload JSON field for the eventId.
+ * It checks both 'event_id' (snake_case) and 'eventId' (camelCase) to handle
+ * different naming conventions. **IMPORTANT**: For escrow events, the event ID
+ * must be stored in the payload when creating the event for idempotency to work.
+ *
  * @param prisma - Prisma client instance
  * @param tableName - The table name to check ('webhookEvent' or 'escrowEvent')
  * @param eventId - The event ID to check
@@ -119,9 +132,12 @@ export async function checkEventIdempotency(
   // so we check the payload JSON. For better performance, consider adding
   // an eventId field to the EscrowEvent schema with a unique constraint.
   // Using raw query for reliable JSON path filtering across databases
+  // Check both 'event_id' (snake_case) and 'eventId' (camelCase) to handle
+  // different naming conventions that callers might use
   const result = await prisma.$queryRaw<Array<{ id: string }>>`
     SELECT id FROM escrow_events
     WHERE payload->>'event_id' = ${eventId}
+       OR payload->>'eventId' = ${eventId}
     LIMIT 1
   `;
   return result.length > 0;
@@ -152,8 +168,15 @@ export async function checkWebhookEventIdempotency(
 /**
  * Checks if an escrow event ID already exists (idempotency check for escrow events).
  *
- * This function checks the payload JSON field for the eventId. For better performance,
- * consider adding a dedicated eventId field to the EscrowEvent schema with a unique constraint.
+ * This function checks the payload JSON field for the eventId. It checks both
+ * 'event_id' (snake_case) and 'eventId' (camelCase) to handle different naming conventions.
+ *
+ * **IMPORTANT**: For idempotency to work correctly, callers MUST store the event ID
+ * in the EscrowEvent payload when creating the event. The event ID should be stored
+ * as either 'event_id' or 'eventId' in the payload JSON.
+ *
+ * For better performance, consider adding a dedicated eventId field to the EscrowEvent
+ * schema with a unique constraint.
  *
  * @param prisma - Prisma client instance
  * @param eventId - The escrow event ID to check
@@ -161,10 +184,26 @@ export async function checkWebhookEventIdempotency(
  *
  * @example
  * ```typescript
- * const isDuplicate = await checkEscrowEventIdempotency(prisma, escrowEventId);
+ * // Generate event ID
+ * const eventId = generateEventId(escrowId, eventType, businessStateHash, occurredAt);
+ *
+ * // Check idempotency BEFORE creating the event
+ * const isDuplicate = await checkEscrowEventIdempotency(prisma, eventId);
  * if (isDuplicate) {
  *   return; // Event already processed
  * }
+ *
+ * // Create event with event ID in payload
+ * await prisma.escrowEvent.create({
+ *   data: {
+ *     escrowId,
+ *     eventType: 'ESCROW_CREATED',
+ *     payload: {
+ *       eventId, // or event_id - both work
+ *       // ... other payload fields
+ *     },
+ *   },
+ * });
  * ```
  */
 export async function checkEscrowEventIdempotency(
