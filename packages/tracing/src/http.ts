@@ -42,15 +42,28 @@ export function tracingMiddleware() {
     try {
       await runWithTraceContextAsync(context, async () => {
         return new Promise<void>((resolve, reject) => {
-          // Resolve when response finishes successfully
-          res.once('finish', resolve);
-          // Reject if response errors
-          res.once('error', reject);
+          // Create handlers that clean up both listeners when either fires
+          const finishHandler = () => {
+            res.removeListener('error', errorHandler);
+            resolve();
+          };
+          const errorHandler = (error: Error) => {
+            res.removeListener('finish', finishHandler);
+            reject(error);
+          };
+
+          // Register both listeners
+          res.once('finish', finishHandler);
+          res.once('error', errorHandler);
+
           // Call next() synchronously - Express will handle async route handlers
           // Wrap in try-catch to handle synchronous errors from next()
           try {
             next();
           } catch (error) {
+            // Clean up listeners before rejecting
+            res.removeListener('finish', finishHandler);
+            res.removeListener('error', errorHandler);
             reject(error);
           }
         });
