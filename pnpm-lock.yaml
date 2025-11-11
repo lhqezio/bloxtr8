@@ -430,6 +430,9 @@ importers:
 
   packages/shared:
     dependencies:
+      '@bloxtr8/database':
+        specifier: workspace:*
+        version: link:../database
       '@bloxtr8/types':
         specifier: workspace:*
         version: link:../types

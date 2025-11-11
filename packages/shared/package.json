@@ -12,6 +12,7 @@
     "lint:fix": "eslint src --ext .ts,.tsx --fix"
   },
   "dependencies": {
+    "@bloxtr8/database": "workspace:*",
     "@bloxtr8/types": "workspace:*",
     "zod": "^3.22.4"
   },
