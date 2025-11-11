@@ -48,6 +48,9 @@ importers:
       '@bloxtr8/storage':
         specifier: workspace:*
         version: link:../../packages/storage
+      '@bloxtr8/tracing':
+        specifier: workspace:*
+        version: link:../../packages/tracing
       '@bloxtr8/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -349,6 +352,9 @@ importers:
       '@bloxtr8/shared':
         specifier: workspace:*
         version: link:../shared
+      '@bloxtr8/tracing':
+        specifier: workspace:*
+        version: link:../tracing
       '@bufbuild/protobuf':
         specifier: ^2.10.0
         version: 2.10.0
@@ -471,6 +477,31 @@ importers:
       '@bloxtr8/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
+      '@types/node':
+        specifier: ^20.10.5
+        version: 20.19.19
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@20.19.19)
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
+  packages/tracing:
+    dependencies:
+      express:
+        specifier: ^4.18.2
+        version: 4.21.2
+    devDependencies:
+      '@bloxtr8/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.23
+      '@types/jest':
+        specifier: ^29.5.8
+        version: 29.5.14
       '@types/node':
         specifier: ^20.10.5
         version: 20.19.19

@@ -17,6 +17,7 @@
     "@bloxtr8/database": "workspace:*",
     "@bloxtr8/shared": "workspace:*",
     "@bloxtr8/storage": "workspace:*",
+    "@bloxtr8/tracing": "workspace:*",
     "@bloxtr8/types": "workspace:*",
     "bcryptjs": "^2.4.3",
     "better-auth": "^1.3.26",
