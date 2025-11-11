@@ -23,8 +23,9 @@ function normalizeTimestamp(timestamp: Date | string): string {
 /**
  * Generates a deterministic event ID for commands using SHA-256 hashing.
  *
- * Formula: sha256(escrow_id \0 command_type \0 actor_id \0 timestamp)
- * Uses null byte (\0) as delimiter to prevent collisions when input values contain other characters.
+ * Formula: sha256(length_bytes(escrow_id) || escrow_id_bytes || length_bytes(command_type) || command_type_bytes || length_bytes(actor_id) || actor_id_bytes || length_bytes(timestamp) || timestamp_bytes)
+ * Uses length-prefixed encoding with byte-level precision to prevent collisions when input values contain null bytes.
+ * Each field is prefixed with its byte length (as a 32-bit big-endian integer) followed by the field bytes.
  *
  * @param escrowId - The escrow ID
  * @param commandType - The command type (e.g., 'MarkDelivered', 'ReleaseFunds')
@@ -49,16 +50,47 @@ export function generateCommandEventId(
   timestamp: Date | string
 ): string {
   const normalizedTimestamp = normalizeTimestamp(timestamp);
-  // Use null byte delimiter to prevent collisions when input values contain '|'
-  const input = `${escrowId}\0${commandType}\0${actorId}\0${normalizedTimestamp}`;
+
+  // Convert all fields to UTF-8 byte buffers
+  const escrowIdBytes = Buffer.from(escrowId, 'utf8');
+  const commandTypeBytes = Buffer.from(commandType, 'utf8');
+  const actorIdBytes = Buffer.from(actorId, 'utf8');
+  const timestampBytes = Buffer.from(normalizedTimestamp, 'utf8');
+
+  // Create length buffers (32-bit big-endian unsigned integers)
+  const escrowIdLength = Buffer.allocUnsafe(4);
+  escrowIdLength.writeUInt32BE(escrowIdBytes.length, 0);
+
+  const commandTypeLength = Buffer.allocUnsafe(4);
+  commandTypeLength.writeUInt32BE(commandTypeBytes.length, 0);
+
+  const actorIdLength = Buffer.allocUnsafe(4);
+  actorIdLength.writeUInt32BE(actorIdBytes.length, 0);
+
+  const timestampLength = Buffer.allocUnsafe(4);
+  timestampLength.writeUInt32BE(timestampBytes.length, 0);
+
+  // Concatenate all buffers: length1 || field1 || length2 || field2 || length3 || field3 || length4 || field4
+  const input = Buffer.concat([
+    escrowIdLength,
+    escrowIdBytes,
+    commandTypeLength,
+    commandTypeBytes,
+    actorIdLength,
+    actorIdBytes,
+    timestampLength,
+    timestampBytes,
+  ]);
+
   return createHash('sha256').update(input).digest('hex');
 }
 
 /**
  * Generates a deterministic event ID for events using SHA-256 hashing.
  *
- * Formula: sha256(escrow_id \0 event_type \0 business_state_hash \0 occurred_at)
- * Uses null byte (\0) as delimiter to prevent collisions when input values contain other characters.
+ * Formula: sha256(length_bytes(escrow_id) || escrow_id_bytes || length_bytes(event_type) || event_type_bytes || length_bytes(business_state_hash) || business_state_hash_bytes || length_bytes(occurred_at) || occurred_at_bytes)
+ * Uses length-prefixed encoding with byte-level precision to prevent collisions when input values contain null bytes.
+ * Each field is prefixed with its byte length (as a 32-bit big-endian integer) followed by the field bytes.
  *
  * @param escrowId - The escrow ID
  * @param eventType - The event type (e.g., 'ESCROW_CREATED', 'FUNDS_HELD')
@@ -88,8 +120,38 @@ export function generateEventId(
   occurredAt: Date | string
 ): string {
   const normalizedOccurredAt = normalizeTimestamp(occurredAt);
-  // Use null byte delimiter to prevent collisions when input values contain '|'
-  const input = `${escrowId}\0${eventType}\0${businessStateHash}\0${normalizedOccurredAt}`;
+
+  // Convert all fields to UTF-8 byte buffers
+  const escrowIdBytes = Buffer.from(escrowId, 'utf8');
+  const eventTypeBytes = Buffer.from(eventType, 'utf8');
+  const businessStateHashBytes = Buffer.from(businessStateHash, 'utf8');
+  const occurredAtBytes = Buffer.from(normalizedOccurredAt, 'utf8');
+
+  // Create length buffers (32-bit big-endian unsigned integers)
+  const escrowIdLength = Buffer.allocUnsafe(4);
+  escrowIdLength.writeUInt32BE(escrowIdBytes.length, 0);
+
+  const eventTypeLength = Buffer.allocUnsafe(4);
+  eventTypeLength.writeUInt32BE(eventTypeBytes.length, 0);
+
+  const businessStateHashLength = Buffer.allocUnsafe(4);
+  businessStateHashLength.writeUInt32BE(businessStateHashBytes.length, 0);
+
+  const occurredAtLength = Buffer.allocUnsafe(4);
+  occurredAtLength.writeUInt32BE(occurredAtBytes.length, 0);
+
+  // Concatenate all buffers: length1 || field1 || length2 || field2 || length3 || field3 || length4 || field4
+  const input = Buffer.concat([
+    escrowIdLength,
+    escrowIdBytes,
+    eventTypeLength,
+    eventTypeBytes,
+    businessStateHashLength,
+    businessStateHashBytes,
+    occurredAtLength,
+    occurredAtBytes,
+  ]);
+
   return createHash('sha256').update(input).digest('hex');
 }
 
@@ -171,6 +233,9 @@ export async function checkWebhookEventIdempotency(
  * This function checks the payload JSON field for the eventId. It checks both
  * 'event_id' (snake_case) and 'eventId' (camelCase) to handle different naming conventions.
  *
+ * **WARNING**: This function has a race condition when used with separate create operations.
+ * Use `createEscrowEventIdempotent` instead for atomic check-and-create operations.
+ *
  * **IMPORTANT**: For idempotency to work correctly, callers MUST store the event ID
  * in the EscrowEvent payload when creating the event. The event ID should be stored
  * as either 'event_id' or 'eventId' in the payload JSON.
@@ -211,4 +276,130 @@ export async function checkEscrowEventIdempotency(
   eventId: string
 ): Promise<boolean> {
   return checkEventIdempotency(prisma, 'escrowEvent', eventId);
+}
+
+/**
+ * Creates an escrow event atomically with idempotency protection.
+ *
+ * This function prevents race conditions by performing the check and create operations
+ * atomically within a transaction with row-level locking. If an event with the same
+ * eventId already exists, it returns the existing event instead of creating a duplicate.
+ *
+ * The function locks the escrow row using SELECT FOR UPDATE to prevent concurrent
+ * modifications, then checks for an existing event with the same eventId in the payload.
+ * If found, it returns the existing event. Otherwise, it creates a new event.
+ *
+ * **IMPORTANT**: The eventId MUST be included in the payload object as either 'eventId'
+ * or 'event_id' for idempotency to work correctly.
+ *
+ * @param prisma - Prisma client instance (can be a transaction client)
+ * @param data - The escrow event data
+ * @param data.escrowId - The escrow ID
+ * @param data.eventType - The event type (e.g., 'ESCROW_CREATED', 'FUNDS_HELD')
+ * @param data.payload - The event payload (MUST include eventId or event_id)
+ * @param data.version - Optional event version (defaults to 1)
+ * @returns The created or existing escrow event
+ *
+ * @example
+ * ```typescript
+ * // Generate event ID
+ * const eventId = generateEventId(escrowId, eventType, businessStateHash, occurredAt);
+ *
+ * // Atomically create event with idempotency protection
+ * const event = await createEscrowEventIdempotent(prisma, {
+ *   escrowId,
+ *   eventType: 'ESCROW_CREATED',
+ *   payload: {
+ *     eventId, // Must be included for idempotency
+ *     amount: 10000,
+ *     currency: 'USD',
+ *   },
+ * });
+ * ```
+ */
+export async function createEscrowEventIdempotent(
+  prisma: PrismaClient,
+  data: {
+    escrowId: string;
+    eventType: string;
+    payload: Record<string, unknown> & { eventId?: string; event_id?: string };
+    version?: number;
+  }
+): Promise<{
+  id: string;
+  escrowId: string;
+  eventType: string;
+  payload: unknown;
+  createdAt: Date;
+  version: number;
+}> {
+  // Extract eventId from payload (support both camelCase and snake_case)
+  const eventId = data.payload.eventId || data.payload.event_id;
+  if (!eventId) {
+    throw new Error(
+      'eventId must be included in payload as either "eventId" or "event_id" for idempotency protection'
+    );
+  }
+
+  // Use a transaction to atomically check and create
+  return prisma.$transaction(async tx => {
+    // Lock the escrow row to prevent concurrent modifications
+    // This ensures that only one transaction can check/create events for this escrow at a time
+    const escrow = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM escrows WHERE id = ${data.escrowId} FOR UPDATE
+    `;
+
+    if (escrow.length === 0) {
+      throw new Error(`Escrow with id ${data.escrowId} not found`);
+    }
+
+    // Check if event already exists (within the locked transaction)
+    const existing = await tx.$queryRaw<
+      Array<{
+        id: string;
+        escrowId: string;
+        eventType: string;
+        payload: unknown;
+        createdAt: Date;
+        version: number;
+      }>
+    >`
+      SELECT id, "escrowId", "eventType", payload, "createdAt", version
+      FROM escrow_events
+      WHERE "escrowId" = ${data.escrowId}
+        AND (payload->>'eventId' = ${eventId} OR payload->>'event_id' = ${eventId})
+      LIMIT 1
+    `;
+
+    if (existing.length > 0) {
+      // Event already exists, return it
+      const existingEvent = existing[0];
+      if (!existingEvent) {
+        throw new Error(
+          'Unexpected error: existing event array not empty but first element is undefined'
+        );
+      }
+      return existingEvent;
+    }
+
+    // Event doesn't exist, create it
+    // Cast payload to satisfy Prisma's InputJsonValue type requirement
+    const created = await tx.escrowEvent.create({
+      data: {
+        escrowId: data.escrowId,
+        eventType: data.eventType,
+        payload: data.payload as any,
+        version: data.version ?? 1,
+      },
+    });
+
+    return {
+      id: created.id,
+      escrowId: created.escrowId,
+      eventType: created.eventType,
+      payload: created.payload,
+      createdAt: created.createdAt,
+      version: created.version,
+    };
+  });
 }
