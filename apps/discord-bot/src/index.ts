@@ -1,6 +1,7 @@
 import { config } from '@dotenvx/dotenvx';
 import {
   Client,
+  Events,
   GatewayIntentBits,
   Partials,
   REST,
@@ -90,16 +91,16 @@ const client = new Client({
 // let offerNotificationService: OfferNotificationService | null = null;
 // let linkNotificationService: LinkNotificationService | null = null;
 
-client.once('ready', async () => {
-  console.log(`Logged in as ${client.user?.tag}`);
-  console.log(`Bot is in ${client.guilds.cache.size} guild(s):`);
-  client.guilds.cache.forEach(guild => {
+client.once(Events.ClientReady, async readyClient => {
+  console.log(`Logged in as ${readyClient.user.tag}`);
+  console.log(`Bot is in ${readyClient.guilds.cache.size} guild(s):`);
+  readyClient.guilds.cache.forEach(guild => {
     console.log(
       `  - ${guild.name} (${guild.id}) - ${guild.memberCount} members`
     );
   });
 
-  if (client.guilds.cache.size === 0) {
+  if (readyClient.guilds.cache.size === 0) {
     console.warn(
       '⚠️  WARNING: Bot is not in any guilds! Please invite the bot to a server.'
     );
