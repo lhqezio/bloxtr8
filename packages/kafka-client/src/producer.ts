@@ -1,4 +1,5 @@
 /* eslint-disable no-unused-vars */
+import { injectTraceContext } from '@bloxtr8/tracing';
 import type { Message } from '@bufbuild/protobuf';
 import type { Producer } from 'kafkajs';
 
@@ -62,14 +63,17 @@ export class KafkaProducer {
   async send(topic: string, message: ProducerMessage): Promise<RecordMetadata> {
     await this.ensureConnected();
 
-    const value = this.serializeValue(message.value);
+    // Inject trace context from AsyncLocalStorage into message headers
+    const tracedMessage = injectTraceContext(message);
+
+    const value = this.serializeValue(tracedMessage.value);
 
     const key =
-      typeof message.key === 'string'
-        ? Buffer.from(message.key, 'utf-8')
-        : message.key;
+      typeof tracedMessage.key === 'string'
+        ? Buffer.from(tracedMessage.key, 'utf-8')
+        : tracedMessage.key;
 
-    const headers = this.serializeHeaders(message.headers);
+    const headers = this.serializeHeaders(tracedMessage.headers);
 
     return executeWithRetry(async () => {
       const result = await this.producer.send({
@@ -79,7 +83,7 @@ export class KafkaProducer {
             key,
             value,
             headers,
-            timestamp: message.timestamp?.toString(),
+            timestamp: tracedMessage.timestamp?.toString(),
           },
         ],
       });
@@ -123,7 +127,10 @@ export class KafkaProducer {
   ): Promise<RecordMetadata[]> {
     await this.ensureConnected();
 
-    const kafkaMessages = messages.map(msg => {
+    // Inject trace context from AsyncLocalStorage into each message
+    const tracedMessages = messages.map(msg => injectTraceContext(msg));
+
+    const kafkaMessages = tracedMessages.map(msg => {
       const value = this.serializeValue(msg.value);
 
       const key =

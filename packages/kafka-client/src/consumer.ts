@@ -1,4 +1,9 @@
 /* eslint-disable no-unused-vars */
+import {
+  createTraceContext,
+  extractTraceContext,
+  runWithTraceContextAsync,
+} from '@bloxtr8/tracing';
 import type { Message } from '@bufbuild/protobuf';
 import type { Consumer, EachMessagePayload } from 'kafkajs';
 
@@ -69,7 +74,15 @@ export class KafkaConsumer {
         eachMessage: async (payload: EachMessagePayload) => {
           try {
             const message = this.createConsumerMessage(payload);
-            await handler(message);
+
+            // Extract trace context from message headers
+            const traceContext =
+              extractTraceContext(message.headers) ?? createTraceContext();
+
+            // Run handler with trace context in AsyncLocalStorage
+            await runWithTraceContextAsync(traceContext, async () => {
+              await handler(message);
+            });
           } catch (error) {
             const err =
               error instanceof Error ? error : new Error(String(error));

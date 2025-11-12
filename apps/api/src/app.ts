@@ -1,3 +1,4 @@
+import { tracingMiddleware } from '@bloxtr8/tracing';
 import { config } from '@dotenvx/dotenvx';
 import { toNodeHandler } from 'better-auth/node';
 import compress from 'compression';
@@ -42,6 +43,9 @@ if (process.env.TRUSTED_PROXIES) {
 } else {
   app.set('trust proxy', 'loopback'); // Only trust localhost in development
 }
+
+// Distributed tracing middleware - must be early to capture all requests
+app.use(tracingMiddleware());
 
 app.use(compress());
 
