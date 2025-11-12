@@ -541,6 +541,8 @@ When `dlqEnabled: true`, failed messages are automatically sent to a DLQ topic w
 
 The outbox publisher polls the database for unpublished events and reliably publishes them to Kafka.
 
+**Important**: The outbox publisher handles Kafka publishing automatically. You only need to write events to the `outbox` table - the publisher handles the rest (including retries, DLQ, and idempotent publishing).
+
 ```typescript
 import { createOutboxPublisher } from '@bloxtr8/outbox-publisher';
 import { createConfig } from '@bloxtr8/kafka-client';
@@ -574,6 +576,22 @@ const results = await publisher.pollOnce();
 await publisher.stop();
 ```
 
+**What the Publisher Handles Automatically**:
+
+- ✅ Polls `outbox` table for unpublished events (`publishedAt IS NULL`)
+- ✅ Publishes events to Kafka using topic mapping
+- ✅ Marks events as published after successful Kafka acknowledgment
+- ✅ Retries failed publishes with exponential backoff
+- ✅ Routes failed events to DLQ after max retries
+- ✅ Prevents duplicate publishing across multiple publisher instances (using `FOR UPDATE SKIP LOCKED`)
+
+**What You Need to Do**:
+
+- ✅ Write events to `outbox` table in the same transaction as business state changes
+- ✅ Set `eventType` to match your `topicMapping` keys
+- ✅ Set `aggregateId` (e.g., `escrowId`) for partition key
+- ✅ Set `payload` as Buffer (Protobuf or JSON serialized)
+
 **Health Check**:
 
 The publisher provides health monitoring:
@@ -592,7 +610,64 @@ The publisher provides health monitoring:
 - `dlqTopicSuffix`: DLQ topic suffix (default: `'.dlq'`)
 - `topicMapping`: Required mapping from eventType to Kafka topic
 
+**Note**: The outbox publisher does NOT use the event utilities (`generateEventId`, `createEscrowEventIdempotent`). Those utilities are for the `EscrowEvent` table (domain event log), which is separate from the `outbox` table (Kafka publishing). See [Domain Events vs Kafka Events](#domain-events-vs-kafka-events) below.
+
 ## Core Patterns
+
+### Domain Events vs Kafka Events
+
+**Important Distinction**: There are two types of events in the system:
+
+1. **Domain Events** (stored in `EscrowEvent` table):
+   - Event sourcing/audit trail for escrow state changes
+   - Use `createEscrowEventIdempotent()` utility for atomic creation
+   - Use `generateEventId()` to generate deterministic event IDs
+   - Stored for historical tracking and debugging
+   - **You must use event utilities manually**
+
+2. **Kafka Events** (stored in `outbox` table):
+   - Published to Kafka for inter-service communication
+   - Written to `outbox` table, published automatically by outbox publisher
+   - **Outbox publisher handles everything automatically - no utilities needed**
+
+**When to Use Each**:
+
+```typescript
+// Domain Event (EscrowEvent table) - Use utilities
+import { generateEventId, createEscrowEventIdempotent } from '@bloxtr8/shared';
+
+const eventId = generateEventId(
+  escrowId,
+  'ESCROW_CREATED',
+  businessStateHash,
+  new Date()
+);
+
+await createEscrowEventIdempotent(prisma, {
+  escrowId,
+  eventType: 'ESCROW_CREATED',
+  payload: { eventId, ...otherFields },
+});
+
+// Kafka Event (outbox table) - No utilities needed, publisher handles it
+await prisma.$transaction(async tx => {
+  await tx.escrow.update({ where: { id }, data: { status: 'FUNDS_HELD' } });
+
+  // Just write to outbox - publisher handles Kafka publishing
+  await tx.outbox.create({
+    data: {
+      aggregateId: escrowId,
+      eventType: 'EscrowFundsHeld', // Must match topicMapping key
+      payload: Buffer.from(protobufSerialize(event)),
+    },
+  });
+});
+```
+
+**Summary**:
+
+- **EscrowEvent utilities**: Use manually when creating domain events
+- **Outbox publisher**: Handles Kafka publishing automatically - just write to `outbox` table
 
 ### 1. Transactional Outbox Pattern
 
