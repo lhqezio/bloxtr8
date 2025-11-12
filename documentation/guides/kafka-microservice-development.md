@@ -760,18 +760,23 @@ class EscrowStateMachine {
   static async transition(
     prisma: PrismaClient,
     escrowId: string,
-    newStatus: EscrowStatus,
-    version: number // Optimistic locking
+    newStatus: EscrowStatus
   ) {
-    // Validate transition
+    // Fetch current state atomically for validation and optimistic locking
     const current = await prisma.escrow.findUnique({ where: { id: escrowId } });
+    if (!current) {
+      throw new Error('Escrow not found');
+    }
+
+    // Validate transition using fetched state
     if (!this.isValidTransition(current.status, newStatus)) {
       throw new InvalidStateTransitionError();
     }
 
-    // Update with optimistic locking
+    // Update with optimistic locking using version from fetched record
+    // This ensures validation and update use the same version, preventing race conditions
     await prisma.escrow.update({
-      where: { id: escrowId, version }, // Fails if version changed
+      where: { id: escrowId, version: current.version }, // Fails if version changed
       data: { status: newStatus, version: { increment: 1 } },
     });
   }
