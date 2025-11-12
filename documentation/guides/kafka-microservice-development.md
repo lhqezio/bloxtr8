@@ -301,6 +301,297 @@ const customConfig = createConfig({
 });
 ```
 
+### Distributed Tracing (`@bloxtr8/tracing`)
+
+The `@bloxtr8/tracing` package provides utilities for distributed tracing across HTTP requests and Kafka messages.
+
+#### HTTP Tracing Middleware
+
+Use `tracingMiddleware()` to automatically extract/create trace context from HTTP requests:
+
+```typescript
+import { tracingMiddleware } from '@bloxtr8/tracing';
+import express from 'express';
+
+const app = express();
+
+// Add tracing middleware (should be early in middleware chain)
+app.use(tracingMiddleware());
+
+// Access trace context in route handlers
+import { getRequestTraceContext } from '@bloxtr8/tracing';
+
+app.get('/api/example', (req, res) => {
+  const traceContext = getRequestTraceContext();
+  console.log('Trace ID:', traceContext?.traceId);
+  console.log('Span ID:', traceContext?.spanId);
+  // ...
+});
+```
+
+**Features**:
+
+- Automatically extracts trace context from incoming HTTP headers
+- Creates new root context if none exists
+- Propagates context via AsyncLocalStorage
+- Adds trace headers to response
+
+#### Kafka Tracing Utilities
+
+**Inject trace context into Kafka messages**:
+
+```typescript
+import { injectTraceContext } from '@bloxtr8/tracing';
+
+// Producer: Automatically injects current trace context
+const message = {
+  key: escrowId,
+  value: commandPayload,
+};
+
+// Inject trace context (uses current context from AsyncLocalStorage)
+const messageWithTrace = injectTraceContext(message);
+
+await kafkaProducer.send({
+  topic: 'escrow.commands.v1',
+  messages: [messageWithTrace],
+});
+```
+
+**Extract trace context from Kafka messages**:
+
+```typescript
+import {
+  extractTraceContext,
+  runWithTraceContextAsync,
+} from '@bloxtr8/tracing';
+
+// Consumer: Extract and set trace context
+async function processMessage(message: KafkaMessage) {
+  // Extract trace context from message headers
+  const traceContext = extractTraceContext(message.headers);
+
+  if (traceContext) {
+    // Run handler with trace context
+    await runWithTraceContextAsync(traceContext, async () => {
+      await handleCommand(message);
+    });
+  } else {
+    // No trace context, create new root context
+    await handleCommand(message);
+  }
+}
+```
+
+#### Context Management
+
+```typescript
+import {
+  createTraceContext,
+  createChildContext,
+  getTraceContext,
+  runWithTraceContextAsync,
+} from '@bloxtr8/tracing';
+
+// Create root trace context
+const rootContext = createTraceContext('correlation-123');
+
+// Create child context (for nested operations)
+const childContext = createChildContext(rootContext);
+
+// Get current context (from AsyncLocalStorage)
+const currentContext = getTraceContext();
+
+// Run function with trace context
+await runWithTraceContextAsync(rootContext, async () => {
+  // All async operations here will have access to trace context
+  const context = getTraceContext(); // Returns rootContext
+  // ...
+});
+```
+
+**Trace Context Structure**:
+
+```typescript
+interface TraceContext {
+  traceId: string; // UUID v4 - same across entire request flow
+  spanId: string; // UUID v4 - unique per operation
+  parentSpanId?: string; // Parent span ID for hierarchy
+  correlationId?: string; // Business correlation ID
+}
+```
+
+**Headers Used**:
+
+- `X-Trace-Id`: Trace identifier (propagated across services)
+- `X-Span-Id`: Current span identifier
+- `X-Parent-Span-Id`: Parent span identifier
+- `X-Correlation-Id`: Business correlation identifier
+
+**Important**: The `KafkaProducer` and `KafkaConsumer` classes automatically handle trace context injection/extraction. You don't need to manually call `injectTraceContext()` or `extractTraceContext()` when using these classes - they handle it internally.
+
+### Kafka Client (`@bloxtr8/kafka-client`)
+
+The Kafka client provides producer and consumer classes with automatic tracing, connection pooling, and error handling.
+
+#### Producer
+
+```typescript
+import { KafkaProducer, createConfig } from '@bloxtr8/kafka-client';
+
+const config = createConfig();
+const producer = new KafkaProducer(config);
+
+// Connect (optional - auto-connects on first send)
+await producer.connect();
+
+// Send single message (trace context automatically injected)
+await producer.send('escrow.commands.v1', {
+  key: escrowId,
+  value: commandPayload, // Buffer or Protobuf Message
+  headers: { 'content-type': 'application/protobuf' },
+});
+
+// Send batch of messages
+await producer.sendBatch('escrow.commands.v1', [
+  { key: 'esc_1', value: command1 },
+  { key: 'esc_2', value: command2 },
+]);
+
+// Disconnect
+await producer.disconnect();
+```
+
+**Features**:
+
+- **Automatic Trace Injection**: Trace context from AsyncLocalStorage is automatically injected into message headers
+- **Protobuf Support**: Accepts `Buffer` or Protobuf `Message` objects
+- **Connection Pooling**: Reuses Kafka connections across instances
+- **Automatic Retries**: Configurable retry logic with exponential backoff
+- **Idempotent Producer**: Enabled by default (`idempotent: true`)
+
+#### Consumer
+
+```typescript
+import { KafkaConsumer, createConfig } from '@bloxtr8/kafka-client';
+
+const config = createConfig();
+const consumer = new KafkaConsumer(config, {
+  groupId: 'escrow-service',
+  topics: ['escrow.commands.v1'],
+  fromBeginning: false, // Start from latest offset
+  dlqEnabled: true, // Enable dead letter queue
+  dlqTopicSuffix: '.dlq', // DLQ topic suffix (default)
+  sessionTimeout: 30000, // Session timeout in ms (default: 30000)
+  heartbeatInterval: 3000, // Heartbeat interval in ms (default: 3000)
+  maxBytesPerPartition: 1048576, // Max bytes per partition (default: 1MB)
+});
+
+// Run consumer with message handler
+await consumer.run(async message => {
+  // Trace context automatically extracted and set in AsyncLocalStorage
+  const traceContext = getTraceContext(); // Available here!
+
+  // Deserialize Protobuf message
+  const command = message.deserialize(MyProtobufSchema);
+
+  // Or parse JSON
+  const jsonCommand = JSON.parse(message.value.toString());
+
+  // Process message...
+});
+
+// Stop consumer
+await consumer.stop();
+
+// Disconnect
+await consumer.disconnect();
+```
+
+**Consumer Options**:
+
+- `groupId` (required): Consumer group ID for offset management
+- `topics` (required): Array of topic names to subscribe to
+- `fromBeginning` (optional): Start from beginning of topic (default: `false`)
+- `dlqEnabled` (optional): Enable automatic DLQ routing for failed messages (default: `false`)
+- `dlqTopicSuffix` (optional): Suffix for DLQ topics (default: `'.dlq'`)
+- `sessionTimeout` (optional): Session timeout in milliseconds (default: `30000`)
+- `heartbeatInterval` (optional): Heartbeat interval in milliseconds (default: `3000`)
+- `maxBytesPerPartition` (optional): Maximum bytes to fetch per partition (default: `1048576`)
+
+**Features**:
+
+- **Automatic Trace Extraction**: Trace context is automatically extracted from message headers and set in AsyncLocalStorage
+- **Automatic DLQ**: Failed messages are automatically sent to DLQ if enabled
+- **Protobuf Deserialization**: Built-in `deserialize()` method for Protobuf messages
+- **Error Handling**: Errors are caught and routed to DLQ or rethrown for KafkaJS retry handling
+- **Graceful Shutdown**: Properly stops consuming and commits offsets
+
+**DLQ Behavior**:
+
+When `dlqEnabled: true`, failed messages are automatically sent to a DLQ topic with format: `{originalTopic}{dlqTopicSuffix}`. DLQ messages include headers:
+
+- `x-original-topic`: Original topic name
+- `x-original-partition`: Original partition number
+- `x-original-offset`: Original offset
+- `x-error-message`: Error message
+- `x-error-timestamp`: ISO timestamp of error
+
+### Outbox Publisher (`@bloxtr8/outbox-publisher`)
+
+The outbox publisher polls the database for unpublished events and reliably publishes them to Kafka.
+
+```typescript
+import { createOutboxPublisher } from '@bloxtr8/outbox-publisher';
+import { createConfig } from '@bloxtr8/kafka-client';
+
+const kafkaConfig = createConfig();
+const publisher = createOutboxPublisher(kafkaConfig, {
+  pollIntervalMs: 1000, // Poll every 1 second
+  batchSize: 100, // Process up to 100 events per poll
+  maxRetries: 5, // Max retry attempts per event
+  retryBackoffMs: 100, // Initial retry backoff
+  dlqEnabled: true, // Enable DLQ for failed events
+  dlqTopicSuffix: '.dlq', // DLQ topic suffix
+  topicMapping: {
+    EscrowCreated: 'escrow.events.v1',
+    EscrowFundsHeld: 'escrow.events.v1',
+    PaymentSucceeded: 'payments.events.v1',
+  },
+});
+
+// Start publisher (runs in background)
+await publisher.start();
+
+// Check health
+const health = await publisher.getHealth();
+// Returns: { status: 'healthy' | 'degraded' | 'unhealthy', details: {...} }
+
+// Manual poll (for testing)
+const results = await publisher.pollOnce();
+
+// Stop publisher
+await publisher.stop();
+```
+
+**Health Check**:
+
+The publisher provides health monitoring:
+
+- `healthy`: Database and Kafka connected, <1000 unpublished events
+- `degraded`: Kafka unavailable OR >1000 unpublished events
+- `unhealthy`: Database unavailable
+
+**Configuration Options**:
+
+- `pollIntervalMs`: Polling interval in milliseconds (default: `1000`)
+- `batchSize`: Number of events to process per batch (default: `100`)
+- `maxRetries`: Maximum retry attempts per event (default: `5`)
+- `retryBackoffMs`: Initial retry backoff in milliseconds (default: `100`)
+- `dlqEnabled`: Enable DLQ support (default: `true`)
+- `dlqTopicSuffix`: DLQ topic suffix (default: `'.dlq'`)
+- `topicMapping`: Required mapping from eventType to Kafka topic
+
 ## Core Patterns
 
 ### 1. Transactional Outbox Pattern
@@ -454,6 +745,13 @@ import {
   createEscrowEventIdempotent,
   EscrowState,
 } from '@bloxtr8/shared';
+import {
+  injectTraceContext,
+  extractTraceContext,
+  runWithTraceContextAsync,
+  getTraceContext,
+  createTraceContext,
+} from '@bloxtr8/tracing';
 import { createHash } from 'crypto';
 
 // Validate environment
@@ -463,13 +761,16 @@ const prisma = new PrismaClient();
 const kafkaConfig = createConfig();
 
 // Create Kafka consumer
+// Note: Consumer automatically extracts trace context and sets it in AsyncLocalStorage
 const consumer = new KafkaConsumer(kafkaConfig, {
   groupId: 'example-service',
   topics: ['example.commands.v1'],
-  dlqEnabled: true,
+  dlqEnabled: true, // Failed messages go to example.commands.v1.dlq
+  fromBeginning: false, // Start from latest offset
 });
 
 // Create Kafka producer (for commands)
+// Note: Producer automatically injects trace context from AsyncLocalStorage
 const producer = new KafkaProducer(kafkaConfig);
 
 // Create outbox publisher (for events)
@@ -609,9 +910,20 @@ async function handleWebhook(req: Request, res: Response) {
 }
 
 // Consumer message handler
-async function processMessage(message: KafkaMessage) {
+// Note: KafkaConsumer automatically extracts trace context and sets it in AsyncLocalStorage
+// So getTraceContext() is available directly without manual extraction
+async function processMessage(message: ConsumerMessage) {
   try {
+    // Trace context is already available from AsyncLocalStorage
+    const context = getTraceContext();
+
     const command = JSON.parse(message.value.toString());
+
+    console.log('Processing command', {
+      traceId: context?.traceId,
+      spanId: context?.spanId,
+      commandType: command.commandType,
+    });
 
     switch (command.commandType) {
       case 'CreateExample':
@@ -621,8 +933,13 @@ async function processMessage(message: KafkaMessage) {
         console.warn(`Unknown command type: ${command.commandType}`);
     }
   } catch (error) {
-    console.error('Error processing message:', error);
-    throw error; // Will be sent to DLQ if retries exhausted
+    const context = getTraceContext();
+    console.error('Error processing message', {
+      traceId: context?.traceId,
+      spanId: context?.spanId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error; // Will be sent to DLQ automatically if dlqEnabled: true
   }
 }
 
@@ -662,12 +979,14 @@ start().catch(error => {
 
 1. **Environment Validation**: Validates required environment variables on startup
 2. **Kafka Configuration**: Uses `createConfig()` to load Kafka config from environment
-3. **Idempotency**: Uses `generateCommandEventId()` and `checkEscrowEventIdempotency()` for idempotent processing
-4. **Atomic Event Creation**: Uses `createEscrowEventIdempotent()` to prevent race conditions
-5. **Outbox Pattern**: Writes events to outbox table in same transaction as business state
-6. **Command vs Event**: Commands processed directly, events published via outbox
-7. **Error Handling**: Errors propagate to DLQ after retries exhausted
-8. **Graceful Shutdown**: Properly closes connections on SIGTERM
+3. **Automatic Tracing**: Producer and Consumer automatically handle trace context injection/extraction
+4. **Idempotency**: Uses `generateCommandEventId()` and `checkEscrowEventIdempotency()` for idempotent processing
+5. **Atomic Event Creation**: Uses `createEscrowEventIdempotent()` to prevent race conditions
+6. **Outbox Pattern**: Writes events to outbox table in same transaction as business state
+7. **Command vs Event**: Commands processed directly, events published via outbox
+8. **Automatic DLQ**: Consumer automatically routes failed messages to DLQ when `dlqEnabled: true`
+9. **Error Handling**: Errors propagate to DLQ after retries exhausted
+10. **Graceful Shutdown**: Properly closes connections on SIGTERM
 
 ## Common Pitfalls & Things to Watch Out For
 
@@ -878,16 +1197,100 @@ if (lag > 1000) {
 **Solution**: Always use escrowId as partition key
 
 ```typescript
-// ✅ GOOD: Consistent partition key
+// ✅ GOOD: Consistent partition key with tracing
+import { injectTraceContext } from '@bloxtr8/tracing';
+
+const message = injectTraceContext({
+  key: escrowId, // Ensures ordering per escrow
+  value: eventPayload,
+});
+
 await kafkaProducer.send({
   topic: 'escrow.events.v1',
+  messages: [message],
+});
+```
+
+### 11. Missing Trace Context Propagation
+
+**Problem**: Trace context lost when crossing service boundaries
+
+**Solution**: KafkaProducer and KafkaConsumer automatically handle tracing - no manual work needed!
+
+```typescript
+// ❌ BAD: Manual header management (error-prone and unnecessary)
+await kafkaProducer.send({
+  topic: 'escrow.commands.v1',
   messages: [
     {
-      key: escrowId, // Ensures ordering per escrow
-      value: eventPayload,
+      value: command,
+      headers: {
+        'X-Trace-Id': traceId, // Manual, can be forgotten
+        'X-Span-Id': spanId,
+      },
     },
   ],
 });
+
+// ✅ GOOD: KafkaProducer automatically injects trace context
+// Just use the producer normally - tracing is handled automatically!
+await producer.send('escrow.commands.v1', {
+  key: escrowId,
+  value: command,
+  // Trace context from AsyncLocalStorage is automatically injected
+});
+
+// ✅ GOOD: KafkaConsumer automatically extracts trace context
+await consumer.run(async message => {
+  // Trace context is already available in AsyncLocalStorage
+  const context = getTraceContext(); // Works automatically!
+  // Process message...
+});
+```
+
+**Note**: If you're using `KafkaProducer` or `KafkaConsumer` classes, you don't need to manually call `injectTraceContext()` or `extractTraceContext()` - they handle it automatically. Only use the tracing utilities directly if you're working with raw KafkaJS clients.
+
+### 12. Not Using Batch Sending
+
+**Problem**: Sending messages one-by-one is inefficient
+
+**Solution**: Use `sendBatch()` for multiple messages
+
+```typescript
+// ❌ BAD: Multiple individual sends
+for (const command of commands) {
+  await producer.send('escrow.commands.v1', {
+    key: command.escrowId,
+    value: command,
+  });
+}
+
+// ✅ GOOD: Batch send
+await producer.sendBatch(
+  'escrow.commands.v1',
+  commands.map(cmd => ({ key: cmd.escrowId, value: cmd }))
+);
+```
+
+### 13. Not Monitoring Outbox Publisher Health
+
+**Problem**: Unpublished events pile up without detection
+
+**Solution**: Monitor publisher health
+
+```typescript
+// ✅ GOOD: Check publisher health
+const health = await publisher.getHealth();
+
+if (health.status === 'degraded') {
+  logger.warn('Publisher degraded', health.details);
+  // Alert monitoring system
+}
+
+if (health.status === 'unhealthy') {
+  logger.error('Publisher unhealthy', health.details);
+  // Trigger alert
+}
 ```
 
 ## Testing Strategies
@@ -1014,26 +1417,407 @@ kafka-console-consumer --bootstrap-server localhost:9092 \
 
 ### Trace Flow
 
-Use distributed tracing headers:
+**Important**: `KafkaProducer` and `KafkaConsumer` automatically handle trace context - no manual work needed!
 
 ```typescript
-// Producer: Include trace headers
-await kafkaProducer.send({
-  topic: 'escrow.commands.v1',
-  messages: [
-    {
-      value: command,
-      headers: {
-        'X-Trace-Id': traceId,
-        'X-Span-Id': spanId,
-      },
-    },
-  ],
+import {
+  KafkaProducer,
+  KafkaConsumer,
+  createConfig,
+} from '@bloxtr8/kafka-client';
+import { getTraceContext } from '@bloxtr8/tracing';
+
+const config = createConfig();
+
+// Producer: Trace context automatically injected from AsyncLocalStorage
+const producer = new KafkaProducer(config);
+await producer.send('escrow.commands.v1', {
+  key: escrowId,
+  value: command,
+  // Trace context automatically injected - no manual work needed!
 });
 
-// Consumer: Extract and continue trace
-const traceId = message.headers['X-Trace-Id'];
-const spanId = message.headers['X-Span-Id'];
+// Consumer: Trace context automatically extracted and set in AsyncLocalStorage
+const consumer = new KafkaConsumer(config, {
+  groupId: 'escrow-service',
+  topics: ['escrow.commands.v1'],
+});
+
+await consumer.run(async message => {
+  // Trace context is already available in AsyncLocalStorage
+  const context = getTraceContext();
+
+  console.log('Processing command', {
+    traceId: context?.traceId,
+    spanId: context?.spanId,
+  });
+
+  await handleCommand(message);
+});
+```
+
+**Manual Tracing** (only if using raw KafkaJS clients):
+
+```typescript
+import {
+  injectTraceContext,
+  extractTraceContext,
+  runWithTraceContextAsync,
+} from '@bloxtr8/tracing';
+
+// Only needed if NOT using KafkaProducer/KafkaConsumer classes
+const message = injectTraceContext({
+  key: escrowId,
+  value: command,
+});
+
+// Consumer handler with manual extraction
+async function processMessage(message: KafkaMessage) {
+  const traceContext = extractTraceContext(message.headers);
+
+  await runWithTraceContextAsync(
+    traceContext ?? createTraceContext(),
+    async () => {
+      await handleCommand(message);
+    }
+  );
+}
+```
+
+## Advanced Topics
+
+### Schema Registry & Protobuf Evolution
+
+The system uses Confluent Schema Registry for Protobuf schema management and evolution.
+
+#### Setting Up Schema Registry
+
+```bash
+# Start Schema Registry (via Docker Compose)
+docker compose up -d schema-registry
+
+# Register schemas
+./scripts/infrastructure/setup-schema-registry.sh --env development
+```
+
+#### Schema Evolution Best Practices
+
+**Backward Compatibility**:
+
+- **Add fields**: Always add optional fields (not required)
+- **Remove fields**: Mark as deprecated first, remove later
+- **Rename fields**: Use field numbers, not names (Protobuf handles this)
+- **Change types**: Not recommended - create new field instead
+
+**Example**:
+
+```protobuf
+// Version 1
+message EscrowCreated {
+  string escrow_id = 1;
+  int64 amount = 2;
+}
+
+// Version 2 (backward compatible - added optional field)
+message EscrowCreated {
+  string escrow_id = 1;
+  int64 amount = 2;
+  string currency = 3; // New optional field
+}
+```
+
+**Schema Registry Configuration**:
+
+- Compatibility mode: `BACKWARD` (consumers can read older schemas)
+- Schema Registry validates compatibility before allowing schema updates
+- Failed compatibility checks prevent breaking changes
+
+### Message Ordering Guarantees
+
+**When Ordering Matters**:
+
+- Events for the same escrow must be processed in order
+- State transitions must happen sequentially
+- Commands affecting the same resource need ordering
+
+**Ensuring Ordering**:
+
+```typescript
+// ✅ GOOD: Use escrowId as partition key
+await producer.send('escrow.commands.v1', {
+  key: escrowId, // Same escrowId → same partition → ordering guaranteed
+  value: command,
+});
+
+// ❌ BAD: No key or random key
+await producer.send('escrow.commands.v1', {
+  value: command, // Messages may be processed out of order
+});
+```
+
+**Key Points**:
+
+- Messages with the same partition key are processed in order within a partition
+- Different partitions can process messages concurrently
+- Consumer group ensures one consumer per partition (within a group)
+
+### Consumer Rebalancing
+
+**What Happens During Rebalancing**:
+
+1. Consumer joins/leaves group
+2. Kafka reassigns partitions to consumers
+3. Consumers commit offsets before rebalancing
+4. New assignments processed after rebalancing
+
+**Handling Rebalancing**:
+
+```typescript
+// Consumer automatically handles rebalancing
+const consumer = new KafkaConsumer(config, {
+  groupId: 'escrow-service',
+  topics: ['escrow.commands.v1'],
+  sessionTimeout: 30000, // Timeout before rebalancing
+  heartbeatInterval: 3000, // Heartbeat frequency
+});
+
+// Ensure idempotent processing (handles duplicate processing during rebalancing)
+await consumer.run(async message => {
+  // Use idempotency checks - messages may be reprocessed during rebalancing
+  const commandId = generateCommandEventId(...);
+  const existing = await checkIdempotency(commandId);
+  if (existing) return; // Already processed
+
+  await processCommand(message);
+});
+```
+
+**Best Practices**:
+
+- Keep processing time short (< sessionTimeout)
+- Use idempotency checks (messages may be reprocessed)
+- Commit offsets frequently (automatic with KafkaConsumer)
+- Handle graceful shutdown (commit offsets before stopping)
+
+### Offset Management
+
+**Automatic Offset Commits**:
+
+`KafkaConsumer` automatically commits offsets after successful message processing.
+
+**Manual Offset Management** (if needed):
+
+```typescript
+// Consumer automatically commits offsets
+// Manual commits only needed for custom error handling
+
+// Reset consumer group offset (for reprocessing)
+kafka-consumer-groups --bootstrap-server localhost:9092 \
+  --group escrow-service \
+  --topic escrow.commands.v1 \
+  --reset-offsets \
+  --to-earliest \
+  --execute
+```
+
+**Offset Reset Scenarios**:
+
+- **Reprocessing**: Reset to earliest offset to reprocess all messages
+- **Skip Poison Messages**: Reset to latest offset to skip problematic messages
+- **Testing**: Reset to specific offset for testing specific scenarios
+
+### Performance Tuning
+
+#### Producer Performance
+
+```typescript
+// Batch configuration for better throughput
+const producer = new KafkaProducer(config);
+
+// Send multiple messages in batch (more efficient)
+await producer.sendBatch('escrow.commands.v1', [
+  { key: 'esc_1', value: cmd1 },
+  { key: 'esc_2', value: cmd2 },
+  { key: 'esc_3', value: cmd3 },
+]);
+```
+
+**Producer Settings**:
+
+- `idempotent: true` (default) - Ensures exactly-once semantics
+- `maxInFlightRequests: 1` (default) - Ensures ordering
+- Batch size: Controlled by KafkaJS (automatic batching)
+
+#### Consumer Performance
+
+```typescript
+const consumer = new KafkaConsumer(config, {
+  groupId: 'escrow-service',
+  topics: ['escrow.commands.v1'],
+  maxBytesPerPartition: 1048576, // 1MB per partition (default)
+  // Larger values = more throughput, more memory
+});
+```
+
+**Scaling Consumers**:
+
+- **Horizontal Scaling**: Add more consumer instances (same groupId)
+- **Partition Count**: More partitions = more parallelism
+- **Processing Speed**: Optimize message processing logic
+
+**Example Scaling**:
+
+```bash
+# Topic has 12 partitions
+# Run 3 consumer instances → each handles ~4 partitions
+# Run 6 consumer instances → each handles ~2 partitions
+# Run 12 consumer instances → each handles 1 partition (optimal)
+```
+
+### Topic Configuration
+
+**Partition Strategy**:
+
+- **Commands**: 12 partitions (high throughput, parallel processing)
+- **Events**: 12 partitions (multiple consumers, parallel processing)
+- **DLQ**: 1 partition (low volume, sequential processing)
+
+**Retention Policies**:
+
+```bash
+# Commands: 7 days (short retention, high volume)
+# Events: 90 days (long retention, audit trail)
+# DLQ: 90 days (long retention, debugging)
+```
+
+**Replication Factor**:
+
+- **Development**: 1 replica (single broker)
+- **Production**: 3 replicas (high availability)
+
+### Graceful Shutdown Patterns
+
+**Complete Shutdown Handler**:
+
+```typescript
+let shutdownInProgress = false;
+
+async function gracefulShutdown(signal: string) {
+  if (shutdownInProgress) {
+    console.log('Shutdown already in progress, forcing exit...');
+    process.exit(1);
+  }
+
+  shutdownInProgress = true;
+  console.log(`\n${signal} received. Starting graceful shutdown...`);
+
+  try {
+    // 1. Stop accepting new messages
+    console.log('Stopping consumer...');
+    await consumer.stop(); // Stops fetching new messages, commits offsets
+
+    // 2. Stop outbox publisher
+    console.log('Stopping outbox publisher...');
+    await outboxPublisher.stop(); // Finishes current batch, stops polling
+
+    // 3. Wait for in-flight operations to complete
+    console.log('Waiting for in-flight operations...');
+    await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second grace period
+
+    // 4. Disconnect producers
+    console.log('Disconnecting producer...');
+    await producer.disconnect();
+
+    // 5. Close database connections
+    console.log('Closing database connections...');
+    await prisma.$disconnect();
+
+    console.log('✅ Graceful shutdown complete');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error during shutdown:', error);
+    process.exit(1);
+  }
+}
+
+// Handle shutdown signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught errors
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  gracefulShutdown('unhandledRejection');
+});
+```
+
+**Key Points**:
+
+1. Stop accepting new work first
+2. Wait for in-flight operations to complete
+3. Commit offsets/flush buffers
+4. Close connections gracefully
+5. Set timeout to prevent hanging
+
+### Local Development Tips
+
+**Common Issues**:
+
+1. **Consumer Not Consuming**:
+
+   ```bash
+   # Check consumer group status
+   kafka-consumer-groups --bootstrap-server localhost:9092 \
+     --group escrow-service --describe
+
+   # Check if consumer is actually running
+   # Check logs for errors
+   ```
+
+2. **Outbox Not Publishing**:
+
+   ```sql
+   -- Check for unpublished events
+   SELECT * FROM outbox WHERE published_at IS NULL ORDER BY created_at DESC LIMIT 10;
+
+   -- Check publisher health
+   # In your service, call publisher.getHealth()
+   ```
+
+3. **Schema Registry Connection Issues**:
+
+   ```bash
+   # Verify Schema Registry is running
+   curl http://localhost:8081/subjects
+
+   # Check Docker logs
+   docker logs schema-registry
+   ```
+
+4. **Port Conflicts**:
+   ```bash
+   # Check if ports are in use
+   lsof -i :9092 # Kafka
+   lsof -i :8081 # Schema Registry
+   ```
+
+**Development Workflow**:
+
+```bash
+# 1. Start infrastructure
+docker compose up -d kafka-1 kafka-2 kafka-3 schema-registry test-db
+
+# 2. Wait for services to be ready
+./scripts/dev-setup.sh
+
+# 3. Create topics
+./scripts/kafka/setup-topics.sh --env development
+
+# 4. Register schemas
+./scripts/infrastructure/setup-schema-registry.sh --env development
+
+# 5. Start your service
+pnpm dev
 ```
 
 ## Best Practices
@@ -1097,15 +1881,18 @@ try {
 }
 ```
 
-### 6. Log Structured Data
+### 6. Log Structured Data with Tracing
 
 ```typescript
-// ✅ GOOD: Structured logging
+// ✅ GOOD: Structured logging with trace context
+import { getTraceContext } from '@bloxtr8/tracing';
+
 logger.info('Escrow state transition', {
   escrowId,
   fromState: 'AWAIT_FUNDS',
   toState: 'FUNDS_HELD',
-  traceId,
+  traceId: getTraceContext()?.traceId,
+  spanId: getTraceContext()?.spanId,
   userId,
 });
 ```
