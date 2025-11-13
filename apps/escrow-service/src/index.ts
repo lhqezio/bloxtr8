@@ -8,6 +8,10 @@ import {
 import { createOutboxPublisher } from '@bloxtr8/outbox-publisher';
 import { validateEnvironment } from '@bloxtr8/shared';
 import { getTraceContext } from '@bloxtr8/tracing';
+import { config } from '@dotenvx/dotenvx';
+
+// Load environment variables
+config();
 
 // Validate environment variables
 validateEnvironment(['DATABASE_URL', 'KAFKA_BROKERS']);
