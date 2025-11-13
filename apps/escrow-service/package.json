@@ -1,0 +1,35 @@
+{
+  "name": "@bloxtr8/escrow-service",
+  "version": "1.0.0",
+  "description": "Bloxtr8 Escrow Service - Event-driven microservice for managing escrow transactions",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "jest --passWithNoTests",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix"
+  },
+  "dependencies": {
+    "@bloxtr8/database": "workspace:*",
+    "@bloxtr8/kafka-client": "workspace:*",
+    "@bloxtr8/outbox-publisher": "workspace:*",
+    "@bloxtr8/shared": "workspace:*",
+    "@bloxtr8/tracing": "workspace:*",
+    "@bloxtr8/types": "workspace:*",
+    "dotenv": "^16.3.1",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "@bloxtr8/eslint-config": "workspace:*",
+    "@types/jest": "^29.5.8",
+    "@types/node": "^20.10.5",
+    "@types/node-cron": "^3.0.11",
+    "jest": "^29.7.0",
+    "tsx": "^4.6.2",
+    "typescript": "^5.3.3"
+  }
+}

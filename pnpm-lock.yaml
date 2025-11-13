@@ -183,6 +183,55 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  apps/escrow-service:
+    dependencies:
+      '@bloxtr8/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@bloxtr8/kafka-client':
+        specifier: workspace:*
+        version: link:../../packages/kafka-client
+      '@bloxtr8/outbox-publisher':
+        specifier: workspace:*
+        version: link:../../packages/outbox-publisher
+      '@bloxtr8/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@bloxtr8/tracing':
+        specifier: workspace:*
+        version: link:../../packages/tracing
+      '@bloxtr8/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      dotenv:
+        specifier: ^16.3.1
+        version: 16.6.1
+      node-cron:
+        specifier: ^3.0.3
+        version: 3.0.3
+    devDependencies:
+      '@bloxtr8/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
+      '@types/jest':
+        specifier: ^29.5.8
+        version: 29.5.14
+      '@types/node':
+        specifier: ^20.10.5
+        version: 20.19.19
+      '@types/node-cron':
+        specifier: ^3.0.11
+        version: 3.0.11
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@20.19.19)
+      tsx:
+        specifier: ^4.6.2
+        version: 4.20.6
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   apps/web-app:
     dependencies:
       '@radix-ui/react-checkbox':
