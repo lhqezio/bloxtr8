@@ -20,7 +20,7 @@
     "@bloxtr8/shared": "workspace:*",
     "@bloxtr8/tracing": "workspace:*",
     "@bloxtr8/types": "workspace:*",
-    "dotenv": "^16.3.1",
+    "@dotenvx/dotenvx": "^1.49.1",
     "node-cron": "^3.0.3"
   },
   "devDependencies": {

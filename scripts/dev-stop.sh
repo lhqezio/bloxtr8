@@ -64,6 +64,41 @@ stop_service() {
             fi
         fi
     fi
+    
+    if [ "$service_name" = "escrow-service" ]; then
+        escrow_pids=$(pgrep -f "escrow-service.*dist/index.js" 2>/dev/null || true)
+        if [ -n "$escrow_pids" ]; then
+            print_status "Found escrow-service processes (PIDs: $escrow_pids)"
+            for pid in $escrow_pids; do
+                print_status "Killing escrow-service process (PID: $pid)..."
+                kill $pid 2>/dev/null || true
+                sleep 1
+                if kill -0 $pid 2>/dev/null; then
+                    print_warning "Force killing escrow-service process (PID: $pid)..."
+                    kill -9 $pid 2>/dev/null || true
+                fi
+            done
+            print_success "Escrow service stopped"
+        else
+            # Also try broader pattern in case the above doesn't match
+            escrow_pids=$(pgrep -f "escrow-service" 2>/dev/null || true)
+            if [ -n "$escrow_pids" ]; then
+                print_status "Found escrow-service processes with broader pattern (PIDs: $escrow_pids)"
+                for pid in $escrow_pids; do
+                    print_status "Killing escrow-service process (PID: $pid)..."
+                    kill $pid 2>/dev/null || true
+                    sleep 1
+                    if kill -0 $pid 2>/dev/null; then
+                        print_warning "Force killing escrow-service process (PID: $pid)..."
+                        kill -9 $pid 2>/dev/null || true
+                    fi
+                done
+                print_success "Escrow service stopped"
+            else
+                print_warning "No escrow-service process found"
+            fi
+        fi
+    fi
     local port=""
     case "$service_name" in
         "api") port=3000 ;;
@@ -88,6 +123,7 @@ stop_service() {
 # Stop all services
 stop_service "api"
 stop_service "discord-bot"
+stop_service "escrow-service"
 stop_service "web-app"
 # Stop Docker services
 print_status "Stopping Docker services..."
