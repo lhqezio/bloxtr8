@@ -249,12 +249,23 @@ export class EscrowRepository {
         metadata === null ? PrismaNamespace.JsonNull : (metadata ?? undefined);
     }
 
-    const escrow = await this.prisma.escrow.update({
-      where: { id },
-      data: updateData,
-    });
+    try {
+      const escrow = await this.prisma.escrow.update({
+        where: { id },
+        data: updateData,
+      });
 
-    return escrow;
+      return escrow;
+    } catch (error) {
+      // Prisma throws P2025 when the record doesn't exist
+      if (
+        error instanceof PrismaNamespace.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new EscrowNotFoundError(id);
+      }
+      throw error;
+    }
   }
 
   /**
