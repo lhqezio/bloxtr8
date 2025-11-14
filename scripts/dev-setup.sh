@@ -39,8 +39,8 @@ pkill -9 -f "tsx watch.*discord-bot" 2>/dev/null || true
 pkill -9 -f "tsx watch.*apps/discord-bot" 2>/dev/null || true
 pkill -9 -f "tsx watch.*escrow-service" 2>/dev/null || true
 pkill -9 -f "tsx watch.*apps/escrow-service" 2>/dev/null || true
-pkill -9 -f "tsx watch.*@bloxtr8/payments-service" 2>/dev/null || true
 pkill -9 -f "tsx watch.*apps/payments-service" 2>/dev/null || true
+pkill -9 -f "tsx watch.*@bloxtr8/payments-service" 2>/dev/null || true
 pkill -9 -f "discord-bot" 2>/dev/null || true
 pkill -9 -f "vite.*5173" 2>/dev/null || true
 # Kill any processes on our ports
@@ -381,10 +381,13 @@ else
     print_warning "Discord bot may not be ready yet"
 fi
 
+<<<<<<< HEAD
 if ps aux | grep -E "escrow-service" | grep -v grep > /dev/null 2>&1; then
     print_success "Escrow service is running"
 else
     print_warning "Escrow service may not be ready yet"
+=======
+>>>>>>> 1b110bb4341296ba7e24feae52f96e9a691ae194
 if ps aux | grep -E "payments-service" | grep -v grep > /dev/null 2>&1; then
     print_success "Payments service is running"
 else
@@ -397,7 +400,10 @@ echo "================================="
 echo "📊 API Server:     http://localhost:3000"
 echo "🌐 Web App:        http://localhost:5173"
 echo "🤖 Discord Bot:    Running in background"
+<<<<<<< HEAD
 echo "💼 Escrow Service: Running in background"
+=======
+>>>>>>> 1b110bb4341296ba7e24feae52f96e9a691ae194
 echo "💰 Payments Service: Running in background"
 echo "🗄️  Database:      localhost:5432"
 echo "📁 MinIO Console:  http://localhost:9001 (admin/minioadmin123)"
