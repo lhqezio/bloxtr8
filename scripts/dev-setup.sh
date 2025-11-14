@@ -37,6 +37,8 @@ pkill -9 -f "tsx watch.*@bloxtr8/api" 2>/dev/null || true
 pkill -9 -f "tsx watch.*apps/api" 2>/dev/null || true
 pkill -9 -f "tsx watch.*discord-bot" 2>/dev/null || true
 pkill -9 -f "tsx watch.*apps/discord-bot" 2>/dev/null || true
+pkill -9 -f "tsx watch.*escrow-service" 2>/dev/null || true
+pkill -9 -f "tsx watch.*apps/escrow-service" 2>/dev/null || true
 pkill -9 -f "discord-bot" 2>/dev/null || true
 pkill -9 -f "vite.*5173" 2>/dev/null || true
 # Kill any processes on our ports
@@ -102,6 +104,7 @@ if [ -f ".env" ]; then
     update_env_file ".env"
     update_env_file "apps/api/.env"
     update_env_file "apps/discord-bot/.env"
+    update_env_file "apps/escrow-service/.env"
     print_status "Updated DATABASE_URL to use local Docker database"
 fi
 
@@ -290,6 +293,7 @@ stop_existing_service() {
 stop_existing_service "api" "3000"
 stop_existing_service "web-app" "5173"
 stop_existing_service "discord-bot" ""
+stop_existing_service "escrow-service" ""
 
 # Clean up any stale processes
 print_status "Cleaning up stale processes..."
@@ -299,6 +303,8 @@ pkill -f "vite.*5173" 2>/dev/null || true
 pkill -f "discord.*bot" 2>/dev/null || true
 pkill -f "tsx watch.*discord-bot" 2>/dev/null || true
 pkill -f "tsx watch.*apps/discord-bot" 2>/dev/null || true
+pkill -f "tsx watch.*escrow-service" 2>/dev/null || true
+pkill -f "tsx watch.*apps/escrow-service" 2>/dev/null || true
 
 # More aggressive cleanup for Discord bot (catch any node processes running discord-bot)
 if pgrep -f "discord-bot" > /dev/null 2>&1; then
@@ -306,6 +312,13 @@ if pgrep -f "discord-bot" > /dev/null 2>&1; then
     pkill -9 -f "discord-bot" 2>/dev/null || true
     # Also catch tsx processes running discord-bot
     pkill -9 -f "tsx.*discord-bot" 2>/dev/null || true
+fi
+
+# More aggressive cleanup for escrow-service
+if pgrep -f "escrow-service" > /dev/null 2>&1; then
+    print_status "Found escrow-service processes, stopping..."
+    pkill -9 -f "escrow-service" 2>/dev/null || true
+    pkill -9 -f "tsx.*escrow-service" 2>/dev/null || true
 fi
 
 sleep 2
@@ -332,6 +345,7 @@ start_service() {
 
 start_service "api" "@bloxtr8/api"
 start_service "discord-bot" "@bloxtr8/discord-bot"
+start_service "escrow-service" "@bloxtr8/escrow-service"
 start_service "web-app" "web-app"
 
 sleep 5
@@ -357,12 +371,19 @@ else
     print_warning "Discord bot may not be ready yet"
 fi
 
+if ps aux | grep -E "escrow-service" | grep -v grep > /dev/null 2>&1; then
+    print_success "Escrow service is running"
+else
+    print_warning "Escrow service may not be ready yet"
+fi
+
 echo ""
 echo "🎉 Development Environment Ready!"
 echo "================================="
 echo "📊 API Server:     http://localhost:3000"
 echo "🌐 Web App:        http://localhost:5173"
 echo "🤖 Discord Bot:    Running in background"
+echo "💼 Escrow Service: Running in background"
 echo "🗄️  Database:      localhost:5432"
 echo "📁 MinIO Console:  http://localhost:9001 (admin/minioadmin123)"
 echo "📨 Kafka:          localhost:9092"
