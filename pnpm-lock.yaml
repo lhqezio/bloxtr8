@@ -203,9 +203,9 @@ importers:
       '@bloxtr8/types':
         specifier: workspace:*
         version: link:../../packages/types
-      dotenv:
-        specifier: ^16.3.1
-        version: 16.6.1
+      '@dotenvx/dotenvx':
+        specifier: ^1.49.1
+        version: 1.51.0
       node-cron:
         specifier: ^3.0.3
         version: 3.0.3
