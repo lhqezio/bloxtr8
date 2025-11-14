@@ -381,13 +381,10 @@ else
     print_warning "Discord bot may not be ready yet"
 fi
 
-<<<<<<< HEAD
 if ps aux | grep -E "escrow-service" | grep -v grep > /dev/null 2>&1; then
     print_success "Escrow service is running"
 else
     print_warning "Escrow service may not be ready yet"
-=======
->>>>>>> 1b110bb4341296ba7e24feae52f96e9a691ae194
 if ps aux | grep -E "payments-service" | grep -v grep > /dev/null 2>&1; then
     print_success "Payments service is running"
 else

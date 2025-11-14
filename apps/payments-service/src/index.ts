@@ -13,7 +13,6 @@ import { config } from '@dotenvx/dotenvx';
 // Load environment variables
 config();
 
-import * as stripe from './lib/stripe.js';
 // Validate environment variables
 validateEnvironment([
   'DATABASE_URL',
@@ -23,6 +22,7 @@ validateEnvironment([
   'STRIPE_WEBHOOK_SECRET',
 ]);
 
+import * as stripe from './lib/stripe.js';
 const kafkaConfig = createConfig();
 
 // Create Kafka consumer for commands
