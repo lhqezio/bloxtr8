@@ -22,7 +22,6 @@ COPY packages/tracing/package.json ./packages/tracing/
 COPY packages/types/package.json ./packages/types/
 COPY packages/protobuf-schemas/package.json ./packages/protobuf-schemas/
 
-# Install only escrow-service dependencies
 RUN pnpm install --frozen-lockfile --reporter=silent --filter @bloxtr8/payments-service...
 
 # Copy source code

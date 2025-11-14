@@ -10,10 +10,10 @@ import { validateEnvironment } from '@bloxtr8/shared';
 import { getTraceContext } from '@bloxtr8/tracing';
 import { config } from '@dotenvx/dotenvx';
 
-import * as stripe from './lib/stripe.js';
 // Load environment variables
 config();
 
+import * as stripe from './lib/stripe.js';
 // Validate environment variables
 validateEnvironment([
   'DATABASE_URL',

@@ -15,9 +15,16 @@ import type {
 import Stripe from 'stripe';
 
 let _stripe: Stripe | null = null;
-const application_fee = process.env.BLOXTR8_FEE_STRIPE
+const rawApplicationFee = process.env.BLOXTR8_FEE_STRIPE
   ? parseFloat(process.env.BLOXTR8_FEE_STRIPE)
-  : 0.0029;
+  : 2.9;
+
+if (Number.isNaN(rawApplicationFee) || rawApplicationFee < 0) {
+  throw new Error('Invalid BLOXTR8_FEE_STRIPE value');
+}
+
+const applicationFeeRate =
+  rawApplicationFee > 1 ? rawApplicationFee / 100 : rawApplicationFee;
 export function getStripe(): Stripe {
   if (!_stripe) {
     if (!process.env.STRIPE_SECRET_KEY) {
@@ -46,7 +53,15 @@ export async function handleCreatePaymentIntent(
   command: CreatePaymentIntent
 ): Promise<PaymentIntentCreated> {
   const { escrowId, amountCents, currency, causationId, version } = command;
-  const buyerFee = Number(amountCents) * application_fee;
+  const paymentAmount = Number(amountCents);
+  const buyerFee = Math.round(paymentAmount * applicationFeeRate);
+  const sellerTransferAmount = paymentAmount - buyerFee;
+
+  if (sellerTransferAmount < 0) {
+    throw new Error(
+      `Calculated Stripe application fee (${buyerFee}) exceeds payment amount (${paymentAmount})`
+    );
+  }
   const escrow = await prisma.escrow.findUnique({
     where: { id: escrowId },
     include: {
@@ -66,11 +81,11 @@ export async function handleCreatePaymentIntent(
     );
   }
   const paymentIntent = await stripe.paymentIntents.create({
-    amount: Number(amountCents),
+    amount: paymentAmount,
     currency,
     application_fee_amount: buyerFee,
     transfer_data: {
-      amount: Number(amountCents) - buyerFee,
+      amount: sellerTransferAmount,
       destination: escrow.offer.seller.stripeAccountId,
     },
     metadata: {
