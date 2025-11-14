@@ -39,6 +39,8 @@ pkill -9 -f "tsx watch.*discord-bot" 2>/dev/null || true
 pkill -9 -f "tsx watch.*apps/discord-bot" 2>/dev/null || true
 pkill -9 -f "tsx watch.*escrow-service" 2>/dev/null || true
 pkill -9 -f "tsx watch.*apps/escrow-service" 2>/dev/null || true
+pkill -9 -f "tsx watch.*apps/payments-service" 2>/dev/null || true
+pkill -9 -f "tsx watch.*@bloxtr8/payments-service" 2>/dev/null || true
 pkill -9 -f "discord-bot" 2>/dev/null || true
 pkill -9 -f "vite.*5173" 2>/dev/null || true
 # Kill any processes on our ports
@@ -105,6 +107,7 @@ if [ -f ".env" ]; then
     update_env_file "apps/api/.env"
     update_env_file "apps/discord-bot/.env"
     update_env_file "apps/escrow-service/.env"
+    update_env_file "apps/payments-service/.env"
     print_status "Updated DATABASE_URL to use local Docker database"
 fi
 
@@ -295,6 +298,7 @@ stop_existing_service "web-app" "5173"
 stop_existing_service "discord-bot" ""
 stop_existing_service "escrow-service" ""
 
+stop_existing_service "payments-service" ""
 # Clean up any stale processes
 print_status "Cleaning up stale processes..."
 pkill -f "tsx watch.*@bloxtr8/api" 2>/dev/null || true
@@ -306,6 +310,8 @@ pkill -f "tsx watch.*apps/discord-bot" 2>/dev/null || true
 pkill -f "tsx watch.*escrow-service" 2>/dev/null || true
 pkill -f "tsx watch.*apps/escrow-service" 2>/dev/null || true
 
+pkill -f "tsx watch.*@bloxtr8/payments-service" 2>/dev/null || true
+pkill -f "tsx watch.*apps/payments-service" 2>/dev/null || true
 # More aggressive cleanup for Discord bot (catch any node processes running discord-bot)
 if pgrep -f "discord-bot" > /dev/null 2>&1; then
     print_status "Found Discord bot processes, stopping..."
@@ -322,7 +328,11 @@ if pgrep -f "escrow-service" > /dev/null 2>&1; then
 fi
 
 sleep 2
-
+if pgrep -f "payments-service" > /dev/null 2>&1; then
+    print_status "Found payments-service processes, stopping..."
+    pkill -9 -f "payments-service" 2>/dev/null || true
+    pkill -9 -f "tsx.*payments-service" 2>/dev/null || true
+fi
 # Start application services
 print_status "Starting application services..."
 
@@ -347,7 +357,7 @@ start_service "api" "@bloxtr8/api"
 start_service "discord-bot" "@bloxtr8/discord-bot"
 start_service "escrow-service" "@bloxtr8/escrow-service"
 start_service "web-app" "web-app"
-
+start_service "payments-service" "@bloxtr8/payments-service"
 sleep 5
 
 # Check service health
@@ -375,6 +385,10 @@ if ps aux | grep -E "escrow-service" | grep -v grep > /dev/null 2>&1; then
     print_success "Escrow service is running"
 else
     print_warning "Escrow service may not be ready yet"
+if ps aux | grep -E "payments-service" | grep -v grep > /dev/null 2>&1; then
+    print_success "Payments service is running"
+else
+    print_warning "Payments service may not be ready yet"
 fi
 
 echo ""
@@ -383,7 +397,11 @@ echo "================================="
 echo "📊 API Server:     http://localhost:3000"
 echo "🌐 Web App:        http://localhost:5173"
 echo "🤖 Discord Bot:    Running in background"
+<<<<<<< HEAD
 echo "💼 Escrow Service: Running in background"
+=======
+>>>>>>> 1b110bb4341296ba7e24feae52f96e9a691ae194
+echo "💰 Payments Service: Running in background"
 echo "🗄️  Database:      localhost:5432"
 echo "📁 MinIO Console:  http://localhost:9001 (admin/minioadmin123)"
 echo "📨 Kafka:          localhost:9092"
