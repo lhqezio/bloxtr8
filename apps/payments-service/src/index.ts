@@ -15,8 +15,13 @@ import * as stripe from './lib/stripe.js';
 config();
 
 // Validate environment variables
-validateEnvironment(['DATABASE_URL','BLOXTR8_FEE_STRIPE', 'KAFKA_BROKERS','STRIPE_SECRET_KEY','STRIPE_WEBHOOK_SECRET']);
-
+validateEnvironment([
+  'DATABASE_URL',
+  'BLOXTR8_FEE_STRIPE',
+  'KAFKA_BROKERS',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+]);
 
 const kafkaConfig = createConfig();
 
@@ -80,7 +85,7 @@ async function processMessage(message: {
       default:
         console.error('Unknown command type', command.commandType);
         break;
-    }   
+    }
   } catch (error) {
     const context = getTraceContext();
     console.error('Error processing message', {

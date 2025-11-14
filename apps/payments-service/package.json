@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Bloxtr8 Payments Service - Event-driven microservice for managing payments and transactions",
   "type": "module",
-  "main": "dist/index.js", 
+  "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
