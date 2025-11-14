@@ -5,6 +5,7 @@ cp .env.development.local .env
 # Copy .env to each app directory so dotenvx can find it
 cp .env apps/api/.env
 cp .env apps/discord-bot/.env
+cp .env apps/payments-service/.env
 # Only copy if escrow directory exists
 [ -d "apps/escrow" ] && cp .env apps/escrow/.env || true
 
