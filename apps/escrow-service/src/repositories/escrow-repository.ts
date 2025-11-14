@@ -79,6 +79,7 @@ export interface UpdateEscrowOptions {
  * optimistic locking using the `version` field to prevent concurrent modification conflicts.
  */
 export class EscrowRepository {
+  // eslint-disable-next-line no-unused-vars
   constructor(private readonly prisma: PrismaClient) {}
 
   /**
@@ -101,7 +102,7 @@ export class EscrowRepository {
         metadata:
           input.metadata === null
             ? PrismaNamespace.JsonNull
-            : input.metadata ?? undefined,
+            : (input.metadata ?? undefined),
         version: 1, // Initial version
       },
     });
@@ -245,9 +246,7 @@ export class EscrowRepository {
     // Handle null metadata properly
     if ('metadata' in input) {
       updateData.metadata =
-        metadata === null
-          ? PrismaNamespace.JsonNull
-          : metadata ?? undefined;
+        metadata === null ? PrismaNamespace.JsonNull : (metadata ?? undefined);
     }
 
     const escrow = await this.prisma.escrow.update({
@@ -287,11 +286,7 @@ export class EscrowRepository {
 
     // Check version match
     if (current.version !== expectedVersion) {
-      throw new OptimisticLockingError(
-        id,
-        expectedVersion,
-        current.version
-      );
+      throw new OptimisticLockingError(id, expectedVersion, current.version);
     }
 
     // Perform update with version check in where clause
@@ -307,7 +302,7 @@ export class EscrowRepository {
         updateData.metadata =
           metadata === null
             ? PrismaNamespace.JsonNull
-            : metadata ?? undefined;
+            : (metadata ?? undefined);
       }
 
       const updated = await this.prisma.escrow.update({
@@ -336,11 +331,7 @@ export class EscrowRepository {
           throw new EscrowNotFoundError(id);
         }
 
-        throw new OptimisticLockingError(
-          id,
-          expectedVersion,
-          actual.version
-        );
+        throw new OptimisticLockingError(id, expectedVersion, actual.version);
       }
 
       throw error;
@@ -363,11 +354,7 @@ export class EscrowRepository {
     status: EscrowStatus,
     expectedVersion: number
   ): Promise<Escrow> {
-    return await this.update(
-      id,
-      { status },
-      { expectedVersion }
-    );
+    return await this.update(id, { status }, { expectedVersion });
   }
 
   /**
@@ -414,7 +401,9 @@ export class EscrowRepository {
   async findMany(options?: {
     where?: Prisma.EscrowWhereInput;
     include?: Prisma.EscrowInclude;
-    orderBy?: Prisma.EscrowOrderByWithRelationInput | Prisma.EscrowOrderByWithRelationInput[];
+    orderBy?:
+      | Prisma.EscrowOrderByWithRelationInput
+      | Prisma.EscrowOrderByWithRelationInput[];
     skip?: number;
     take?: number;
   }): Promise<{ escrows: Escrow[]; total: number }> {
@@ -443,4 +432,3 @@ export class EscrowRepository {
     return new EscrowRepository(tx as unknown as PrismaClient);
   }
 }
-
