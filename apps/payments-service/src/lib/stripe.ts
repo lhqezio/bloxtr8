@@ -57,13 +57,13 @@ export async function handleCreatePaymentIntent(
       },
     },
   });
+  if (!escrow) {
+    throw new Error(`Escrow ${escrowId} not found`);
+  }
   if (!escrow?.offer?.seller?.stripeAccountId) {
     throw new Error(
       `Seller ${escrow?.offer?.sellerId} does not have a Stripe account`
     );
-  }
-  if (!escrow) {
-    throw new Error(`Escrow ${escrowId} not found`);
   }
   const paymentIntent = await stripe.paymentIntents.create({
     amount: Number(amountCents),
