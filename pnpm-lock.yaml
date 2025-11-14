@@ -183,7 +183,11 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+<<<<<<< HEAD
   apps/escrow-service:
+=======
+  apps/payments-service:
+>>>>>>> ecec196 (set up skeleton for payment service)
     dependencies:
       '@bloxtr8/database':
         specifier: workspace:*
@@ -194,6 +198,12 @@ importers:
       '@bloxtr8/outbox-publisher':
         specifier: workspace:*
         version: link:../../packages/outbox-publisher
+<<<<<<< HEAD
+=======
+      '@bloxtr8/protobuf-schemas':
+        specifier: workspace:*
+        version: link:../../packages/protobuf-schemas
+>>>>>>> ecec196 (set up skeleton for payment service)
       '@bloxtr8/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -206,9 +216,15 @@ importers:
       '@dotenvx/dotenvx':
         specifier: ^1.49.1
         version: 1.51.0
+<<<<<<< HEAD
       node-cron:
         specifier: ^3.0.3
         version: 3.0.3
+=======
+      stripe:
+        specifier: ^19.1.0
+        version: 19.3.1(@types/node@20.19.19)
+>>>>>>> ecec196 (set up skeleton for payment service)
     devDependencies:
       '@bloxtr8/eslint-config':
         specifier: workspace:*
@@ -219,9 +235,12 @@ importers:
       '@types/node':
         specifier: ^20.10.5
         version: 20.19.19
+<<<<<<< HEAD
       '@types/node-cron':
         specifier: ^3.0.11
         version: 3.0.11
+=======
+>>>>>>> ecec196 (set up skeleton for payment service)
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@20.19.19)
@@ -5211,6 +5230,15 @@ packages:
 
   strip-literal@3.1.0:
     resolution: {integrity: sha512-8r3mkIM/2+PpjHoOtiAW8Rg3jJLHaV7xPwG+YRGrv6FP0wwk/toTpATxWYOW0BKdWwl82VT2tFYi5DlROa0Mxg==}
+
+  stripe@19.3.1:
+    resolution: {integrity: sha512-5NXhLxTZ+4uO1wnsmNysILVuyeZ1Xia7niz/8ykBkGJkCcrY2WyQZwcfYuWZmZEJtWr2+0j49JXwNC6y9CHL7Q==}
+    engines: {node: '>=16'}
+    peerDependencies:
+      '@types/node': '>=16'
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
 
   strnum@2.1.1:
     resolution: {integrity: sha512-7ZvoFTiCnGxBtDqJ//Cu6fWtZtc7Y3x+QOirG15wztbdngGSkht27o2pyGWrVy0b4WAy3jbKmnoK6g5VlVNUUw==}
@@ -11464,6 +11492,12 @@ snapshots:
   strip-literal@3.1.0:
     dependencies:
       js-tokens: 9.0.1
+
+  stripe@19.3.1(@types/node@20.19.19):
+    dependencies:
+      qs: 6.14.0
+    optionalDependencies:
+      '@types/node': 20.19.19
 
   strnum@2.1.1: {}
 
