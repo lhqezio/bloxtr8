@@ -183,15 +183,7 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
-<<<<<<< HEAD
-<<<<<<< HEAD
   apps/escrow-service:
-=======
-  apps/payments-service:
->>>>>>> ecec196 (set up skeleton for payment service)
-=======
-  apps/payments-service:
->>>>>>> 1b110bb4341296ba7e24feae52f96e9a691ae194
     dependencies:
       '@bloxtr8/database':
         specifier: workspace:*
@@ -202,18 +194,6 @@ importers:
       '@bloxtr8/outbox-publisher':
         specifier: workspace:*
         version: link:../../packages/outbox-publisher
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-      '@bloxtr8/protobuf-schemas':
-        specifier: workspace:*
-        version: link:../../packages/protobuf-schemas
->>>>>>> ecec196 (set up skeleton for payment service)
-=======
-      '@bloxtr8/protobuf-schemas':
-        specifier: workspace:*
-        version: link:../../packages/protobuf-schemas
->>>>>>> 1b110bb4341296ba7e24feae52f96e9a691ae194
       '@bloxtr8/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -226,21 +206,9 @@ importers:
       '@dotenvx/dotenvx':
         specifier: ^1.49.1
         version: 1.51.0
-<<<<<<< HEAD
-<<<<<<< HEAD
       node-cron:
         specifier: ^3.0.3
         version: 3.0.3
-=======
-      stripe:
-        specifier: ^19.1.0
-        version: 19.3.1(@types/node@20.19.19)
->>>>>>> ecec196 (set up skeleton for payment service)
-=======
-      stripe:
-        specifier: ^19.1.0
-        version: 19.3.1(@types/node@20.19.19)
->>>>>>> 1b110bb4341296ba7e24feae52f96e9a691ae194
     devDependencies:
       '@bloxtr8/eslint-config':
         specifier: workspace:*
@@ -251,15 +219,58 @@ importers:
       '@types/node':
         specifier: ^20.10.5
         version: 20.19.19
-<<<<<<< HEAD
-<<<<<<< HEAD
       '@types/node-cron':
         specifier: ^3.0.11
         version: 3.0.11
-=======
->>>>>>> ecec196 (set up skeleton for payment service)
-=======
->>>>>>> 1b110bb4341296ba7e24feae52f96e9a691ae194
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@20.19.19)
+      tsx:
+        specifier: ^4.6.2
+        version: 4.20.6
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
+  apps/payments-service:
+    dependencies:
+      '@bloxtr8/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@bloxtr8/kafka-client':
+        specifier: workspace:*
+        version: link:../../packages/kafka-client
+      '@bloxtr8/outbox-publisher':
+        specifier: workspace:*
+        version: link:../../packages/outbox-publisher
+      '@bloxtr8/protobuf-schemas':
+        specifier: workspace:*
+        version: link:../../packages/protobuf-schemas
+      '@bloxtr8/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@bloxtr8/tracing':
+        specifier: workspace:*
+        version: link:../../packages/tracing
+      '@bloxtr8/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      '@dotenvx/dotenvx':
+        specifier: ^1.49.1
+        version: 1.51.0
+      stripe:
+        specifier: ^19.1.0
+        version: 19.3.1(@types/node@20.19.19)
+    devDependencies:
+      '@bloxtr8/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
+      '@types/jest':
+        specifier: ^29.5.8
+        version: 29.5.14
+      '@types/node':
+        specifier: ^20.10.5
+        version: 20.19.19
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@20.19.19)
