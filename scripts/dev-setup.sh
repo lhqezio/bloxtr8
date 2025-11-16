@@ -385,6 +385,7 @@ if ps aux | grep -E "escrow-service" | grep -v grep > /dev/null 2>&1; then
     print_success "Escrow service is running"
 else
     print_warning "Escrow service may not be ready yet"
+fi
 if ps aux | grep -E "payments-service" | grep -v grep > /dev/null 2>&1; then
     print_success "Payments service is running"
 else
@@ -397,10 +398,7 @@ echo "================================="
 echo "📊 API Server:     http://localhost:3000"
 echo "🌐 Web App:        http://localhost:5173"
 echo "🤖 Discord Bot:    Running in background"
-<<<<<<< HEAD
 echo "💼 Escrow Service: Running in background"
-=======
->>>>>>> 1b110bb4341296ba7e24feae52f96e9a691ae194
 echo "💰 Payments Service: Running in background"
 echo "🗄️  Database:      localhost:5432"
 echo "📁 MinIO Console:  http://localhost:9001 (admin/minioadmin123)"
