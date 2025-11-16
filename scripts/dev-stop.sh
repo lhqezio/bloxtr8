@@ -29,6 +29,39 @@ print_warning() {
 stop_service() {
     local service_name=$1
     local killed=false
+    if [ "$service_name" = "payments-service" ]; then
+        payments_service_pids=$(pgrep -f "payments-service.*dist/index.js" 2>/dev/null || true)
+        if [ -n "$payments_service_pids" ]; then
+            print_status "Found payments-service processes (PIDs: $payments_service_pids)"
+            for pid in $payments_service_pids; do
+                print_status "Killing payments-service process (PID: $pid)..."
+                kill $pid 2>/dev/null || true
+                sleep 1
+                if kill -0 $pid 2>/dev/null; then
+                    print_warning "Force killing payments-service process (PID: $pid)..."
+                    kill -9 $pid 2>/dev/null || true
+                fi
+            done
+            print_success "payments-service stopped"
+        else
+            payments_service_pids=$(pgrep -f "payments-service" 2>/dev/null || true)
+            if [ -n "$payments_service_pids" ]; then
+                print_status "Found payments-service processes with broader pattern (PIDs: $payments_service_pids)"
+                for pid in $payments_service_pids; do
+                    print_status "Killing payments-service process (PID: $pid)..."
+                    kill $pid 2>/dev/null || true
+                    sleep 1
+                    if kill -0 $pid 2>/dev/null; then
+                        print_warning "Force killing payments-service process (PID: $pid)..."
+                        kill -9 $pid 2>/dev/null || true
+                    fi
+                done
+                print_success "payments-service stopped"
+            else
+                print_warning "No payments-service process found"
+            fi
+        fi
+    fi
     
     if [ "$service_name" = "discord-bot" ]; then
         bot_pids=$(pgrep -f "discord.*bot.*dist/index.js" 2>/dev/null || true)
@@ -125,6 +158,7 @@ stop_service "api"
 stop_service "discord-bot"
 stop_service "escrow-service"
 stop_service "web-app"
+stop_service "payments-service"
 # Stop Docker services
 print_status "Stopping Docker services..."
 docker compose down
