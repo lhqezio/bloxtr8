@@ -138,8 +138,8 @@ export class EscrowEventRepository {
   ): Promise<EscrowEvent[]> {
     return await this.prisma.escrowEvent.findMany({
       where: {
-        escrowId,
         ...options?.where,
+        escrowId,
       },
       orderBy: options?.orderBy ?? { createdAt: 'asc' },
       skip: options?.skip,
@@ -160,8 +160,8 @@ export class EscrowEventRepository {
   ): Promise<EscrowEvent[]> {
     return await this.prisma.escrowEvent.findMany({
       where: {
-        eventType,
         ...options?.where,
+        eventType,
       },
       orderBy: options?.orderBy ?? { createdAt: 'asc' },
       skip: options?.skip,
