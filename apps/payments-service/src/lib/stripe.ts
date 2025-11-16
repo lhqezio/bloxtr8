@@ -15,16 +15,23 @@ import type {
 import Stripe from 'stripe';
 
 let _stripe: Stripe | null = null;
-const rawApplicationFee = process.env.BLOXTR8_FEE_STRIPE
-  ? parseFloat(process.env.BLOXTR8_FEE_STRIPE)
-  : 2.9;
+let _applicationFeeRate: number | null = null;
 
-if (Number.isNaN(rawApplicationFee) || rawApplicationFee < 0) {
-  throw new Error('Invalid BLOXTR8_FEE_STRIPE value');
+function getApplicationFeeRate(): number {
+  if (_applicationFeeRate === null) {
+    const rawApplicationFee = process.env.BLOXTR8_FEE_STRIPE
+      ? parseFloat(process.env.BLOXTR8_FEE_STRIPE)
+      : 2.9;
+
+    if (Number.isNaN(rawApplicationFee) || rawApplicationFee < 0) {
+      throw new Error('Invalid BLOXTR8_FEE_STRIPE value');
+    }
+
+    _applicationFeeRate =
+      rawApplicationFee > 1 ? rawApplicationFee / 100 : rawApplicationFee;
+  }
+  return _applicationFeeRate;
 }
-
-const applicationFeeRate =
-  rawApplicationFee > 1 ? rawApplicationFee / 100 : rawApplicationFee;
 export function getStripe(): Stripe {
   if (!_stripe) {
     if (!process.env.STRIPE_SECRET_KEY) {
@@ -37,7 +44,14 @@ export function getStripe(): Stripe {
   }
   return _stripe;
 }
-export const stripe = getStripe();
+
+// Lazy-initialized Stripe client proxy
+// Initializes only when first accessed, allowing intuitive usage like stripe.paymentIntents.create()
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop) {
+    return getStripe()[prop as keyof Stripe];
+  },
+});
 
 // Stripe Connect configuration
 export const STRIPE_CONNECT_CONFIG = {
@@ -54,7 +68,7 @@ export async function handleCreatePaymentIntent(
 ): Promise<PaymentIntentCreated> {
   const { escrowId, amountCents, currency, causationId, version } = command;
   const paymentAmount = Number(amountCents);
-  const buyerFee = Math.round(paymentAmount * applicationFeeRate);
+  const buyerFee = Math.round(paymentAmount * getApplicationFeeRate());
   const sellerTransferAmount = paymentAmount - buyerFee;
 
   if (sellerTransferAmount < 0) {

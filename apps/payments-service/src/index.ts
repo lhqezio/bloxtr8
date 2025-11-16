@@ -16,8 +16,8 @@ config();
 // Validate environment variables
 validateEnvironment([
   'DATABASE_URL',
-  'BLOXTR8_FEE_STRIPE',
   'KAFKA_BROKERS',
+  'BLOXTR8_FEE_STRIPE',
   'STRIPE_SECRET_KEY',
   'STRIPE_WEBHOOK_SECRET',
 ]);
