@@ -7,6 +7,9 @@ cp .env apps/api/.env
 cp .env apps/discord-bot/.env
 # Only copy if escrow-service directory exists
 [ -d "apps/escrow-service" ] && cp .env apps/escrow-service/.env || true
+cp .env apps/payments-service/.env
+# Only copy if escrow directory exists
+[ -d "apps/escrow" ] && cp .env apps/escrow/.env || true
 
 # Check if .env.keys exists, if not, warn but continue
 if [ -f ".env.keys" ]; then
