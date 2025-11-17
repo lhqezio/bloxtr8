@@ -16,11 +16,10 @@ export const createIdempotencyGuard = (prisma: PrismaClient): Guard => {
     _escrow: Escrow
   ): Promise<{ allowed: boolean; reason?: string }> => {
     // Check if event with this eventId already exists for this escrow
-    // We check by looking for events with matching eventType and payload containing eventId
+    // We check all events for the escrow regardless of eventType to ensure eventId uniqueness across all transitions
     const existingEvents = await prisma.escrowEvent.findMany({
       where: {
         escrowId: context.escrowId,
-        eventType: context.targetState,
       },
     });
 
