@@ -129,6 +129,9 @@ export async function handleCreateEscrow(
     );
   }
 
+  // Declare event IDs at function scope for use after transaction
+  let escrowCreatedEventId: string;
+
   try {
     // Fetch contract to verify it exists and get offerId
     const contract = await prisma.contract.findUnique({
@@ -224,7 +227,7 @@ export async function handleCreateEscrow(
       .update(escrowCreatedBusinessState)
       .digest('hex');
 
-    const escrowCreatedEventId = generateEventId(
+    escrowCreatedEventId = generateEventId(
       command.escrowId,
       'EscrowCreated',
       escrowCreatedBusinessStateHash,
@@ -345,8 +348,21 @@ export async function handleCreateEscrow(
       status: 'completed',
       result: { escrowId: command.escrowId },
     });
+  } catch (error) {
+    // Mark command as failed on error
+    await storeCommandIdempotency(prisma, command.eventId, {
+      commandType: 'CreateEscrow',
+      escrowId: command.escrowId,
+      status: 'failed',
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 
-    // Emit CreatePaymentIntent command after transaction commits
+  // Emit CreatePaymentIntent command after transaction commits and command is marked complete
+  // This is outside the try-catch to prevent producer failures from marking the command as failed
+  // If producer.send() fails, the escrow is still successfully created and the command remains 'completed'
+  try {
     const provider = rail === 'STRIPE' ? 'stripe' : 'custodian';
     const createPaymentIntentCommand = create(CreatePaymentIntentSchema, {
       escrowId: command.escrowId,
@@ -372,14 +388,14 @@ export async function handleCreateEscrow(
       },
     });
   } catch (error) {
-    // Mark command as failed on error
-    await storeCommandIdempotency(prisma, command.eventId, {
-      commandType: 'CreateEscrow',
+    // Log producer error but don't fail the command - escrow is already created
+    // The payment service will need to handle missing payment intents via reconciliation
+    console.error('Failed to send CreatePaymentIntent command', {
       escrowId: command.escrowId,
-      status: 'failed',
       error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
     });
-    throw error;
+    // Note: Consider implementing a retry mechanism or dead letter queue for failed producer sends
   }
 }
 
