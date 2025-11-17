@@ -88,88 +88,111 @@ async function processMessage(message: ConsumerMessage): Promise<void> {
 
     if (contentType === 'application/protobuf' || !contentType) {
       // Try to deserialize as CreateEscrow first (most common command)
+      let createEscrowCommand: CreateEscrow | null = null;
       try {
-        const command = message.deserialize({
+        createEscrowCommand = message.deserialize({
           fromBinary: (bytes: Uint8Array) =>
             fromBinary(CreateEscrowSchema, bytes) as CreateEscrow,
         });
-        await handleCreateEscrow(command, prisma, producer);
-        return;
       } catch {
-        // Not a CreateEscrow command, try other command types
-        // For now, we'll handle CreateEscrow. Other handlers can be added similarly
-        console.warn(
-          'Failed to deserialize as CreateEscrow, trying other command types...'
-        );
+        // Not a CreateEscrow command - deserialization failed
+      }
+
+      if (createEscrowCommand) {
+        // Deserialization succeeded - execute business logic
+        // Any errors thrown here are business logic errors, not deserialization errors
+        await handleCreateEscrow(createEscrowCommand, prisma, producer);
+        return;
       }
 
       // Try other command types
+      let markDeliveredCommand: MarkDelivered | null = null;
       try {
-        const command = message.deserialize({
+        markDeliveredCommand = message.deserialize({
           fromBinary: (bytes: Uint8Array) =>
             fromBinary(MarkDeliveredSchema, bytes) as MarkDelivered,
         });
-        console.log('MarkDelivered command handler not implemented', {
-          escrowId: command.escrowId,
-        });
-        return;
       } catch {
         // Not MarkDelivered
       }
 
+      if (markDeliveredCommand) {
+        console.log('MarkDelivered command handler not implemented', {
+          escrowId: markDeliveredCommand.escrowId,
+        });
+        return;
+      }
+
+      let releaseFundsCommand: ReleaseFunds | null = null;
       try {
-        const command = message.deserialize({
+        releaseFundsCommand = message.deserialize({
           fromBinary: (bytes: Uint8Array) =>
             fromBinary(ReleaseFundsSchema, bytes) as ReleaseFunds,
         });
-        console.log('ReleaseFunds command handler not implemented', {
-          escrowId: command.escrowId,
-        });
-        return;
       } catch {
         // Not ReleaseFunds
       }
 
+      if (releaseFundsCommand) {
+        console.log('ReleaseFunds command handler not implemented', {
+          escrowId: releaseFundsCommand.escrowId,
+        });
+        return;
+      }
+
+      let cancelEscrowCommand: CancelEscrow | null = null;
       try {
-        const command = message.deserialize({
+        cancelEscrowCommand = message.deserialize({
           fromBinary: (bytes: Uint8Array) =>
             fromBinary(CancelEscrowSchema, bytes) as CancelEscrow,
         });
-        console.log('CancelEscrow command handler not implemented', {
-          escrowId: command.escrowId,
-        });
-        return;
       } catch {
         // Not CancelEscrow
       }
 
+      if (cancelEscrowCommand) {
+        console.log('CancelEscrow command handler not implemented', {
+          escrowId: cancelEscrowCommand.escrowId,
+        });
+        return;
+      }
+
+      let raiseDisputeCommand: RaiseDispute | null = null;
       try {
-        const command = message.deserialize({
+        raiseDisputeCommand = message.deserialize({
           fromBinary: (bytes: Uint8Array) =>
             fromBinary(RaiseDisputeSchema, bytes) as RaiseDispute,
         });
-        console.log('RaiseDispute command handler not implemented', {
-          escrowId: command.escrowId,
-        });
-        return;
       } catch {
         // Not RaiseDispute
       }
 
+      if (raiseDisputeCommand) {
+        console.log('RaiseDispute command handler not implemented', {
+          escrowId: raiseDisputeCommand.escrowId,
+        });
+        return;
+      }
+
+      let resolveDisputeCommand: ResolveDispute | null = null;
       try {
-        const command = message.deserialize({
+        resolveDisputeCommand = message.deserialize({
           fromBinary: (bytes: Uint8Array) =>
             fromBinary(ResolveDisputeSchema, bytes) as ResolveDispute,
         });
-        console.log('ResolveDispute command handler not implemented', {
-          escrowId: command.escrowId,
-        });
-        return;
       } catch {
         // Not ResolveDispute
       }
 
-      console.warn('Unknown command type - could not deserialize message');
+      if (resolveDisputeCommand) {
+        console.log('ResolveDispute command handler not implemented', {
+          escrowId: resolveDisputeCommand.escrowId,
+        });
+        return;
+      }
+
+      // No command type matched - throw error to send to DLQ
+      throw new Error('Unknown command type - could not deserialize message');
     } else {
       // Fallback to JSON parsing for backward compatibility
       try {
