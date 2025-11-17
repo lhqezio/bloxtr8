@@ -52,6 +52,29 @@ export class TransitionExecutor {
           currentEscrow.version
         );
 
+        // Check for duplicate eventId inside transaction to prevent race conditions
+        // This ensures idempotency even with concurrent requests
+        // Check right before creating the event to see any events from concurrent transactions that have committed
+        const existingEvents = await tx.escrowEvent.findMany({
+          where: {
+            escrowId: context.escrowId,
+          },
+        });
+
+        // Check if any existing event has the same eventId in its payload
+        for (const event of existingEvents) {
+          const payload = event.payload as { eventId?: string };
+          if (payload?.eventId === context.eventId) {
+            throw new TransitionExecutionError(
+              context.escrowId,
+              context.targetState,
+              new Error(
+                `Event with id ${context.eventId} has already been processed`
+              )
+            );
+          }
+        }
+
         // Create EscrowEvent record for audit trail
         await tx.escrowEvent.create({
           data: {
