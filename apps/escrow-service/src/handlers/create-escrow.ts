@@ -94,14 +94,47 @@ export async function handleCreateEscrow(
       return;
     }
     if (existingCommand.status === 'failed') {
-      // Command previously failed - throw error with previous error message
+      // Before failing, check if escrow actually exists (defense in depth)
+      // This handles the edge case where transaction succeeded but marking as 'completed' failed
+      const existingEscrow = await prisma.escrow.findUnique({
+        where: { id: command.escrowId },
+      });
+      if (existingEscrow) {
+        // Escrow exists - the command actually succeeded, just failed to mark as completed
+        // Update status to completed and return successfully
+        await storeCommandIdempotency(prisma, command.eventId, {
+          commandType: 'CreateEscrow',
+          escrowId: command.escrowId,
+          status: 'completed',
+          result: { escrowId: existingEscrow.id },
+        });
+        return;
+      }
+      // Escrow doesn't exist - command genuinely failed
       throw new CommandPreviouslyFailedError(
         command.eventId,
         existingCommand.error || 'Unknown error'
       );
     }
     if (existingCommand.status === 'pending') {
-      // Command currently being processed - prevent duplicate processing
+      // Before throwing, check if escrow actually exists (defense in depth)
+      // This handles the edge case where transaction succeeded but process crashed
+      // before marking as 'completed', leaving status stuck at 'pending'
+      const existingEscrow = await prisma.escrow.findUnique({
+        where: { id: command.escrowId },
+      });
+      if (existingEscrow) {
+        // Escrow exists - the command actually succeeded, just failed to mark as completed
+        // Update status to completed and return successfully (idempotent recovery)
+        await storeCommandIdempotency(prisma, command.eventId, {
+          commandType: 'CreateEscrow',
+          escrowId: command.escrowId,
+          status: 'completed',
+          result: { escrowId: existingEscrow.id },
+        });
+        return;
+      }
+      // Escrow doesn't exist - command genuinely in progress (concurrent processing)
       throw new CommandInProgressError(command.eventId);
     }
   }
@@ -113,26 +146,15 @@ export async function handleCreateEscrow(
     status: 'pending',
   });
 
-  // Determine rail based on amount
-  const amountInDollars = Number(command.amountCents) / 100;
-  const rail: EscrowRail = amountInDollars <= 10000 ? 'STRIPE' : 'USDC_BASE';
-
-  // Validate network matches rail
-  if (rail === 'STRIPE' && command.network !== '') {
-    throw new CreateEscrowValidationError(
-      `Network must be empty for STRIPE rail, got: ${command.network}`
-    );
-  }
-  if (rail === 'USDC_BASE' && command.network !== 'BASE') {
-    throw new CreateEscrowValidationError(
-      `Network must be "BASE" for USDC_BASE rail, got: ${command.network}`
-    );
-  }
-
-  // Declare event IDs at function scope for use after transaction
+  // Declare variables at function scope for use after transaction
   let escrowCreatedEventId: string;
+  let rail: EscrowRail;
 
   try {
+    // Determine rail based on amount
+    const amountInDollars = Number(command.amountCents) / 100;
+    rail = amountInDollars <= 10000 ? 'STRIPE' : 'USDC_BASE';
+
     // Fetch contract to verify it exists and get offerId
     const contract = await prisma.contract.findUnique({
       where: { id: command.contractId },
@@ -429,6 +451,19 @@ function validateCommand(command: CreateEscrow): void {
   if (command.currency !== 'USD' && command.currency !== 'USDC') {
     throw new CreateEscrowValidationError(
       `currency must be "USD" or "USDC", got: ${command.currency}`
+    );
+  }
+
+  // Validate currency-network consistency
+  if (command.currency === 'USD' && command.network !== '') {
+    throw new CreateEscrowValidationError(
+      `Network must be empty for USD currency, got: ${command.network}`
+    );
+  }
+
+  if (command.currency === 'USDC' && command.network !== 'BASE') {
+    throw new CreateEscrowValidationError(
+      `Network must be "BASE" for USDC currency, got: ${command.network}`
     );
   }
 
