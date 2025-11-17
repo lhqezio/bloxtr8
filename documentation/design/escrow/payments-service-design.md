@@ -114,7 +114,7 @@ STRIPE_CONNECT_CLIENT_ID=ca_...
 
 ```typescript
 interface CreatePaymentIntentCommand {
-  commandId: string;
+  eventId: string; // Unique event ID for idempotency (from protobuf event_id field)
   commandType: 'CREATE_PAYMENT_INTENT';
   escrowId: string;
   timestamp: string;
@@ -188,7 +188,7 @@ export class CreatePaymentIntentCommandHandler {
             },
           },
           {
-            idempotencyKey: command.commandId,
+            idempotencyKey: command.eventId,
           }
         );
 
@@ -253,7 +253,7 @@ export class CreatePaymentIntentCommandHandler {
 
 **Key Features**:
 
-- **Idempotency**: Uses Stripe idempotency key (commandId)
+- **Idempotency**: Uses Stripe idempotency key (eventId from protobuf)
 - **Stripe Connect**: Funds route to seller's connected account
 - **Application Fee**: Platform fee collected from buyer
 - **Metadata**: Escrow context stored in PaymentIntent metadata
@@ -266,7 +266,7 @@ export class CreatePaymentIntentCommandHandler {
 
 ```typescript
 interface TransferToSellerCommand {
-  commandId: string;
+  eventId: string; // Unique event ID for idempotency (from protobuf event_id field)
   commandType: 'TRANSFER_TO_SELLER';
   escrowId: string;
   timestamp: string;
@@ -332,7 +332,7 @@ export class TransferToSellerCommandHandler {
             },
           },
           {
-            idempotencyKey: command.commandId,
+            idempotencyKey: command.eventId,
           }
         );
 
@@ -393,7 +393,7 @@ export class TransferToSellerCommandHandler {
 
 ```typescript
 interface RefundBuyerCommand {
-  commandId: string;
+  eventId: string; // Unique event ID for idempotency (from protobuf event_id field)
   commandType: 'REFUND_BUYER';
   escrowId: string;
   timestamp: string;
@@ -462,7 +462,7 @@ export class RefundBuyerCommandHandler {
             },
           },
           {
-            idempotencyKey: command.commandId,
+            idempotencyKey: command.eventId,
           }
         );
 
@@ -2387,7 +2387,7 @@ export abstract class PaymentCommandHandler<TCommand extends PaymentCommand> {
   ): Promise<void> {
     // Check idempotency
     const existing = await this.idempotencyManager.checkIdempotency(
-      command.commandId
+      command.eventId
     );
     if (existing) {
       return; // Already processed
@@ -2395,11 +2395,11 @@ export abstract class PaymentCommandHandler<TCommand extends PaymentCommand> {
 
     try {
       await handler();
-      await this.idempotencyManager.storeIdempotency(command.commandId, {
+      await this.idempotencyManager.storeIdempotency(command.eventId, {
         status: 'completed',
       });
     } catch (error) {
-      await this.idempotencyManager.storeIdempotency(command.commandId, {
+      await this.idempotencyManager.storeIdempotency(command.eventId, {
         status: 'failed',
         error: error.message,
       });
@@ -2458,9 +2458,9 @@ See [Stripe Integration Architecture - Refund Buyer Flow](#refund-buyer-flow) an
 export class IdempotencyManager {
   constructor(private prisma: PrismaClient) {}
 
-  async checkIdempotency(commandId: string): Promise<IdempotencyRecord | null> {
+  async checkIdempotency(eventId: string): Promise<IdempotencyRecord | null> {
     const record = await this.prisma.commandIdempotency.findUnique({
-      where: { commandId },
+      where: { eventId },
     });
 
     if (!record) {
@@ -2468,7 +2468,7 @@ export class IdempotencyManager {
     }
 
     return {
-      commandId: record.commandId,
+      eventId: record.eventId,
       status: record.status,
       result: record.result,
       error: record.error,
@@ -2476,7 +2476,7 @@ export class IdempotencyManager {
   }
 
   async storeIdempotency(
-    commandId: string,
+    eventId: string,
     data: {
       status: 'pending' | 'completed' | 'failed';
       result?: unknown;
@@ -2484,9 +2484,9 @@ export class IdempotencyManager {
     }
   ): Promise<void> {
     await this.prisma.commandIdempotency.upsert({
-      where: { commandId },
+      where: { eventId },
       create: {
-        commandId,
+        eventId,
         status: data.status,
         result: data.result as Prisma.JsonValue,
         error: data.error,
@@ -2623,7 +2623,7 @@ await kafkaProducer.send({
       key: command.escrowId,
       value: JSON.stringify(command),
       headers: {
-        'command-id': command.commandId,
+        'event-id': command.eventId,
         'command-type': command.commandType,
       },
     },

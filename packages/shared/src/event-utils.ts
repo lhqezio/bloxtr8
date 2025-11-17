@@ -9,6 +9,33 @@ type TransactionClient = Parameters<
 >[0];
 
 /**
+ * ID Generation Strategy Documentation
+ *
+ * This module handles idempotency for DOMAIN EVENTS (not commands).
+ *
+ * **Commands vs Domain Events:**
+ *
+ * 1. **Commands** (e.g., CreateEscrow, MarkDelivered):
+ *    - Use `eventId` PROVIDED by sender (API Gateway) in protobuf message
+ *    - Stored in `CommandIdempotency` table for command-level deduplication
+ *    - See `command-idempotency.ts` for command idempotency utilities
+ *    - Rationale: Sender generates ID to enable safe retries across network failures
+ *
+ * 2. **Domain Events** (e.g., EscrowCreated, EscrowAwaitFunds):
+ *    - Use `generateEventId()` to generate DETERMINISTIC IDs based on business state
+ *    - Stored in `EscrowEvent` table payload for event idempotency
+ *    - Rationale: Deterministic generation ensures same business state = same event ID,
+ *      enabling idempotent event processing and event sourcing replay
+ *
+ * **Why Different Approaches?**
+ *
+ * - Commands: External retry safety - API Gateway can retry with same eventId
+ * - Events: Internal consistency - Same business state always produces same event ID
+ *
+ * @see {@link ../command-idempotency.ts} for command-level idempotency
+ */
+
+/**
  * Normalizes a date to an ISO 8601 string for consistent hashing.
  * Parses string inputs to Date and converts back to ISO format to ensure
  * consistent normalization regardless of input format (e.g., with/without
@@ -24,71 +51,6 @@ function normalizeTimestamp(timestamp: Date | string): string {
     throw new Error(`Invalid timestamp format: ${timestamp}`);
   }
   return date.toISOString();
-}
-
-/**
- * Generates a deterministic event ID for commands using SHA-256 hashing.
- *
- * Formula: sha256(length_bytes(escrow_id) || escrow_id_bytes || length_bytes(command_type) || command_type_bytes || length_bytes(actor_id) || actor_id_bytes || length_bytes(timestamp) || timestamp_bytes)
- * Uses length-prefixed encoding with byte-level precision to prevent collisions when input values contain null bytes.
- * Each field is prefixed with its byte length (as a 32-bit big-endian integer) followed by the field bytes.
- *
- * @param escrowId - The escrow ID
- * @param commandType - The command type (e.g., 'MarkDelivered', 'ReleaseFunds')
- * @param actorId - The user ID of the actor performing the command
- * @param timestamp - The timestamp (Date or ISO 8601 string)
- * @returns A 64-character hexadecimal SHA-256 hash
- *
- * @example
- * ```typescript
- * const eventId = generateCommandEventId(
- *   'escrow_123',
- *   'MarkDelivered',
- *   'user_456',
- *   new Date()
- * );
- * ```
- */
-export function generateCommandEventId(
-  escrowId: string,
-  commandType: string,
-  actorId: string,
-  timestamp: Date | string
-): string {
-  const normalizedTimestamp = normalizeTimestamp(timestamp);
-
-  // Convert all fields to UTF-8 byte buffers
-  const escrowIdBytes = Buffer.from(escrowId, 'utf8');
-  const commandTypeBytes = Buffer.from(commandType, 'utf8');
-  const actorIdBytes = Buffer.from(actorId, 'utf8');
-  const timestampBytes = Buffer.from(normalizedTimestamp, 'utf8');
-
-  // Create length buffers (32-bit big-endian unsigned integers)
-  const escrowIdLength = Buffer.allocUnsafe(4);
-  escrowIdLength.writeUInt32BE(escrowIdBytes.length, 0);
-
-  const commandTypeLength = Buffer.allocUnsafe(4);
-  commandTypeLength.writeUInt32BE(commandTypeBytes.length, 0);
-
-  const actorIdLength = Buffer.allocUnsafe(4);
-  actorIdLength.writeUInt32BE(actorIdBytes.length, 0);
-
-  const timestampLength = Buffer.allocUnsafe(4);
-  timestampLength.writeUInt32BE(timestampBytes.length, 0);
-
-  // Concatenate all buffers: length1 || field1 || length2 || field2 || length3 || field3 || length4 || field4
-  const input = Buffer.concat([
-    escrowIdLength,
-    escrowIdBytes,
-    commandTypeLength,
-    commandTypeBytes,
-    actorIdLength,
-    actorIdBytes,
-    timestampLength,
-    timestampBytes,
-  ]);
-
-  return createHash('sha256').update(input).digest('hex');
 }
 
 /**

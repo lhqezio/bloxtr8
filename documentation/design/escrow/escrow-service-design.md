@@ -115,158 +115,126 @@ const VALID_TRANSITIONS: Record<EscrowStatus, EscrowStatus[]> = {
 ### State Machine Class Structure
 
 ```typescript
+export interface EscrowStateMachineOptions {
+  /** Function to get buyer ID from escrow */
+  getBuyerId: (escrow: Escrow) => string | null;
+  /** Function to get seller ID from escrow */
+  getSellerId: (escrow: Escrow) => string | null;
+  /** Function to check if actor is admin */
+  isAdmin?: (actorId: string) => boolean | Promise<boolean>;
+  /** Additional custom guards */
+  customGuards?: Guard[];
+}
+
 export class EscrowStateMachine {
-  private static readonly VALID_TRANSITIONS = {
-    AWAIT_FUNDS: ['FUNDS_HELD', 'CANCELLED'],
-    FUNDS_HELD: ['DELIVERED', 'DISPUTED', 'REFUNDED'],
-    DELIVERED: ['RELEASED', 'DISPUTED', 'REFUNDED'],
-    DISPUTED: ['RELEASED', 'REFUNDED'],
-    RELEASED: [],
-    REFUNDED: [],
-    CANCELLED: [],
-  };
-
-  /**
-   * Validates if a state transition is allowed
-   */
-  static isValidTransition(
-    currentStatus: EscrowStatus,
-    newStatus: EscrowStatus
-  ): boolean {
-    const allowedTransitions = this.VALID_TRANSITIONS[currentStatus];
-    return allowedTransitions?.includes(newStatus) ?? false;
+  constructor(
+    private readonly prisma: PrismaClient,
+    options: EscrowStateMachineOptions
+  ) {
+    // Initialize with options
   }
 
   /**
-   * Transitions escrow to new state with optimistic locking
+   * Transitions an escrow from current state to target state
+   *
+   * This method performs comprehensive validation including:
+   * - State transition validation
+   * - Idempotency checking (via eventId)
+   * - Authorization checks (buyer/seller/admin)
+   * - Business rule validation
+   *
+   * @param escrowId - ID of the escrow
+   * @param targetState - Target state to transition to
+   * @param actorId - ID of the actor performing the transition
+   * @param eventId - Unique event ID for idempotency (from protobuf command)
+   * @param action - Action type for authorization (e.g., 'MarkDelivered', 'ReleaseFunds')
+   * @param metadata - Optional metadata for the transition
+   * @param reason - Optional reason for transition
+   * @returns Transition result with updated escrow
    */
-  static async transition(
-    prisma: PrismaClient,
+  async transition(
     escrowId: string,
-    newStatus: EscrowStatus,
-    userId: string,
-    reason?: string,
-    metadata?: Record<string, unknown>
-  ): Promise<Escrow> {
-    return await prisma.$transaction(async tx => {
-      // Load current state with version for optimistic locking
-      const current = await tx.escrow.findUnique({
-        where: { id: escrowId },
-        select: {
-          id: true,
-          status: true,
-          version: true,
-          metadata: true,
-          offer: {
-            select: {
-              buyerId: true,
-              sellerId: true,
-            },
-          },
-        },
-      });
-
-      if (!current) {
-        throw new EscrowNotFoundError(`Escrow ${escrowId} not found`);
-      }
-
-      // Validate transition
-      if (!this.isValidTransition(current.status, newStatus)) {
-        throw new InvalidStateTransitionError(
-          `Invalid transition from ${current.status} to ${newStatus}`
-        );
-      }
-
-      // Update state with version check
-      const updated = await tx.escrow.update({
-        where: {
-          id: escrowId,
-          version: current.version, // Optimistic locking
-        },
-        data: {
-          status: newStatus,
-          version: { increment: 1 },
-          updatedAt: new Date(),
-          metadata: metadata
-            ? {
-                ...(current.metadata &&
-                typeof current.metadata === 'object' &&
-                current.metadata !== null &&
-                !Array.isArray(current.metadata)
-                  ? current.metadata
-                  : {}),
-                ...metadata,
-              }
-            : current.metadata,
-        },
-      });
-
-      // Create audit log
-      await tx.auditLog.create({
-        data: {
-          action: `escrow.${newStatus.toLowerCase()}`,
-          details: {
-            escrowId,
-            previousStatus: current.status,
-            newStatus,
-            reason,
-            userId,
-          },
-          userId,
-          escrowId,
-          referenceType: 'ESCROW_TRANSITION',
-          referenceId: escrowId,
-        },
-      });
-
-      // Create escrow event record
-      await tx.escrowEvent.create({
-        data: {
-          escrowId,
-          eventType: `${newStatus}_TRANSITIONED`,
-          payload: {
-            previousStatus: current.status,
-            newStatus,
-            reason,
-            userId,
-            timestamp: new Date().toISOString(),
-          },
-          version: updated.version,
-        },
-      });
-
-      return updated;
-    });
+    targetState: EscrowStatus,
+    actorId: string,
+    eventId: string,
+    action: TransitionAction,
+    metadata?: unknown,
+    reason?: string
+  ): Promise<TransitionResult> {
+    // Implementation performs:
+    // 1. Fetch escrow with offer relation
+    // 2. Validate transition using TransitionValidator
+    // 3. Execute guards (state precondition, idempotency, authorization, business rules)
+    // 4. Execute transition atomically with optimistic locking
+    // 5. Return TransitionResult with updated escrow
   }
 
   /**
-   * Checks if escrow is in a terminal state
+   * Checks if a transition is valid without executing it
+   *
+   * @param escrowId - ID of the escrow
+   * @param targetState - Target state to check
+   * @param actorId - ID of the actor
+   * @param action - Action type for authorization
+   * @returns Object indicating if transition is allowed and reason if not
    */
-  static isTerminalState(status: EscrowStatus): boolean {
-    return ['RELEASED', 'REFUNDED', 'CANCELLED'].includes(status);
+  async canTransition(
+    escrowId: string,
+    targetState: EscrowStatus,
+    actorId: string,
+    action: TransitionAction
+  ): Promise<{ allowed: boolean; reason?: string }> {
+    // Validates transition without executing it
   }
 
   /**
-   * Checks if escrow can accept payment
+   * Gets all valid transitions from the current state of an escrow
+   *
+   * @param escrowId - ID of the escrow
+   * @returns Array of valid target states
    */
-  static canAcceptPayment(status: EscrowStatus): boolean {
-    return status === 'AWAIT_FUNDS';
-  }
-
-  /**
-   * Checks if escrow can be released
-   */
-  static canRelease(status: EscrowStatus): boolean {
-    return ['DELIVERED', 'DISPUTED'].includes(status);
-  }
-
-  /**
-   * Checks if escrow can be refunded
-   */
-  static canRefund(status: EscrowStatus): boolean {
-    return ['FUNDS_HELD', 'DELIVERED', 'DISPUTED'].includes(status);
+  async getValidTransitions(escrowId: string): Promise<EscrowStatus[]> {
+    // Returns valid transitions for current state
   }
 }
+
+/**
+ * Valid state transitions (used by TransitionValidator)
+ */
+const VALID_TRANSITIONS: Record<EscrowStatus, EscrowStatus[]> = {
+  AWAIT_FUNDS: ['FUNDS_HELD', 'CANCELLED'],
+  FUNDS_HELD: ['DELIVERED', 'DISPUTED', 'REFUNDED'],
+  DELIVERED: ['RELEASED', 'DISPUTED', 'REFUNDED'],
+  DISPUTED: ['RELEASED', 'REFUNDED'],
+  RELEASED: [], // Terminal state
+  REFUNDED: [], // Terminal state
+  CANCELLED: [], // Terminal state
+};
+
+/**
+ * Transition result returned by state machine
+ */
+interface TransitionResult {
+  /** Whether the transition was successful */
+  success: boolean;
+  /** The updated escrow after transition */
+  escrow: Escrow;
+  /** Error message if transition failed */
+  error?: string;
+}
+
+/**
+ * Action types for authorization checks
+ */
+type TransitionAction =
+  | 'MarkDelivered'
+  | 'ReleaseFunds'
+  | 'RaiseDispute'
+  | 'ResolveDispute'
+  | 'CancelEscrow'
+  | 'PaymentSucceeded'
+  | 'RefundSucceeded'
+  | 'TransferSucceeded';
 ```
 
 ### Optimistic Locking Mechanism
@@ -422,18 +390,17 @@ model EscrowEvent {
 
 **Event Types**:
 
-- `ESCROW_CREATED`
-- `PAYMENT_CONFIRMED`
-- `FUNDS_HELD`
-- `DELIVERY_MARKED`
-- `DELIVERY_CONFIRMED`
-- `FUNDS_RELEASED`
-- `REFUND_INITIATED`
-- `REFUND_COMPLETED`
-- `DISPUTE_OPENED`
-- `DISPUTE_RESOLVED`
-- `ESCROW_CANCELLED`
-- `ESCROW_EXPIRED`
+- `EscrowCreated`
+- `EscrowAwaitFunds`
+- `EscrowFundsHeld`
+- `EscrowDelivered`
+- `DeliveryConfirmed`
+- `EscrowReleased`
+- `EscrowRefunded`
+- `DisputeOpened`
+- `DisputeResolved`
+- `EscrowCancelled`
+- `EscrowExpired`
 
 ### Outbox Table
 
@@ -490,6 +457,18 @@ Escrow
 
 ## Command Handlers
 
+> **Implementation Status**: As of the current codebase state, only the **CreateEscrow** command handler is fully implemented (`apps/escrow-service/src/handlers/create-escrow.ts`). The following handlers are documented but not yet implemented:
+>
+> - MarkDelivered
+> - ConfirmDelivery
+> - ReleaseFunds
+> - RefundBuyer
+> - CreateDispute
+> - ResolveDispute
+> - CancelEscrow
+>
+> The documentation below provides complete design specifications for all handlers. Developers should implement missing handlers following the pattern established in `create-escrow.ts`.
+
 ### Command Processing Flow
 
 ```
@@ -514,16 +493,16 @@ export abstract class EscrowCommandHandler<TCommand extends EscrowCommand> {
     handler: () => Promise<void>
   ): Promise<void> {
     // Check idempotency (see Idempotency Implementation section)
-    const existing = await this.checkIdempotency(command.commandId);
+    const existing = await this.checkIdempotency(command.eventId);
     if (existing) {
       return; // Already processed
     }
 
     try {
       await handler();
-      await this.storeIdempotency(command.commandId, { status: 'completed' });
+      await this.storeIdempotency(command.eventId, { status: 'completed' });
     } catch (error) {
-      await this.storeIdempotency(command.commandId, {
+      await this.storeIdempotency(command.eventId, {
         status: 'failed',
         error: error.message,
       });
@@ -539,7 +518,7 @@ export abstract class EscrowCommandHandler<TCommand extends EscrowCommand> {
 
 ```typescript
 interface CreateEscrowCommand {
-  commandId: string;
+  eventId: string; // Unique event ID for idempotency (from protobuf event_id field)
   commandType: 'CREATE_ESCROW';
   escrowId: string;
   timestamp: string;
@@ -637,7 +616,7 @@ export class CreateEscrowCommandHandler extends EscrowCommandHandler<CreateEscro
         await tx.escrowEvent.create({
           data: {
             escrowId: escrow.id,
-            eventType: 'ESCROW_CREATED',
+            eventType: 'EscrowCreated',
             payload: {
               rail: command.payload.rail,
               amount: command.payload.amount,
@@ -683,7 +662,7 @@ export class CreateEscrowCommandHandler extends EscrowCommandHandler<CreateEscro
 
 ```typescript
 interface ConfirmPaymentCommand {
-  commandId: string;
+  eventId: string; // Unique event ID for idempotency (from protobuf event_id field)
   commandType: 'CONFIRM_PAYMENT';
   escrowId: string;
   timestamp: string;
@@ -777,7 +756,7 @@ export class ConfirmPaymentCommandHandler extends EscrowCommandHandler<ConfirmPa
 
 ```typescript
 interface MarkDeliveredCommand {
-  commandId: string;
+  eventId: string; // Unique event ID for idempotency (from protobuf event_id field)
   commandType: 'MARK_DELIVERED';
   escrowId: string;
   timestamp: string;
@@ -885,7 +864,7 @@ export class MarkDeliveredCommandHandler extends EscrowCommandHandler<MarkDelive
 
 ```typescript
 interface ConfirmDeliveryCommand {
-  commandId: string;
+  eventId: string; // Unique event ID for idempotency (from protobuf event_id field)
   commandType: 'CONFIRM_DELIVERY';
   escrowId: string;
   timestamp: string;
@@ -970,7 +949,7 @@ export class ConfirmDeliveryCommandHandler extends EscrowCommandHandler<ConfirmD
 
 ```typescript
 interface ReleaseFundsCommand {
-  commandId: string;
+  eventId: string; // Unique event ID for idempotency (from protobuf event_id field)
   commandType: 'RELEASE_FUNDS';
   escrowId: string;
   timestamp: string;
@@ -1084,7 +1063,7 @@ export class ReleaseFundsCommandHandler extends EscrowCommandHandler<ReleaseFund
 
 ```typescript
 interface RefundBuyerCommand {
-  commandId: string;
+  eventId: string; // Unique event ID for idempotency (from protobuf event_id field)
   commandType: 'REFUND_BUYER';
   escrowId: string;
   timestamp: string;
@@ -1179,7 +1158,7 @@ export class RefundBuyerCommandHandler extends EscrowCommandHandler<RefundBuyerC
 
 ```typescript
 interface CreateDisputeCommand {
-  commandId: string;
+  eventId: string; // Unique event ID for idempotency (from protobuf event_id field)
   commandType: 'CREATE_DISPUTE';
   escrowId: string;
   timestamp: string;
@@ -1288,7 +1267,7 @@ export class CreateDisputeCommandHandler extends EscrowCommandHandler<CreateDisp
 
 ```typescript
 interface ResolveDisputeCommand {
-  commandId: string;
+  eventId: string; // Unique event ID for idempotency (from protobuf event_id field)
   commandType: 'RESOLVE_DISPUTE';
   escrowId: string;
   timestamp: string;
@@ -1436,7 +1415,7 @@ export class ResolveDisputeCommandHandler extends EscrowCommandHandler<ResolveDi
 
 ```typescript
 interface CancelEscrowCommand {
-  commandId: string;
+  eventId: string; // Unique event ID for idempotency (from protobuf event_id field)
   commandType: 'CANCEL_ESCROW';
   escrowId: string;
   timestamp: string;
@@ -1539,7 +1518,7 @@ await kafkaProducer.send({
       key: command.escrowId,
       value: JSON.stringify(command),
       headers: {
-        'command-id': command.commandId,
+        'event-id': command.eventId,
         'command-type': command.commandType,
       },
     },
@@ -1593,23 +1572,23 @@ Payments Service: Emits TransferSucceeded event (via outbox)
    - Used for: Event-driven communication between services via Kafka
    - Format: `{Aggregate}{Action}` or `{Action}{Result}`
 
-2. **EscrowEvent Table** (`eventType` field): SCREAMING_SNAKE_CASE
-   - Examples: `ESCROW_CREATED`, `FUNDS_HELD`, `DELIVERED`, `RELEASED`, `REFUNDED`
+2. **EscrowEvent Table** (`eventType` field): PascalCase
+   - Examples: `EscrowCreated`, `EscrowAwaitFunds`, `EscrowFundsHeld`, `EscrowDelivered`, `EscrowReleased`, `EscrowRefunded`
    - Used for: Internal audit trail and event sourcing within Escrow Service
-   - Format: `{STATUS}` or `{ACTION}_{RESULT}`
+   - Format: `{Aggregate}{Action}` or `{Action}{Result}` (same as Kafka events)
 
 **Rationale**:
 
-- Kafka events use PascalCase for consistency with common event-driven architecture patterns
-- EscrowEvent table uses SCREAMING_SNAKE_CASE to match database naming conventions and clearly distinguish from Kafka events
-- This separation allows for different event schemas and purposes
+- Both Kafka events and EscrowEvent table use PascalCase for consistency
+- This ensures consistent naming across the system and simplifies event type matching
+- EscrowEvent.eventType matches the Kafka event type for easier correlation
 
 **Example**:
 
 ```typescript
 // EscrowEvent table (internal audit)
 await tx.escrowEvent.create({
-  eventType: 'ESCROW_CREATED',  // SCREAMING_SNAKE_CASE
+  eventType: 'EscrowCreated',  // PascalCase
   payload: { ... },
 });
 
@@ -1822,13 +1801,35 @@ process.on('SIGTERM', async () => {
 
 ## Idempotency Implementation
 
+### Overview: Two ID Strategies
+
+The system uses **two different ID strategies** for different purposes:
+
+1. **Command IDs** (`CommandIdempotency` table):
+   - **Provided by sender** (API Gateway) in protobuf `event_id` field
+   - Enable safe retries across network failures
+   - Stored in `CommandIdempotency` table
+   - See `@bloxtr8/shared/command-idempotency.ts`
+
+2. **Domain Event IDs** (`EscrowEvent` table):
+   - **Deterministically generated** by service using `generateEventId()`
+   - Based on business state hash + timestamp
+   - Ensure same business state produces same event ID
+   - Stored in `EscrowEvent.payload` JSON field
+   - See `@bloxtr8/shared/event-utils.ts`
+
+**Why Different Approaches?**
+
+- Commands: External retry safety - sender can retry with same ID
+- Events: Internal consistency - same state = same event ID
+
 ### Command-Level Idempotency
 
-Every command includes a unique `commandId` for idempotency:
+Every command includes a unique `eventId` for idempotency (from protobuf `event_id` field):
 
 ```typescript
 interface EscrowCommand {
-  commandId: string; // UUID, unique per command
+  eventId: string; // Unique event ID for idempotency (from protobuf event_id field)
   commandType: string;
   escrowId: string;
   timestamp: string;
@@ -1843,16 +1844,16 @@ interface EscrowCommand {
 ```prisma
 model CommandIdempotency {
   id          String   @id @default(cuid())
-  commandId   String   @unique
+  eventId     String   @unique // Maps to protobuf event_id field
   commandType String
-  escrowId    String
+  escrowId    String?
   status      String   // 'pending' | 'completed' | 'failed'
   result      Json?    // Cached command result
   error       String?
   createdAt   DateTime @default(now())
   completedAt DateTime?
 
-  @@index([commandId])
+  @@index([eventId])
   @@index([escrowId, createdAt])
   @@map("command_idempotency")
 }
@@ -1862,7 +1863,7 @@ model CommandIdempotency {
 
 ```typescript
 interface IdempotencyRecord {
-  commandId: string;
+  eventId: string; // Maps to protobuf event_id field
   status: 'pending' | 'completed' | 'failed';
   result?: unknown;
   error?: string;
@@ -1879,10 +1880,10 @@ export class IdempotencyManager {
     private redis?: RedisClient
   ) {}
 
-  async checkIdempotency(commandId: string): Promise<IdempotencyRecord | null> {
+  async checkIdempotency(eventId: string): Promise<IdempotencyRecord | null> {
     // Try Redis first (faster)
     if (this.redis) {
-      const cached = await this.redis.get(`idempotency:${commandId}`);
+      const cached = await this.redis.get(`idempotency:${eventId}`);
       if (cached) {
         return JSON.parse(cached);
       }
@@ -1890,17 +1891,17 @@ export class IdempotencyManager {
 
     // Fallback to database
     const record = await this.prisma.commandIdempotency.findUnique({
-      where: { commandId },
+      where: { eventId },
     });
 
     if (record) {
       // Cache in Redis for future lookups
       if (this.redis && record.status === 'completed') {
         await this.redis.setex(
-          `idempotency:${commandId}`,
+          `idempotency:${eventId}`,
           3600, // 1 hour TTL
           JSON.stringify({
-            commandId: record.commandId,
+            eventId: record.eventId,
             status: record.status,
             result: record.result,
           })
@@ -1908,7 +1909,7 @@ export class IdempotencyManager {
       }
 
       return {
-        commandId: record.commandId,
+        eventId: record.eventId,
         status: record.status,
         result: record.result,
         error: record.error,
@@ -1919,10 +1920,10 @@ export class IdempotencyManager {
   }
 
   async storeIdempotency(
-    commandId: string,
+    eventId: string,
     data: {
       commandType: string;
-      escrowId: string;
+      escrowId?: string;
       status: 'pending' | 'completed' | 'failed';
       result?: unknown;
       error?: string;
@@ -1931,13 +1932,13 @@ export class IdempotencyManager {
     await this.prisma.$transaction(async tx => {
       // Check if already exists (race condition protection)
       const existing = await tx.commandIdempotency.findUnique({
-        where: { commandId },
+        where: { eventId },
       });
 
       if (existing) {
         // Update existing record
         await tx.commandIdempotency.update({
-          where: { commandId },
+          where: { eventId },
           data: {
             status: data.status,
             result: data.result as Prisma.JsonValue,
@@ -1949,7 +1950,7 @@ export class IdempotencyManager {
         // Create new record
         await tx.commandIdempotency.create({
           data: {
-            commandId,
+            eventId,
             commandType: data.commandType,
             escrowId: data.escrowId,
             status: data.status,
@@ -1963,10 +1964,10 @@ export class IdempotencyManager {
       // Cache in Redis if completed
       if (this.redis && data.status === 'completed') {
         await this.redis.setex(
-          `idempotency:${commandId}`,
+          `idempotency:${eventId}`,
           3600,
           JSON.stringify({
-            commandId,
+            eventId,
             status: data.status,
             result: data.result,
           })
@@ -1989,7 +1990,7 @@ export abstract class EscrowCommandHandler<TCommand extends EscrowCommand> {
   async handle(command: TCommand): Promise<unknown> {
     // 1. Check idempotency
     const existing = await this.idempotencyManager.checkIdempotency(
-      command.commandId
+      command.eventId
     );
     if (existing) {
       if (existing.status === 'completed') {
@@ -2003,7 +2004,7 @@ export abstract class EscrowCommandHandler<TCommand extends EscrowCommand> {
     }
 
     // 2. Mark as pending
-    await this.idempotencyManager.storeIdempotency(command.commandId, {
+    await this.idempotencyManager.storeIdempotency(command.eventId, {
       commandType: command.commandType,
       escrowId: command.escrowId,
       status: 'pending',
@@ -2014,7 +2015,7 @@ export abstract class EscrowCommandHandler<TCommand extends EscrowCommand> {
       const result = await this.execute(command);
 
       // 4. Mark as completed
-      await this.idempotencyManager.storeIdempotency(command.commandId, {
+      await this.idempotencyManager.storeIdempotency(command.eventId, {
         commandType: command.commandType,
         escrowId: command.escrowId,
         status: 'completed',
@@ -2024,7 +2025,7 @@ export abstract class EscrowCommandHandler<TCommand extends EscrowCommand> {
       return result;
     } catch (error) {
       // 5. Mark as failed
-      await this.idempotencyManager.storeIdempotency(command.commandId, {
+      await this.idempotencyManager.storeIdempotency(command.eventId, {
         commandType: command.commandType,
         escrowId: command.escrowId,
         status: 'failed',
