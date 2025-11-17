@@ -30,16 +30,6 @@ export class CreateEscrowValidationError extends Error {
 }
 
 /**
- * Error thrown when escrow already exists (idempotency check)
- */
-export class EscrowAlreadyExistsError extends Error {
-  constructor(public readonly escrowId: string) {
-    super(`Escrow with id ${escrowId} already exists`);
-    this.name = 'EscrowAlreadyExistsError';
-  }
-}
-
-/**
  * Error thrown when command with same eventId was already processed successfully
  */
 export class CommandAlreadyProcessedError extends Error {
@@ -212,7 +202,8 @@ export async function handleCreateEscrow(
         status: 'completed',
         result: { escrowId: existingEscrow.id },
       });
-      throw new EscrowAlreadyExistsError(command.escrowId);
+      // Return successfully - idempotent operation (escrow already exists)
+      return;
     }
 
     // Generate deterministic event IDs using business state hashing
