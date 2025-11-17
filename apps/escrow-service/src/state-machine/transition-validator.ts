@@ -10,7 +10,7 @@ import type { TransitionContext } from './types.js';
 const VALID_TRANSITIONS: Record<EscrowStatus, EscrowStatus[]> = {
   AWAIT_FUNDS: ['FUNDS_HELD', 'CANCELLED'],
   FUNDS_HELD: ['DELIVERED', 'REFUNDED', 'DISPUTED'],
-  DELIVERED: ['RELEASED', 'DISPUTED'],
+  DELIVERED: ['RELEASED', 'DISPUTED', 'REFUNDED'],
   DISPUTED: ['RELEASED', 'REFUNDED'],
   RELEASED: [], // Terminal state
   REFUNDED: [], // Terminal state

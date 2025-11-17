@@ -422,7 +422,7 @@ Commands are emitted to Kafka topics for async processing:
 
    ```json
    {
-     "commandId": "string (UUID)",
+     "eventId": "string (UUID, from protobuf event_id field)",
      "commandType": "CREATE_ESCROW",
      "escrowId": "string",
      "timestamp": "ISO8601",
@@ -440,7 +440,7 @@ Commands are emitted to Kafka topics for async processing:
 
    ```json
    {
-     "commandId": "string",
+     "eventId": "string (from protobuf event_id field)",
      "commandType": "TRANSITION_ESCROW",
      "escrowId": "string",
      "timestamp": "ISO8601",
@@ -456,7 +456,7 @@ Commands are emitted to Kafka topics for async processing:
 
    ```json
    {
-     "commandId": "string",
+     "eventId": "string (from protobuf event_id field)",
      "commandType": "RELEASE_FUNDS",
      "escrowId": "string",
      "timestamp": "ISO8601",
@@ -471,7 +471,7 @@ Commands are emitted to Kafka topics for async processing:
 
    ```json
    {
-     "commandId": "string",
+     "eventId": "string (from protobuf event_id field)",
      "commandType": "REFUND_BUYER",
      "escrowId": "string",
      "timestamp": "ISO8601",
@@ -486,7 +486,7 @@ Commands are emitted to Kafka topics for async processing:
 5. **CreateDisputeCommand**
    ```json
    {
-     "commandId": "string",
+     "eventId": "string (from protobuf event_id field)",
      "commandType": "CREATE_DISPUTE",
      "escrowId": "string",
      "timestamp": "ISO8601",
@@ -507,7 +507,7 @@ async function emitCommand(command: EscrowCommand) {
   validateCommand(command);
 
   // 2. Check idempotency
-  const existing = await checkIdempotency(command.commandId);
+  const existing = await checkIdempotency(command.eventId);
   if (existing) {
     return existing.result;
   }
@@ -520,7 +520,7 @@ async function emitCommand(command: EscrowCommand) {
         key: command.escrowId,
         value: JSON.stringify(command),
         headers: {
-          'command-id': command.commandId,
+          'event-id': command.eventId,
           'command-type': command.commandType,
         },
       },
@@ -528,10 +528,10 @@ async function emitCommand(command: EscrowCommand) {
   });
 
   // 4. Store idempotency record
-  await storeIdempotency(command.commandId, { status: 'pending' });
+  await storeIdempotency(command.eventId, { status: 'pending' });
 
-  // 5. Return command ID for tracking
-  return { commandId: command.commandId };
+  // 5. Return event ID for tracking
+  return { eventId: command.eventId };
 }
 ```
 

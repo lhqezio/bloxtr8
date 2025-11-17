@@ -22,3 +22,6 @@ export * from './env-validation.js';
 
 // Event utilities
 export * from './event-utils.js';
+
+// Command idempotency utilities
+export * from './command-idempotency.js';

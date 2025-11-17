@@ -344,6 +344,8 @@ model Escrow {
   @@index([contractId])
   @@index([status])
   @@index([rail])
+  @@index([status, expiresAt]) // Composite index for expiration queries
+  @@index([status, autoRefundAt]) // Composite index for auto-refund queries
   @@map("escrows")
 }
 
@@ -599,6 +601,22 @@ model PaymentArtifact {
   @@index([kind])
   @@index([escrowId, kind])
   @@map("payment_artifacts")
+}
+
+model CommandIdempotency {
+  id          String   @id @default(cuid())
+  eventId     String   @unique // Maps to protobuf event_id field
+  commandType String   // e.g., 'CreateEscrow', 'MarkDelivered'
+  escrowId    String?  // For commands that operate on escrows (nullable)
+  status      String   // 'pending' | 'completed' | 'failed'
+  result      Json?    // Cached command result
+  error       String?  // Error message if failed
+  createdAt   DateTime @default(now())
+  completedAt DateTime? // NULL until command completes or fails
+
+  @@index([eventId])
+  @@index([escrowId, createdAt])
+  @@map("command_idempotency")
 }
 
 model EscrowSummary {

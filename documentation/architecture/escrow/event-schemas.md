@@ -49,10 +49,10 @@ All commands and events include:
 
 ### Idempotency
 
-All events include `event_id` generated deterministically from business state:
+All commands and events include `event_id` for idempotency:
 
-- Commands: Generated from request ID + escrow ID
-- Events: Generated from business state + timestamp
+- **Commands**: `event_id` is **provided by the sender** (API Gateway) in the protobuf message. The sender generates a unique UUID for each command to enable safe retries across network failures.
+- **Events**: `event_id` is **deterministically generated** by the service using `generateEventId()` from business state + timestamp. This ensures the same business state always produces the same event ID.
 
 ## Escrow Commands
 
@@ -69,10 +69,11 @@ message CreateEscrow {
   string currency = 5;               // "USD" | "USDC"
   int64 amount_cents = 6;            // Amount in cents (for USD) or smallest unit
   string network = 7;                // "BASE" (for USDC, empty for USD)
-  string trace_id = 8;               // Distributed tracing ID
-  string causation_id = 9;           // ContractExecuted event ID
-  string correlation_id = 10;        // Request correlation ID
-  string version = 11;               // "v1"
+  string event_id = 8;               // Unique event ID for idempotency
+  string trace_id = 9;               // Distributed tracing ID
+  string causation_id = 10;          // ContractExecuted event ID
+  string correlation_id = 11;        // Request correlation ID
+  string version = 12;               // "v1"
 }
 ```
 

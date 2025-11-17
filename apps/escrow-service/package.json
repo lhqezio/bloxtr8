@@ -17,9 +17,11 @@
     "@bloxtr8/database": "workspace:*",
     "@bloxtr8/kafka-client": "workspace:*",
     "@bloxtr8/outbox-publisher": "workspace:*",
+    "@bloxtr8/protobuf-schemas": "workspace:*",
     "@bloxtr8/shared": "workspace:*",
     "@bloxtr8/tracing": "workspace:*",
     "@bloxtr8/types": "workspace:*",
+    "@bufbuild/protobuf": "^2.10.0",
     "@dotenvx/dotenvx": "^1.49.1",
     "node-cron": "^3.0.3"
   },
