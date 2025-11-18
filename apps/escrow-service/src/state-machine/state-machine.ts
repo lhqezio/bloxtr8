@@ -151,6 +151,105 @@ export class EscrowStateMachine {
   }
 
   /**
+   * Prepares a transition context and validates it (without executing)
+   * This is used when you want to execute the transition within your own transaction
+   *
+   * @param escrowId - ID of the escrow
+   * @param targetState - Target state to transition to
+   * @param actorId - ID of the actor performing the transition
+   * @param eventId - Unique event ID for idempotency
+   * @param action - Action type for authorization
+   * @param metadata - Optional metadata
+   * @param reason - Optional reason for transition
+   * @returns Transition context ready for execution
+   */
+  async prepareTransition(
+    escrowId: string,
+    targetState: EscrowStatus,
+    actorId: string,
+    eventId: string,
+    action: TransitionAction,
+    metadata?: unknown,
+    reason?: string
+  ): Promise<TransitionContext> {
+    // Fetch escrow with offer relation to get buyer/seller IDs
+    const escrow = (await this.escrowRepository.findById(escrowId, {
+      offer: {
+        select: {
+          buyerId: true,
+          sellerId: true,
+        },
+      },
+    })) as
+      | (Escrow & {
+          offer?: { buyerId: string; sellerId: string };
+        })
+      | null;
+
+    if (!escrow) {
+      throw new EscrowNotFoundError(escrowId);
+    }
+
+    const currentState = escrow.status;
+
+    // Create transition context
+    const context: TransitionContext = {
+      escrowId,
+      currentState,
+      targetState,
+      actorId,
+      eventId,
+      metadata: metadata as Prisma.InputJsonValue,
+      reason,
+    };
+
+    // Step 1: Validate transition
+    TransitionValidator.validateTransition(context);
+
+    // Step 2: Build guard list
+    const guards: Guard[] = [
+      // State precondition guard
+      statePreconditionGuard,
+      // Idempotency guard
+      createIdempotencyGuard(this.prisma),
+      // Actor authorization guard
+      createActorAuthorizationGuard(
+        action,
+        this.getBuyerId,
+        this.getSellerId,
+        this.isAdmin
+      ),
+      // Business rules guard
+      businessRulesGuard,
+      // Custom guards
+      ...this.customGuards,
+    ];
+
+    // Step 3: Execute guards (read-only operations)
+    await GuardExecutor.executeGuards(guards, context, escrow);
+
+    return context;
+  }
+
+  /**
+   * Executes a prepared transition within an existing transaction
+   * This allows combining the state transition with other operations atomically
+   *
+   * @param context - Prepared transition context (from prepareTransition)
+   * @param tx - Prisma transaction client
+   * @returns Transition result with updated escrow
+   */
+  async executeTransitionInTransaction(
+    context: TransitionContext,
+    tx: Prisma.TransactionClient
+  ): Promise<TransitionResult> {
+    return await this.transitionExecutor.executeTransitionInTransaction(
+      context,
+      tx
+    );
+  }
+
+  /**
    * Checks if a transition is valid without executing it
    *
    * @param escrowId - ID of the escrow

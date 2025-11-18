@@ -27,6 +27,7 @@ import { fromBinary } from '@bufbuild/protobuf';
 import { config } from '@dotenvx/dotenvx';
 
 import { handleCreateEscrow } from './handlers/create-escrow.js';
+import { handleMarkDelivered } from './handlers/mark-delivered.js';
 
 // Load environment variables
 config();
@@ -117,9 +118,9 @@ async function processMessage(message: ConsumerMessage): Promise<void> {
       }
 
       if (markDeliveredCommand) {
-        console.log('MarkDelivered command handler not implemented', {
-          escrowId: markDeliveredCommand.escrowId,
-        });
+        // Deserialization succeeded - execute business logic
+        // Any errors thrown here are business logic errors, not deserialization errors
+        await handleMarkDelivered(markDeliveredCommand, prisma);
         return;
       }
 
