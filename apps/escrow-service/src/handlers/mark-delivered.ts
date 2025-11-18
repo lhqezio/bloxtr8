@@ -268,7 +268,11 @@ export async function handleMarkDelivered(
 
       // Execute state transition within the transaction
       // This updates escrow status and creates the state transition EscrowEvent
-      await stateMachine.executeTransitionInTransaction(transitionContext, tx);
+      const transitionResult =
+        await stateMachine.executeTransitionInTransaction(
+          transitionContext,
+          tx
+        );
 
       // Create EscrowDelivered event (protobuf message)
       const escrowDeliveredEvent = create(EscrowDeliveredSchema, {
@@ -291,7 +295,7 @@ export async function handleMarkDelivered(
           occurredAt,
           causationId: command.eventId,
         },
-        version: 1,
+        version: transitionResult.escrow.version,
       });
 
       // Create Outbox record for Kafka publishing
@@ -301,7 +305,7 @@ export async function handleMarkDelivered(
         payload: Buffer.from(
           toBinary(EscrowDeliveredSchema, escrowDeliveredEvent)
         ),
-        version: 1,
+        version: transitionResult.escrow.version,
       });
     });
 
