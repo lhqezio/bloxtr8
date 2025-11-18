@@ -90,21 +90,37 @@ export async function handleMarkDelivered(
       return;
     }
     if (existingCommand.status === 'failed') {
-      // Before failing, check if escrow is actually in DELIVERED state (defense in depth)
+      // Before failing, check if escrow is actually in DELIVERED state AND EscrowDelivered event exists (defense in depth)
       // This handles the edge case where transaction succeeded but marking as 'completed' failed
       const existingEscrow = await prisma.escrow.findUnique({
         where: { id: command.escrowId },
       });
       if (existingEscrow?.status === 'DELIVERED') {
-        // Escrow is DELIVERED - the command actually succeeded, just failed to mark as completed
-        // Update status to completed and return successfully
-        await storeCommandIdempotency(prisma, command.eventId, {
-          commandType: 'MarkDelivered',
-          escrowId: command.escrowId,
-          status: 'completed',
-          result: { escrowId: existingEscrow.id },
+        // Check if EscrowDelivered event exists - if not, the event was lost and we need to recreate it
+        const escrowDeliveredEvent = await prisma.escrowEvent.findFirst({
+          where: {
+            escrowId: command.escrowId,
+            eventType: 'EscrowDelivered',
+          },
         });
-        return;
+
+        if (escrowDeliveredEvent) {
+          // Escrow is DELIVERED and event exists - the command actually succeeded, just failed to mark as completed
+          // Update status to completed and return successfully
+          await storeCommandIdempotency(prisma, command.eventId, {
+            commandType: 'MarkDelivered',
+            escrowId: command.escrowId,
+            status: 'completed',
+            result: { escrowId: existingEscrow.id },
+          });
+          return;
+        }
+        // Escrow is DELIVERED but event doesn't exist - this indicates an inconsistent state
+        // With the fix in place (single transaction), this shouldn't occur going forward
+        // This error alerts operators to manually fix any existing inconsistent states
+        throw new MarkDeliveredValidationError(
+          `Escrow ${command.escrowId} is in DELIVERED state but EscrowDelivered event is missing. This indicates a previous transaction boundary bug. Manual intervention required.`
+        );
       }
       // Escrow is not DELIVERED - command genuinely failed
       throw new CommandPreviouslyFailedError(
@@ -113,22 +129,42 @@ export async function handleMarkDelivered(
       );
     }
     if (existingCommand.status === 'pending') {
-      // Before throwing, check if escrow is actually in DELIVERED state (defense in depth)
+      // Before throwing, check if escrow is actually in DELIVERED state AND EscrowDelivered event exists (defense in depth)
       // This handles the edge case where transaction succeeded but process crashed
       // before marking as 'completed', leaving status stuck at 'pending'
       const existingEscrow = await prisma.escrow.findUnique({
         where: { id: command.escrowId },
       });
       if (existingEscrow?.status === 'DELIVERED') {
-        // Escrow is DELIVERED - the command actually succeeded, just failed to mark as completed
-        // Update status to completed and return successfully (idempotent recovery)
-        await storeCommandIdempotency(prisma, command.eventId, {
-          commandType: 'MarkDelivered',
-          escrowId: command.escrowId,
-          status: 'completed',
-          result: { escrowId: existingEscrow.id },
+        // Check if EscrowDelivered event exists - if not, the event was lost and we need to recreate it
+        const escrowDeliveredEvent = await prisma.escrowEvent.findFirst({
+          where: {
+            escrowId: command.escrowId,
+            eventType: 'EscrowDelivered',
+          },
         });
-        return;
+
+        if (escrowDeliveredEvent) {
+          // Escrow is DELIVERED and event exists - the command actually succeeded, just failed to mark as completed
+          // Update status to completed and return successfully (idempotent recovery)
+          await storeCommandIdempotency(prisma, command.eventId, {
+            commandType: 'MarkDelivered',
+            escrowId: command.escrowId,
+            status: 'completed',
+            result: { escrowId: existingEscrow.id },
+          });
+          return;
+        }
+        // Escrow is DELIVERED but event doesn't exist - this is the bug scenario
+        // We'll fall through to retry the command, which will recreate the event
+        // But first, we need to rollback the escrow status since the transaction will fail
+        // Actually, we can't rollback here - the state transition already happened
+        // The best we can do is let it retry, but the state machine will reject it because escrow is already DELIVERED
+        // So we need to handle this case differently - we should recreate the event without changing state
+        // For now, let's throw an error indicating the inconsistent state
+        throw new MarkDeliveredValidationError(
+          `Escrow ${command.escrowId} is in DELIVERED state but EscrowDelivered event is missing. Manual intervention required.`
+        );
       }
       // Escrow is not DELIVERED - command genuinely in progress (concurrent processing)
       throw new CommandInProgressError(command.eventId);
@@ -215,9 +251,9 @@ export async function handleMarkDelivered(
       occurredAt
     );
 
-    // Use state machine to transition from FUNDS_HELD to DELIVERED
-    // This handles state validation, authorization, and transition execution
-    await stateMachine.transition(
+    // Prepare state transition (validation and guards - read-only operations)
+    // This performs validation and authorization checks before entering the transaction
+    const transitionContext = await stateMachine.prepareTransition(
       command.escrowId,
       'DELIVERED',
       command.actorId,
@@ -225,9 +261,14 @@ export async function handleMarkDelivered(
       'MarkDelivered'
     );
 
-    // After successful state transition, create EscrowDelivered event
+    // Execute state transition and event creation in a single atomic transaction
+    // This ensures that if any operation fails, everything rolls back together
     await prisma.$transaction(async tx => {
       const txOutboxRepository = outboxRepository.withTransaction(tx);
+
+      // Execute state transition within the transaction
+      // This updates escrow status and creates the state transition EscrowEvent
+      await stateMachine.executeTransitionInTransaction(transitionContext, tx);
 
       // Create EscrowDelivered event (protobuf message)
       const escrowDeliveredEvent = create(EscrowDeliveredSchema, {
