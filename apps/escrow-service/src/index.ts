@@ -28,6 +28,7 @@ import { config } from '@dotenvx/dotenvx';
 
 import { handleCreateEscrow } from './handlers/create-escrow.js';
 import { handleMarkDelivered } from './handlers/mark-delivered.js';
+import { handleReleaseFunds } from './handlers/release-funds.js';
 
 // Load environment variables
 config();
@@ -135,9 +136,9 @@ async function processMessage(message: ConsumerMessage): Promise<void> {
       }
 
       if (releaseFundsCommand) {
-        console.log('ReleaseFunds command handler not implemented', {
-          escrowId: releaseFundsCommand.escrowId,
-        });
+        // Deserialization succeeded - execute business logic
+        // Any errors thrown here are business logic errors, not deserialization errors
+        await handleReleaseFunds(releaseFundsCommand, prisma, producer);
         return;
       }
 
