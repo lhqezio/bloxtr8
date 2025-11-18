@@ -26,6 +26,7 @@ import { getTraceContext } from '@bloxtr8/tracing';
 import { fromBinary } from '@bufbuild/protobuf';
 import { config } from '@dotenvx/dotenvx';
 
+import { handleCancelEscrow } from './handlers/cancel-escrow.js';
 import { handleCreateEscrow } from './handlers/create-escrow.js';
 import { handleMarkDelivered } from './handlers/mark-delivered.js';
 import { handleReleaseFunds } from './handlers/release-funds.js';
@@ -153,9 +154,9 @@ async function processMessage(message: ConsumerMessage): Promise<void> {
       }
 
       if (cancelEscrowCommand) {
-        console.log('CancelEscrow command handler not implemented', {
-          escrowId: cancelEscrowCommand.escrowId,
-        });
+        // Deserialization succeeded - execute business logic
+        // Any errors thrown here are business logic errors, not deserialization errors
+        await handleCancelEscrow(cancelEscrowCommand, prisma);
         return;
       }
 
