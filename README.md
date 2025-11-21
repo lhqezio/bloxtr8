@@ -1,4 +1,7 @@
-# Bloxtr8
+# Bloxtr8 :)
+
+> **⚠️ Repository Archived**  
+> This repository has been archived. The project is incomplete and development has moved to a private organization repository. This codebase is provided as-is for reference purposes only.
 
 Discord-native escrow and verification for Roblox game trading.
 
@@ -99,4 +102,4 @@ See [SECURITY.md](SECURITY.md)
 
 ## License
 
-ISC
+ISC - See [LICENSE](LICENSE) for details.
